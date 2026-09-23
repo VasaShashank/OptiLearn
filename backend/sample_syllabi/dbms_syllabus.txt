@@ -1,0 +1,40 @@
+Course Code: CS302
+Course Title: Database Management Systems
+Department: Computer Science and Engineering
+Total Lectures: 40 Hours | Period Duration: 55 Minutes
+
+COURSE OUTCOMES:
+CO1: Understand foundational database architecture, three-schema framework, and ER modeling.
+CO2: Formulate relational algebra expressions and write optimized SQL queries.
+CO3: Apply relational normalization algorithms up to BCNF for lossless database design.
+CO4: Analyze transaction management, ACID guarantees, serializability, and 2PL concurrency protocols.
+CO5: Evaluate physical storage layouts, B+ tree indexes, and cost-based query execution plans.
+
+UNIT 1: Database Architecture and Conceptual Modeling
+Introduction to Database Systems, Characteristics of DBMS, 3-Schema Architecture, Data Independence.
+Entity-Relationship (ER) Modeling: Entities, Attributes, Keys, Weak Entities, Cardinality Constraints.
+Enhanced ER (EER) Modeling, Specialization, Generalization.
+ER-to-Relational Schema Mapping and Integrity Constraints.
+
+UNIT 2: Relational Query Languages
+Relational Algebra: Select, Project, Cartesian Product, Set Operations, Joins (Theta, Equi, Natural), Division.
+Structured Query Language (SQL): Data Definition Language (DDL), Data Manipulation Language (DML), Table Constraints.
+Complex SQL Queries: Aggregations, GROUP BY, HAVING, Correlated Subqueries, Nested Queries, Views.
+
+UNIT 3: Relational Database Design Theory and Normalization
+Functional Dependencies: Definition, Trivial vs Non-Trivial FDs, Armstrong's Axioms.
+Attribute Closure Computation, Canonical Cover / Minimal Cover, Candidate Key Determination.
+Relational Normalization: First Normal Form (1NF), Second Normal Form (2NF), Third Normal Form (3NF).
+Boyce-Codd Normal Form (BCNF), Lossless Decomposition, Dependency Preservation.
+
+UNIT 4: Transaction Processing and Concurrency Control
+Transaction Concepts: States, ACID Properties, Schedules, Conflict and View Serializability.
+Concurrency Control Protocols: Lock-Based Protocols, Two-Phase Locking (2PL), Strict 2PL.
+Deadlock Detection, Prevention, and Recovery Techniques.
+Log-Based Database Recovery, Write-Ahead Logging (WAL), Checkpoints.
+
+UNIT 5: Storage Structures, Indexing, and Query Optimization
+File Organization: Heap Files, Sorted Files, Hashing Techniques.
+Index Structures: Primary, Secondary, Clustered Indexes, Multi-level Indexes.
+B+ Tree Indexing: Node Structure, Search, Insertion, and Deletion Operations.
+Query Processing Pipeline: Parsing, Translation, Cost-Based Query Evaluation, Heuristic Query Optimization.

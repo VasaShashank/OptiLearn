@@ -1,0 +1,379 @@
+import uuid
+from datetime import datetime, timezone
+from sqlalchemy import (
+    Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey, 
+    CheckConstraint, UniqueConstraint, Table
+)
+from sqlalchemy.orm import relationship
+from app.database.connection import Base
+
+def generate_uuid():
+    return str(uuid.uuid4())
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+# -------------------------------------------------------------------
+# Association Tables (Many-to-Many Normalized 3NF)
+# -------------------------------------------------------------------
+
+concept_outcomes = Table(
+    "concept_outcomes",
+    Base.metadata,
+    Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
+    Column("outcome_id", String(36), ForeignKey("course_outcomes.id", ondelete="CASCADE"), primary_key=True)
+)
+
+prerequisites = Table(
+    "prerequisites",
+    Base.metadata,
+    Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
+    Column("prerequisite_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
+    CheckConstraint("concept_id != prerequisite_id", name="check_no_self_prerequisite")
+)
+
+question_concepts = Table(
+    "question_concepts",
+    Base.metadata,
+    Column("question_id", String(36), ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True),
+    Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
+    Column("weightage", Float, default=1.0)
+)
+
+# -------------------------------------------------------------------
+# Entity Models
+# -------------------------------------------------------------------
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=False)
+    role = Column(String(50), nullable=False, default="teacher") # teacher, admin
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    teacher_profile = relationship("Teacher", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+
+class Teacher(Base):
+    __tablename__ = "teachers"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    department = Column(String(100), nullable=False)
+    designation = Column(String(100), default="Assistant Professor")
+    employee_id = Column(String(50), unique=True, nullable=False)
+    office_location = Column(String(100), nullable=True)
+
+    user = relationship("User", back_populates="teacher_profile")
+    courses = relationship("Course", back_populates="teacher", cascade="all, delete-orphan")
+
+
+class Course(Base):
+    __tablename__ = "courses"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    teacher_id = Column(String(36), ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(50), nullable=False, index=True) # e.g. CS302
+    title = Column(String(255), nullable=False) # e.g. Database Management Systems
+    semester = Column(String(50), nullable=False) # e.g. Fall 2026 / Sem 5
+    academic_year = Column(String(20), default="2026-2027")
+    total_classes = Column(Integer, nullable=False) # e.g. 40
+    period_duration = Column(Integer, nullable=False, default=55) # minutes
+    total_available_minutes = Column(Integer, nullable=False) # e.g. 40 * 55 = 2200
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("total_classes > 0", name="check_positive_total_classes"),
+        CheckConstraint("period_duration > 0", name="check_positive_period_duration"),
+        CheckConstraint("total_available_minutes >= 0", name="check_non_negative_available_time"),
+        UniqueConstraint("teacher_id", "code", "semester", name="uq_teacher_course_semester"),
+    )
+
+    teacher = relationship("Teacher", back_populates="courses")
+    sections = relationship("Section", back_populates="course", cascade="all, delete-orphan")
+    constraints = relationship("TeacherConstraint", back_populates="course", uselist=False, cascade="all, delete-orphan")
+    outcomes = relationship("CourseOutcome", back_populates="course", cascade="all, delete-orphan")
+    units = relationship("Unit", back_populates="course", order_by="Unit.order_index", cascade="all, delete-orphan")
+    class_sessions = relationship("ClassSession", back_populates="course", order_by="ClassSession.session_number", cascade="all, delete-orphan")
+    assessments = relationship("Assessment", back_populates="course", order_by="Assessment.scheduled_date", cascade="all, delete-orphan")
+
+
+class Section(Base):
+    __tablename__ = "sections"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(50), nullable=False) # e.g. Section A
+    room_number = Column(String(50), nullable=True)
+    student_count = Column(Integer, default=60)
+
+    __table_args__ = (
+        UniqueConstraint("course_id", "name", name="uq_course_section_name"),
+    )
+
+    course = relationship("Course", back_populates="sections")
+
+
+class TeacherConstraint(Base):
+    __tablename__ = "teacher_constraints"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), unique=True, nullable=False)
+    max_lecture_ratio = Column(Float, default=0.45) # Max 45% pure lecture
+    min_practice_ratio = Column(Float, default=0.35) # Min 35% practice / worked examples
+    revision_threshold_score = Column(Float, default=60.0) # Trigger revision if prereq avg < 60%
+    default_revision_minutes = Column(Integer, default=10)
+    preferred_methods_json = Column(Text, default="[]") # JSON list of preferred methods
+    created_at = Column(DateTime, default=utc_now)
+
+    course = relationship("Course", back_populates="constraints")
+
+
+class CourseOutcome(Base):
+    __tablename__ = "course_outcomes"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(20), nullable=False) # e.g. CO1, CO2
+    description = Column(Text, nullable=False)
+    bloom_level = Column(String(50), default="Understand") # Remember, Understand, Apply, Analyze, Evaluate, Create
+
+    __table_args__ = (
+        UniqueConstraint("course_id", "code", name="uq_course_outcome_code"),
+    )
+
+    course = relationship("Course", back_populates="outcomes")
+    concepts = relationship("Concept", secondary=concept_outcomes, back_populates="outcomes")
+
+
+class Unit(Base):
+    __tablename__ = "units"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    unit_number = Column(Integer, nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    order_index = Column(Integer, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("unit_number >= 1", name="check_unit_number_positive"),
+        UniqueConstraint("course_id", "unit_number", name="uq_course_unit_number"),
+    )
+
+    course = relationship("Course", back_populates="units")
+    topics = relationship("Topic", back_populates="unit", order_by="Topic.order_index", cascade="all, delete-orphan")
+
+
+class Topic(Base):
+    __tablename__ = "topics"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    unit_id = Column(String(36), ForeignKey("units.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    order_index = Column(Integer, nullable=False)
+    estimated_minutes = Column(Integer, default=110) # Base estimated time
+    allocated_minutes = Column(Integer, default=0) # Calculated by optimizer
+    priority_score = Column(Float, default=0.0) # Calculated by scoring formula
+    status = Column(String(50), default="pending") # pending, in_progress, completed
+
+    __table_args__ = (
+        CheckConstraint("estimated_minutes > 0", name="check_positive_estimated_minutes"),
+        CheckConstraint("allocated_minutes >= 0", name="check_non_negative_allocated_minutes"),
+        UniqueConstraint("unit_id", "order_index", name="uq_unit_topic_order"),
+    )
+
+    unit = relationship("Unit", back_populates="topics")
+    concepts = relationship("Concept", back_populates="topic", order_by="Concept.order_index", cascade="all, delete-orphan")
+    lesson_plans = relationship("LessonPlan", back_populates="topic")
+
+
+class Concept(Base):
+    __tablename__ = "concepts"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    topic_id = Column(String(36), ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    difficulty = Column(Integer, default=3) # 1 to 5
+    importance = Column(Integer, default=3) # 1 to 5
+    concept_type = Column(String(50), default="conceptual") # conceptual, procedural, problem_solving, practical, analytical, revision
+    order_index = Column(Integer, default=1)
+
+    __table_args__ = (
+        CheckConstraint("difficulty >= 1 AND difficulty <= 5", name="check_difficulty_range"),
+        CheckConstraint("importance >= 1 AND importance <= 5", name="check_importance_range"),
+    )
+
+    topic = relationship("Topic", back_populates="concepts")
+    outcomes = relationship("CourseOutcome", secondary=concept_outcomes, back_populates="concepts")
+    
+    # Directed Graph: Concepts that THIS concept depends on (prerequisites)
+    prerequisites = relationship(
+        "Concept",
+        secondary=prerequisites,
+        primaryjoin=(id == prerequisites.c.concept_id),
+        secondaryjoin=(id == prerequisites.c.prerequisite_id),
+        backref="dependent_concepts"
+    )
+    
+    performances = relationship("Performance", back_populates="concept", cascade="all, delete-orphan")
+
+
+class ClassSession(Base):
+    __tablename__ = "class_sessions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_number = Column(Integer, nullable=False) # Period 1, Period 2 ...
+    scheduled_date = Column(DateTime, nullable=True)
+    duration_minutes = Column(Integer, nullable=False, default=55)
+    current_topic_id = Column(String(36), ForeignKey("topics.id", ondelete="SET NULL"), nullable=True)
+    status = Column(String(50), default="scheduled") # scheduled, in_progress, completed, cancelled
+
+    __table_args__ = (
+        CheckConstraint("session_number >= 1", name="check_positive_session_number"),
+        CheckConstraint("duration_minutes > 0", name="check_positive_session_duration"),
+        UniqueConstraint("course_id", "session_number", name="uq_course_session_number"),
+    )
+
+    course = relationship("Course", back_populates="class_sessions")
+    current_topic = relationship("Topic")
+    lesson_plan = relationship("LessonPlan", back_populates="session", uselist=False, cascade="all, delete-orphan")
+    teaching_session = relationship("TeachingSession", back_populates="session", uselist=False, cascade="all, delete-orphan")
+
+
+class TeachingMethod(Base):
+    __tablename__ = "teaching_methods"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(100), unique=True, nullable=False)
+    category = Column(String(50), nullable=False) # conceptual, problem_solving, practical, active_learning, revision
+    description = Column(Text, nullable=True)
+    typical_time_ratio = Column(Float, default=0.25) # Recommended fraction of period
+
+    teaching_sessions = relationship("TeachingSession", back_populates="method")
+    effect_records = relationship("MethodEffectiveness", back_populates="method")
+
+
+class LessonPlan(Base):
+    __tablename__ = "lesson_plans"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    session_id = Column(String(36), ForeignKey("class_sessions.id", ondelete="CASCADE"), unique=True, nullable=False)
+    topic_id = Column(String(36), ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    status = Column(String(50), default="draft") # draft, approved, rejected, modified, completed
+    mongo_doc_id = Column(String(100), nullable=True) # Pointer to MongoDB rich document
+    ai_confidence = Column(Float, default=0.90)
+    teacher_overridden = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    session = relationship("ClassSession", back_populates="lesson_plan")
+    topic = relationship("Topic", back_populates="lesson_plans")
+
+
+class TeachingSession(Base):
+    __tablename__ = "teaching_sessions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    session_id = Column(String(36), ForeignKey("class_sessions.id", ondelete="CASCADE"), unique=True, nullable=False)
+    method_id = Column(String(36), ForeignKey("teaching_methods.id", ondelete="SET NULL"), nullable=True)
+    actual_minutes = Column(Integer, nullable=False, default=55)
+    teacher_notes = Column(Text, nullable=True)
+    student_engagement_rating = Column(Integer, default=4) # 1 to 5
+    completion_rate = Column(Float, default=1.0) # 0.0 to 1.0
+    conducted_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("actual_minutes > 0", name="check_positive_actual_minutes"),
+    )
+
+    session = relationship("ClassSession", back_populates="teaching_session")
+    method = relationship("TeachingMethod", back_populates="teaching_sessions")
+
+
+class Assessment(Base):
+    __tablename__ = "assessments"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False) # e.g. Midterm 1, Quiz 2: SQL & Relational Algebra
+    assessment_type = Column(String(50), nullable=False) # quiz, assignment, midterm, final
+    max_marks = Column(Float, nullable=False, default=25.0)
+    scheduled_date = Column(DateTime, nullable=True, index=True)
+    status = Column(String(50), default="upcoming") # upcoming, completed
+    created_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("max_marks > 0", name="check_positive_max_marks"),
+    )
+
+    course = relationship("Course", back_populates="assessments")
+    questions = relationship("Question", back_populates="assessment", order_by="Question.question_number", cascade="all, delete-orphan")
+    performances = relationship("Performance", back_populates="assessment", cascade="all, delete-orphan")
+
+
+class Question(Base):
+    __tablename__ = "questions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    assessment_id = Column(String(36), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_number = Column(Integer, nullable=False)
+    max_marks = Column(Float, nullable=False)
+    text = Column(Text, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("question_number >= 1", name="check_positive_question_number"),
+        CheckConstraint("max_marks > 0", name="check_positive_question_marks"),
+        UniqueConstraint("assessment_id", "question_number", name="uq_assessment_question_num"),
+    )
+
+    assessment = relationship("Assessment", back_populates="questions")
+    concepts = relationship("Concept", secondary=question_concepts, backref="questions")
+
+
+class Performance(Base):
+    __tablename__ = "performance"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    concept_id = Column(String(36), ForeignKey("concepts.id", ondelete="CASCADE"), nullable=False, index=True)
+    assessment_id = Column(String(36), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
+    average_score = Column(Float, nullable=False) # e.g. 52.5%
+    sample_size = Column(Integer, default=58)
+    weakness_flag = Column(Boolean, default=False) # True if score < threshold
+    common_errors = Column(Text, nullable=True) # Common student conceptual misunderstandings
+    recorded_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("average_score >= 0.0 AND average_score <= 100.0", name="check_average_score_range"),
+        CheckConstraint("sample_size > 0", name="check_positive_sample_size"),
+        UniqueConstraint("concept_id", "assessment_id", name="uq_concept_assessment_performance"),
+    )
+
+    concept = relationship("Concept", back_populates="performances")
+    assessment = relationship("Assessment", back_populates="performances")
+
+
+class MethodEffectiveness(Base):
+    __tablename__ = "method_effectiveness"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    method_id = Column(String(36), ForeignKey("teaching_methods.id", ondelete="CASCADE"), nullable=False, index=True)
+    concept_type = Column(String(50), nullable=False) # conceptual, problem_solving, practical, etc.
+    baseline_score = Column(Float, default=50.0) # Historical cohort pre-assessment
+    post_score = Column(Float, default=65.0) # Measured cohort post-assessment
+    observed_gain = Column(Float, default=15.0) # post_score - baseline_score
+    sample_sessions_count = Column(Integer, default=5)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    method = relationship("TeachingMethod", back_populates="effect_records")

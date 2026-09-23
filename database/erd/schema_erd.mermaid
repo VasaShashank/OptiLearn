@@ -1,0 +1,130 @@
+erDiagram
+    USERS ||--o| TEACHERS : "has profile"
+    TEACHERS ||--o{ COURSES : "instructs"
+    COURSES ||--o{ SECTIONS : "contains"
+    COURSES ||--o| TEACHER_CONSTRAINTS : "governed by"
+    COURSES ||--o{ COURSE_OUTCOMES : "defines"
+    COURSES ||--o{ UNITS : "organized into"
+    UNITS ||--o{ TOPICS : "comprises"
+    TOPICS ||--o{ CONCEPTS : "teaches"
+    CONCEPTS ||--o{ CONCEPT_OUTCOMES : "maps to"
+    COURSE_OUTCOMES ||--o{ CONCEPT_OUTCOMES : "assesses"
+    CONCEPTS ||--o{ PREREQUISITES : "requires"
+    CONCEPTS ||--o{ PREREQUISITES : "prerequisite for"
+    COURSES ||--o{ CLASS_SESSIONS : "schedules"
+    TOPICS ||--o{ CLASS_SESSIONS : "covered in"
+    CLASS_SESSIONS ||--o| LESSON_PLANS : "planned by"
+    CLASS_SESSIONS ||--o| TEACHING_SESSIONS : "conducted as"
+    TEACHING_METHODS ||--o{ TEACHING_SESSIONS : "utilized in"
+    TEACHING_METHODS ||--o{ METHOD_EFFECTIVENESS : "evaluates"
+    COURSES ||--o{ ASSESSMENTS : "administers"
+    ASSESSMENTS ||--o{ QUESTIONS : "contains"
+    QUESTIONS ||--o{ QUESTION_CONCEPTS : "evaluates"
+    CONCEPTS ||--o{ QUESTION_CONCEPTS : "tested by"
+    ASSESSMENTS ||--o{ PERFORMANCE : "records"
+    CONCEPTS ||--o{ PERFORMANCE : "measured by"
+
+    USERS {
+        uuid id PK
+        string email UK
+        string hashed_password
+        string full_name
+        string role
+        boolean is_active
+        timestamp created_at
+    }
+
+    TEACHERS {
+        uuid id PK
+        uuid user_id FK,UK
+        string department
+        string designation
+        string employee_id UK
+        string office_location
+    }
+
+    COURSES {
+        uuid id PK
+        uuid teacher_id FK
+        string code
+        string title
+        string semester
+        int total_classes
+        int period_duration
+        int total_available_minutes
+        timestamp start_date
+        timestamp end_date
+    }
+
+    UNITS {
+        uuid id PK
+        uuid course_id FK
+        int unit_number
+        string title
+        int order_index
+    }
+
+    TOPICS {
+        uuid id PK
+        uuid unit_id FK
+        string title
+        int order_index
+        int estimated_minutes
+        int allocated_minutes
+        float priority_score
+        string status
+    }
+
+    CONCEPTS {
+        uuid id PK
+        uuid topic_id FK
+        string name
+        int difficulty
+        int importance
+        string concept_type
+        int order_index
+    }
+
+    CLASS_SESSIONS {
+        uuid id PK
+        uuid course_id FK
+        int session_number
+        int duration_minutes
+        uuid current_topic_id FK
+        string status
+    }
+
+    TEACHING_METHODS {
+        uuid id PK
+        string name UK
+        string category
+        float typical_time_ratio
+    }
+
+    LESSON_PLANS {
+        uuid id PK
+        uuid session_id FK,UK
+        uuid topic_id FK
+        string title
+        string status
+        string mongo_doc_id
+        boolean teacher_overridden
+    }
+
+    ASSESSMENTS {
+        uuid id PK
+        uuid course_id FK
+        string title
+        string assessment_type
+        float max_marks
+        string status
+    }
+
+    PERFORMANCE {
+        uuid id PK
+        uuid concept_id FK
+        uuid assessment_id FK
+        float average_score
+        int sample_size
+        boolean weakness_flag
+    }
