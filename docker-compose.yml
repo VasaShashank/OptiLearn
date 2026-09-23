@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: optiteach_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: optiteach
+      POSTGRES_PASSWORD: optiteach_secret
+      POSTGRES_DB: optiteach_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optiteach -d optiteach_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:6-jammy
+    container_name: optiteach_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: optiteach_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://optiteach:optiteach_secret@postgres:5432/optiteach_db
+      MONGODB_URL: mongodb://mongo:27017
+      MONGODB_DB_NAME: optiteach_curriculum
+      SECRET_KEY: optiteach_secret_key_prod_jwt_token_2026
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: optiteach_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  mongo_data:

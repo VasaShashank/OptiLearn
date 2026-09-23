@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from app.database.connection import get_db
-from app.models.entities import Course, Teacher, Unit, Topic, Concept, CourseOutcome, Section, TeacherConstraint, Assessment
+from app.database.connection import get_db, get_mongo_db
+from app.models.entities import (
+    Course, Teacher, Unit, Topic, Concept, CourseOutcome, Section,
+    TeacherConstraint, Assessment, ClassSession, TeachingSession, prerequisites
+)
 from app.schemas.schemas import (
     CourseCreate, CourseOut, ConfirmCurriculumRequest, CurriculumGraphResponse,
     CourseOptimizationResponse, NextClassOptimizationResponse,
@@ -278,3 +281,235 @@ def record_assessment_results(course_id: str, assessment_id: str, payload: Recor
 @router.get("/{course_id}/analytics", response_model=CourseAnalyticsResponse)
 def get_analytics(course_id: str, db: Session = Depends(get_db)):
     return analytics_service.get_course_analytics(db, course_id)
+
+# -------------------------------------------------------------
+# Live Session Conduct & Logging
+# -------------------------------------------------------------
+@router.post("/{course_id}/sessions/{session_number}/conduct")
+def conduct_session(course_id: str, session_number: int, payload: Dict[str, Any] = {}, db: Session = Depends(get_db)):
+    session = (
+        db.query(ClassSession)
+        .filter(ClassSession.course_id == course_id, ClassSession.session_number == session_number)
+        .first()
+    )
+    if not session:
+        session = ClassSession(
+            course_id=course_id,
+            session_number=session_number,
+            duration_minutes=payload.get("actual_minutes", 55),
+            status="completed"
+        )
+        db.add(session)
+        db.flush()
+    else:
+        session.status = "completed"
+
+    ts = session.teaching_session
+    if not ts:
+        ts = TeachingSession(session_id=session.id)
+        db.add(ts)
+
+    ts.actual_minutes = payload.get("actual_minutes", session.duration_minutes)
+    ts.student_engagement_rating = payload.get("student_engagement_rating", 4)
+    ts.teacher_notes = payload.get("teacher_notes", "")
+    ts.completion_rate = payload.get("completion_rate", 1.0)
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Class session {session_number} successfully recorded and logged.",
+        "session_id": session.id,
+        "session_number": session.session_number,
+        "actual_minutes": ts.actual_minutes,
+        "status_state": session.status
+    }
+
+# -------------------------------------------------------------
+# MongoDB Rich Unstructured Content (Slides, Code, LaTeX)
+# -------------------------------------------------------------
+@router.get("/{course_id}/lesson-plans/{session_number}/rich-content")
+def get_rich_lesson_plan(course_id: str, session_number: int, db: Session = Depends(get_db)):
+    mongo_db = get_mongo_db()
+    
+    # Query MongoDB for cached rich assets
+    if mongo_db is not None:
+        try:
+            cached = mongo_db["lesson_plan_assets"].find_one({"course_id": course_id, "session_number": session_number})
+            if cached:
+                cached.pop("_id", None)
+                return cached
+        except Exception:
+            pass
+
+    # Find context from relational database
+    session = db.query(ClassSession).filter(ClassSession.course_id == course_id, ClassSession.session_number == session_number).first()
+    topic = session.current_topic if session and session.current_topic else None
+    if not topic:
+        topics = db.query(Topic).join(Topic.unit).filter(Topic.unit.has(course_id=course_id)).order_by(Topic.unit_id, Topic.order_index).all()
+        topic = topics[(session_number - 1) % len(topics)] if topics else None
+
+    topic_title = topic.title if topic else f"Foundations & Principles (Session {session_number})"
+    
+    import datetime
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    # Synthesize rich structured pedagogical assets
+    rich_doc = {
+        "course_id": course_id,
+        "session_number": session_number,
+        "topic_title": topic_title,
+        "version": 1,
+        "updated_at": now_iso,
+        "slides": [
+            {
+                "slide_number": 1,
+                "title": f"Introduction & Framing: {topic_title}",
+                "bullet_points": [
+                    f"Operational context and fundamental motivation behind {topic_title}.",
+                    "Review of prerequisite invariants required for comprehension.",
+                    "Key industry applications and real-world database architectural impact."
+                ],
+                "key_takeaway": f"Understand why {topic_title} is essential for relational consistency."
+            },
+            {
+                "slide_number": 2,
+                "title": "Mathematical & Structural Modeling",
+                "bullet_points": [
+                    "Formal algorithmic definitions and dependency constraints.",
+                    "Decomposition analysis and preservation theorems.",
+                    "Complexity characteristics and edge-case behaviors."
+                ],
+                "key_takeaway": "Formal algebraic rules ensure lossless transformations."
+            },
+            {
+                "slide_number": 3,
+                "title": "Worked Example & Step-by-Step Walkthrough",
+                "bullet_points": [
+                    "Sample relation schema evaluation.",
+                    "Tracing execution steps and verifying boundary criteria.",
+                    "Identifying common student traps and antipatterns."
+                ],
+                "key_takeaway": "Practice systematic algorithmic evaluation over intuitive guessing."
+            },
+            {
+                "slide_number": 4,
+                "title": "Exit Synthesis & Active Checkpoint",
+                "bullet_points": [
+                    "Formative 5-minute exit ticket concept verification.",
+                    "Summary of core invariants established today.",
+                    "Preview of downstream concepts dependent on this topic."
+                ],
+                "key_takeaway": "Consolidate mastery before advancing to subsequent unit modules."
+            }
+        ],
+        "code_snippets": [
+            {
+                "title": f"SQL Implementation Demo for {topic_title}",
+                "language": "sql",
+                "code": "-- Relational Integrity Query Demonstration\nSELECT \n    u.unit_number,\n    t.title AS topic_name,\n    COUNT(c.id) AS concept_count\nFROM topics t\nJOIN units u ON t.unit_id = u.id\nLEFT JOIN concepts c ON c.topic_id = t.id\nWHERE t.title LIKE '%" + topic_title[:15] + "%'\nGROUP BY u.unit_number, t.title\nHAVING COUNT(c.id) >= 1\nORDER BY u.unit_number ASC;",
+                "explanation": "Demonstrates relational aggregation, join mechanics, and group-level predicates."
+            },
+            {
+                "title": "Algorithmic Verification Script",
+                "language": "python",
+                "code": "def verify_dependency_invariants(attributes, functional_deps):\n    \"\"\"Compute attribute closure X+ under F\"\"\"\n    closure = set(attributes)\n    changed = True\n    while changed:\n        changed = False\n        for lhs, rhs in functional_deps:\n            if set(lhs).issubset(closure) and not set(rhs).issubset(closure):\n                closure.update(rhs)\n                changed = True\n    return closure",
+                "explanation": "Deterministic polynomial-time algorithm for computing minimal attribute closure."
+            }
+        ],
+        "latex_formulas": [
+            {
+                "name": "Relational Transformation Invariant",
+                "latex": r"X^+ = \{ A \mid F \models X \to A \}",
+                "description": "Attribute closure theorem: the maximal attribute set functionally determined by X under dependency set F."
+            },
+            {
+                "name": "Lossless Decomposition Criterion",
+                "latex": r"R_1 \cap R_2 \to R_1 \quad \text{or} \quad R_1 \cap R_2 \to R_2",
+                "description": "Heath's Theorem: Decomposition of R into (R1, R2) is lossless iff the common attributes form a superkey of R1 or R2."
+            }
+        ],
+        "discussion_prompts": [
+            f"Why does a naive schema without {topic_title} degrade performance under high concurrent writes?",
+            "What happens to transaction serializability if relational integrity constraints are violated?"
+        ],
+        "recommended_readings": [
+            "Silberschatz, Korth, Sudarshan — Database System Concepts (7th Ed), Chapter 8.",
+            "Codd, E.F. — 'A Relational Model of Data for Large Shared Data Banks' (CACM 1970)."
+        ]
+    }
+
+    # Cache into MongoDB
+    if mongo_db is not None:
+        try:
+            mongo_db["lesson_plan_assets"].insert_one(dict(rich_doc))
+        except Exception:
+            pass
+
+    return rich_doc
+
+@router.post("/{course_id}/lesson-plans/{session_number}/rich-content")
+def save_rich_lesson_plan(course_id: str, session_number: int, payload: Dict[str, Any] = {}):
+    mongo_db = get_mongo_db()
+    if mongo_db is None:
+        return payload
+
+    import datetime
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    try:
+        existing = mongo_db["lesson_plan_assets"].find_one({"course_id": course_id, "session_number": session_number})
+        curr_version = existing.get("version", 1) if existing else 1
+        new_version = curr_version + 1
+
+        if existing:
+            revision_doc = {**existing, "archived_at": now_iso, "revision_number": curr_version}
+            revision_doc.pop("_id", None)
+            mongo_db["lesson_plan_revisions"].insert_one(revision_doc)
+
+        payload["course_id"] = course_id
+        payload["session_number"] = session_number
+        payload["version"] = new_version
+        payload["updated_at"] = now_iso
+
+        mongo_db["lesson_plan_assets"].update_one(
+            {"course_id": course_id, "session_number": session_number},
+            {"$set": payload},
+            upsert=True
+        )
+    except Exception:
+        pass
+
+    payload.pop("_id", None)
+    return payload
+
+# -------------------------------------------------------------
+# Concept Drawer: Live Parameter Adjustments & Re-Optimization
+# -------------------------------------------------------------
+@router.patch("/{course_id}/concepts/{concept_id}")
+def update_concept_parameters(course_id: str, concept_id: str, payload: Dict[str, Any] = {}, db: Session = Depends(get_db)):
+    concept = db.query(Concept).filter(Concept.id == concept_id).first()
+    if not concept:
+        raise HTTPException(status_code=404, detail="Concept not found")
+
+    if "difficulty" in payload:
+        d = int(payload["difficulty"])
+        concept.difficulty = max(1, min(5, d))
+    if "importance" in payload:
+        imp = int(payload["importance"])
+        concept.importance = max(1, min(5, imp))
+    if "name" in payload and payload["name"]:
+        concept.name = payload["name"].strip()
+
+    db.commit()
+    db.refresh(concept)
+
+    # Re-run time optimizer to reflect changed priority scores
+    time_allocator.optimize_course_time(db, course_id)
+
+    return {
+        "status": "success",
+        "concept_id": concept.id,
+        "name": concept.name,
+        "difficulty": concept.difficulty,
+        "importance": concept.importance
+    }

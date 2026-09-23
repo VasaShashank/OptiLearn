@@ -234,3 +234,59 @@ export interface QueryDemoResult {
   rows: Record<string, any>[];
   execution_time_ms: number;
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  is_active?: boolean;
+  department?: string;
+  designation?: string;
+  employee_id?: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  department?: string;
+  designation?: string;
+  employee_id?: string;
+}
+
+export interface SlideItem {
+  slide_number: number;
+  title: string;
+  bullet_points: string[];
+  key_takeaway?: string;
+}
+
+export interface CodeSnippetItem {
+  title: string;
+  language: string;
+  code: string;
+  explanation: string;
+}
+
+export interface LaTeXFormulaItem {
+  name: string;
+  latex: string;
+  description: string;
+}
+
+export interface RichLessonPlanAsset {
+  course_id: string;
+  session_number: number;
+  topic_title: string;
+  slides: SlideItem[];
+  code_snippets: CodeSnippetItem[];
+  latex_formulas: LaTeXFormulaItem[];
+  discussion_prompts: string[];
+  recommended_readings: string[];
+  version: number;
+  updated_at: string;
+}

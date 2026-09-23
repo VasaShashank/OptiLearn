@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.config import settings
@@ -8,10 +9,19 @@ from app.api.syllabus import router as syllabus_router
 from app.api.dbms_insights import router as dbms_router
 from app.api.exports import router as exports_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Create all tables on startup if they don't exist"""
+    from app.database.connection import db_engine, Base
+    from app.models import entities  # noqa: F401 — ensure models are registered
+    Base.metadata.create_all(bind=db_engine)
+    yield
+
 app = FastAPI(
     title="OptiTeach API",
     description="A DBMS-Centric Intelligent Course Teaching & Optimization Platform",
-    version=settings.VERSION
+    version=settings.VERSION,
+    lifespan=lifespan,
 )
 
 # CORS Configuration
@@ -29,13 +39,6 @@ app.include_router(courses_router, prefix=settings.API_PREFIX)
 app.include_router(syllabus_router, prefix=settings.API_PREFIX)
 app.include_router(dbms_router, prefix=settings.API_PREFIX)
 app.include_router(exports_router, prefix=settings.API_PREFIX)
-
-@app.on_event("startup")
-def on_startup():
-    """Create all tables on startup if they don't exist"""
-    from app.database.connection import db_engine, Base
-    from app.models import entities  # noqa: F401 — ensure models are registered
-    Base.metadata.create_all(bind=db_engine)
 
 @app.get("/")
 def root():

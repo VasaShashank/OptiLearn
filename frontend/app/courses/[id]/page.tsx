@@ -192,7 +192,7 @@ function CurriculumTab({ graph, courseId }: { graph: CurriculumGraph | null; cou
       </Link>
     </div>
   );
-  return <CurriculumGraphView graph={graph} />;
+  return <CurriculumGraphView graph={graph} courseId={courseId} />;
 }
 
 function OptimizationTab({ optimization }: { optimization: CourseOptimization | null }) {

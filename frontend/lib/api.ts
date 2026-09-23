@@ -1,16 +1,30 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
+function getAuthToken(): string | null {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("optilearn_token");
+  }
+  return null;
+}
+
 async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token && !headers["Authorization"]) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
     ...options,
+    headers,
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
@@ -22,12 +36,13 @@ async function fetchAPI<T>(
 // ── Auth ──────────────────────────────────────────
 export const authAPI = {
   login: (email: string, password: string) =>
-    fetchAPI<{ access_token: string; user_id: string; email: string; full_name: string; role: string }>(
+    fetchAPI<LoginResponse>(
       "/auth/login",
       { method: "POST", body: JSON.stringify({ email, password }) }
     ),
-  register: (data: { email: string; password: string; full_name: string; department: string; employee_id: string }) =>
-    fetchAPI("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+  register: (data: { email: string; password: string; full_name: string; department: string; employee_id: string; designation?: string }) =>
+    fetchAPI<LoginResponse>("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+  getMe: () => fetchAPI<AuthUser>("/auth/me"),
 };
 
 // ── Courses ───────────────────────────────────────
@@ -42,6 +57,9 @@ import type {
   CourseAnalytics,
   TableSchemaInfo,
   QueryDemoResult,
+  AuthUser,
+  LoginResponse,
+  RichLessonPlanAsset,
 } from "./types";
 
 export const coursesAPI = {
@@ -58,6 +76,11 @@ export const coursesAPI = {
     student_count?: number;
   }) => fetchAPI<Course>("/courses", { method: "POST", body: JSON.stringify(data) }),
   getGraph: (id: string) => fetchAPI<CurriculumGraph>(`/courses/${id}/graph`),
+  updateConcept: (courseId: string, conceptId: string, data: { difficulty?: number; importance?: number; name?: string; prerequisites?: string[] }) =>
+    fetchAPI<{ status: string; concept_id: string }>(`/courses/${courseId}/concepts/${conceptId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   confirmCurriculum: (id: string, data: unknown) =>
     fetchAPI(`/courses/${id}/curriculum/confirm`, { method: "POST", body: JSON.stringify(data) }),
   optimize: (id: string) =>
@@ -81,6 +104,18 @@ export const coursesAPI = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  getRichContent: (courseId: string, sessionNumber: number) =>
+    fetchAPI<RichLessonPlanAsset>(`/courses/${courseId}/lesson-plans/${sessionNumber}/rich-content`),
+  saveRichContent: (courseId: string, sessionNumber: number, data: Partial<RichLessonPlanAsset>) =>
+    fetchAPI<RichLessonPlanAsset>(`/courses/${courseId}/lesson-plans/${sessionNumber}/rich-content`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  logTeachingSession: (courseId: string, sessionNumber: number, data: { actual_minutes: number; student_engagement_rating: number; teacher_notes?: string; completion_rate?: number }) =>
+    fetchAPI<{ status: string; session_id: string }>(`/courses/${courseId}/sessions/${sessionNumber}/conduct`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   listAssessments: (id: string) => fetchAPI<AssessmentItem[]>(`/courses/${id}/assessments`),
   createAssessment: (id: string, data: unknown) =>
     fetchAPI(`/courses/${id}/assessments`, { method: "POST", body: JSON.stringify(data) }),
@@ -97,8 +132,13 @@ export const coursesAPI = {
     } else if (rawText) {
       formData.append("raw_text", rawText);
     }
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     const res = await fetch(`${API_BASE}/courses/${courseId}/syllabus`, {
       method: "POST",
+      headers,
       body: formData,
     });
     if (!res.ok) {

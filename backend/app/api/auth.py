@@ -63,10 +63,16 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def get_profile(current_user: User = Depends(get_current_user)):
+    dept = current_user.teacher_profile.department if current_user.teacher_profile else None
+    desig = current_user.teacher_profile.designation if current_user.teacher_profile else None
+    emp_id = current_user.teacher_profile.employee_id if current_user.teacher_profile else None
     return UserOut(
         id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
         role=current_user.role,
-        is_active=current_user.is_active
+        is_active=current_user.is_active,
+        department=dept,
+        designation=desig,
+        employee_id=emp_id
     )

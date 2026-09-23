@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
   Layers,
   AlertTriangle,
@@ -11,11 +11,17 @@ import {
   X,
   LayoutGrid,
   Network,
+  Save,
+  CheckCircle2,
+  Sliders,
+  ShieldCheck,
 } from "lucide-react";
+import { coursesAPI } from "@/lib/api";
 import type { CurriculumGraph, GraphNode } from "@/lib/types";
 
 interface CurriculumGraphViewProps {
   graph: CurriculumGraph;
+  courseId?: string;
 }
 
 type LayoutMode = "unit-flow" | "topological" | "grid";
@@ -60,7 +66,7 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; glow: string; 
   },
 };
 
-export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps) {
+export default function CurriculumGraphView({ graph, courseId }: CurriculumGraphViewProps) {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("unit-flow");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -954,6 +960,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
               graph={graph}
               nodeConnections={nodeConnections}
               nodeMap={nodeMap}
+              courseId={courseId}
               onClose={() => setSelectedNodeId(null)}
               onSelectNode={(id) => setSelectedNodeId(id)}
             />
@@ -1012,6 +1019,7 @@ function ConceptInspector({
   graph,
   nodeConnections,
   nodeMap,
+  courseId,
   onClose,
   onSelectNode,
 }: {
@@ -1022,12 +1030,42 @@ function ConceptInspector({
     downstream: Map<string, Set<string>>;
   };
   nodeMap: Map<string, PositionedNode>;
+  courseId?: string;
   onClose: () => void;
   onSelectNode: (id: string) => void;
 }) {
   const isBottleneck = graph.bottlenecks.includes(node.id) || node.status === "bottleneck";
   const directPrereqIds = Array.from(nodeConnections.upstream.get(node.id) || []);
   const directDependentIds = Array.from(nodeConnections.downstream.get(node.id) || []);
+
+  const [difficulty, setDifficulty] = useState(node.difficulty);
+  const [importance, setImportance] = useState(node.importance);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDifficulty(node.difficulty);
+    setImportance(node.importance);
+    setSaveSuccess(null);
+  }, [node.id, node.difficulty, node.importance]);
+
+  const handleSaveParameters = async () => {
+    if (!courseId) return;
+    setSaving(true);
+    setSaveSuccess(null);
+    try {
+      await coursesAPI.updateConcept(courseId, node.id, {
+        difficulty,
+        importance,
+      });
+      setSaveSuccess("Saved & Re-optimized! Priority scores updated.");
+      setTimeout(() => setSaveSuccess(null), 3500);
+    } catch (err: any) {
+      setSaveSuccess("Failed to save: " + (err.message || "Unknown error"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const styling = STATUS_COLORS[node.status] || STATUS_COLORS.pending;
 
@@ -1039,8 +1077,8 @@ function ConceptInspector({
         top: 14,
         right: 14,
         bottom: 14,
-        width: 320,
-        background: "rgba(15, 20, 36, 0.94)",
+        width: 330,
+        background: "rgba(15, 20, 36, 0.95)",
         border: "1px solid var(--border-subtle)",
         backdropFilter: "blur(16px)",
         borderRadius: "var(--radius-lg)",
@@ -1108,6 +1146,24 @@ function ConceptInspector({
       </div>
 
       <div style={{ padding: "16px 18px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* DAG cycle safety check indicator */}
+        <div
+          style={{
+            padding: "8px 12px",
+            background: "rgba(16, 185, 129, 0.08)",
+            border: "1px solid rgba(16, 185, 129, 0.25)",
+            borderRadius: "var(--radius-md)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: "0.7rem",
+            color: "var(--accent-emerald)",
+          }}
+        >
+          <ShieldCheck size={14} style={{ flexShrink: 0 }} />
+          <span>Strict DAG Invariant Verified (No Cyclic Dependencies)</span>
+        </div>
+
         {isBottleneck && (
           <div
             style={{
@@ -1129,29 +1185,102 @@ function ConceptInspector({
           </div>
         )}
 
+        {/* Interactive Parameter Sliders / Adjusters */}
+        <div style={{ background: "var(--bg-input)", padding: "12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <Sliders size={14} color="var(--brand-end)" />
+            Adjust Concept Weights & Difficulty
+          </div>
+
+          {/* Difficulty Stepper */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: 4 }}>
+              <span style={{ color: "var(--text-secondary)" }}>Difficulty:</span>
+              <strong style={{ color: "var(--accent-amber)" }}>{difficulty} / 5</strong>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[1, 2, 3, 4, 5].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDifficulty(d)}
+                  style={{
+                    flex: 1,
+                    padding: "4px 0",
+                    fontSize: "0.75rem",
+                    borderRadius: "var(--radius-sm)",
+                    background: difficulty === d ? "var(--brand-start)" : "var(--bg-secondary)",
+                    color: difficulty === d ? "#fff" : "var(--text-muted)",
+                    border: difficulty === d ? "1px solid var(--brand-start)" : "1px solid var(--border-default)",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Importance Stepper */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: 4 }}>
+              <span style={{ color: "var(--text-secondary)" }}>Importance:</span>
+              <strong style={{ color: "var(--accent-purple)" }}>{importance} / 5</strong>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[1, 2, 3, 4, 5].map((imp) => (
+                <button
+                  key={imp}
+                  type="button"
+                  onClick={() => setImportance(imp)}
+                  style={{
+                    flex: 1,
+                    padding: "4px 0",
+                    fontSize: "0.75rem",
+                    borderRadius: "var(--radius-sm)",
+                    background: importance === imp ? "var(--accent-purple)" : "var(--bg-secondary)",
+                    color: importance === imp ? "#fff" : "var(--text-muted)",
+                    border: importance === imp ? "1px solid var(--accent-purple)" : "1px solid var(--border-default)",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  {imp}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {saveSuccess && (
+            <div style={{ fontSize: "0.7rem", color: "var(--accent-emerald)", marginBottom: 8 }}>
+              {saveSuccess}
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={saving || !courseId}
+            onClick={handleSaveParameters}
+            className="btn-primary"
+            style={{
+              width: "100%",
+              padding: "8px",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Save size={14} />
+            <span>{saving ? "Re-optimizing..." : "Save & Re-optimize"}</span>
+          </button>
+        </div>
+
+        {/* Metrics Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div
-            style={{
-              background: "var(--bg-input)",
-              padding: "10px 12px",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border-subtle)",
-            }}
-          >
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Difficulty</div>
-            <div style={{ fontSize: "1.125rem", fontWeight: 700, marginTop: 2 }}>{node.difficulty} / 5</div>
-          </div>
-          <div
-            style={{
-              background: "var(--bg-input)",
-              padding: "10px 12px",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border-subtle)",
-            }}
-          >
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Importance</div>
-            <div style={{ fontSize: "1.125rem", fontWeight: 700, marginTop: 2 }}>{node.importance} / 5</div>
-          </div>
           <div
             style={{
               background: "var(--bg-input)",

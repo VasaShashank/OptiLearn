@@ -12,8 +12,13 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  MonitorPlay,
+  LogIn,
+  LogOut,
+  User,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -21,12 +26,14 @@ const navItems = [
   { href: "/upload", label: "Syllabus Upload", icon: Upload },
   { href: "/optimization", label: "Optimization", icon: Zap },
   { href: "/lesson-plans", label: "Lesson Plans", icon: FileText },
+  { href: "/presenter", label: "Live Presenter", icon: MonitorPlay },
   { href: "/dbms", label: "DBMS Insights", icon: Database },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
 
   return (
     <aside
@@ -130,8 +137,98 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Collapse Toggle */}
+      {/* Faculty Auth & Profile */}
       <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border-default)" }}>
+        {isAuthenticated && user ? (
+          <div
+            style={{
+              padding: collapsed ? "8px" : "10px 12px",
+              borderRadius: "var(--radius-md)",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-default)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "space-between",
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "var(--radius-full)",
+                  background: "linear-gradient(135deg, var(--accent-blue), var(--brand-mid))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: 600,
+                  fontSize: "0.8125rem",
+                  flexShrink: 0,
+                }}
+              >
+                {user.full_name?.charAt(0) || "F"}
+              </div>
+              {!collapsed && (
+                <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
+                  <div style={{ fontSize: "0.8125rem", fontWeight: 600, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                    {user.full_name}
+                  </div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                    {user.designation || user.department || "Faculty"}
+                  </div>
+                </div>
+              )}
+            </div>
+            {!collapsed && (
+              <button
+                onClick={logout}
+                title="Sign Out"
+                className="btn-ghost"
+                style={{
+                  padding: "6px",
+                  borderRadius: "var(--radius-sm)",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "transparent",
+                  border: "none",
+                }}
+              >
+                <LogOut size={16} />
+              </button>
+            )}
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: 10,
+              padding: collapsed ? "10px" : "10px 14px",
+              borderRadius: "var(--radius-md)",
+              background: "rgba(99, 102, 241, 0.1)",
+              border: "1px solid rgba(99, 102, 241, 0.2)",
+              color: "var(--brand-end)",
+              textDecoration: "none",
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              marginBottom: 8,
+              transition: "all var(--transition-fast)",
+            }}
+          >
+            <LogIn size={16} />
+            {!collapsed && <span>Faculty Sign In</span>}
+          </Link>
+        )}
+
+        {/* Collapse Button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="btn-ghost"
