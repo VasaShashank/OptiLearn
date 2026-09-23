@@ -2,6 +2,7 @@ import hashlib
 import os
 import jwt
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -56,3 +57,21 @@ def get_current_teacher(current_user: User = Depends(get_current_user), db: Sess
             detail="User does not have an active teacher profile"
         )
     return teacher
+
+def get_optional_current_teacher(
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(OAuth2PasswordBearer(tokenUrl=f"{settings.API_PREFIX}/auth/login", auto_error=False))
+) -> Optional[Teacher]:
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id:
+            user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+            if user:
+                return db.query(Teacher).filter(Teacher.user_id == user.id).first()
+    except Exception:
+        pass
+    return None
+

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import {
   FileText, Clock, Lightbulb, AlertTriangle, CheckCircle2,
-  BookOpen, Target, Play, RefreshCw,
+  BookOpen, Target, Play, RefreshCw, Calendar, Printer, Download,
 } from "lucide-react";
-import { coursesAPI } from "@/lib/api";
+import { coursesAPI, exportsAPI } from "@/lib/api";
 import type { Course, LessonPlan, PeriodPhase } from "@/lib/types";
 
 export default function LessonPlansPage() {
@@ -14,8 +14,8 @@ export default function LessonPlansPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<LessonPlan | null>(null);
-
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
+  const [selectedSessionNumber, setSelectedSessionNumber] = useState<number>(1);
 
   useEffect(() => {
     async function load() {
@@ -26,7 +26,10 @@ export default function LessonPlansPage() {
           setSelectedCourseId(c[0].id);
           const p = await coursesAPI.listLessonPlans(c[0].id);
           setPlans(p);
-          if (p.length > 0) setSelectedPlan(p[0]);
+          if (p.length > 0) {
+            setSelectedPlan(p[0]);
+            setSelectedSessionNumber(p[0].session_number || 1);
+          }
         }
       } catch { /* ignore */ }
       setLoading(false);
@@ -41,6 +44,7 @@ export default function LessonPlansPage() {
       const p = await coursesAPI.listLessonPlans(courseId);
       setPlans(p);
       setSelectedPlan(p.length > 0 ? p[0] : null);
+      if (p.length > 0) setSelectedSessionNumber(p[0].session_number || 1);
     } catch {
       setPlans([]);
       setSelectedPlan(null);
@@ -48,14 +52,39 @@ export default function LessonPlansPage() {
     setLoading(false);
   };
 
+  const handleSessionChange = async (sessionNum: number) => {
+    setSelectedSessionNumber(sessionNum);
+    const existing = plans.find((p) => p.session_number === sessionNum);
+    if (existing) {
+      setSelectedPlan(existing);
+      return;
+    }
+    // Fetch or generate plan for this session
+    setGenerating(true);
+    try {
+      const fetched = await coursesAPI.listLessonPlans(selectedCourseId, sessionNum);
+      if (fetched.length > 0) {
+        setPlans((prev) => {
+          const filtered = prev.filter((p) => p.id !== fetched[0].id);
+          return [...filtered, fetched[0]].sort((a, b) => a.session_number - b.session_number);
+        });
+        setSelectedPlan(fetched[0]);
+      }
+    } catch { /* ignore */ }
+    setGenerating(false);
+  };
+
   const generatePlan = async () => {
     const cId = selectedCourseId || (courses.length > 0 ? courses[0].id : null);
     if (!cId) return;
     setGenerating(true);
     try {
-      const opt = await coursesAPI.optimizeNextClass(cId);
-      const plan = await coursesAPI.generateLessonPlan(cId, opt);
-      setPlans((prev) => [plan, ...prev.filter((p) => p.id !== plan.id)]);
+      const opt = await coursesAPI.optimizeNextClass(cId, selectedSessionNumber);
+      const plan = await coursesAPI.generateLessonPlan(cId, {
+        ...opt,
+        session_number: selectedSessionNumber
+      });
+      setPlans((prev) => [plan, ...prev.filter((p) => p.id !== plan.id)].sort((a, b) => a.session_number - b.session_number));
       setSelectedPlan(plan);
     } catch { /* ignore */ }
     setGenerating(false);
@@ -87,27 +116,61 @@ export default function LessonPlansPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {courses.length > 0 && (
-            <select
-              value={selectedCourseId}
-              onChange={(e) => handleCourseChange(e.target.value)}
-              className="input-select"
-              style={{
-                padding: "8px 14px",
-                fontSize: "0.8125rem",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-input)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border-subtle)",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} — {c.title}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={selectedCourseId}
+                onChange={(e) => handleCourseChange(e.target.value)}
+                className="input-select"
+                style={{
+                  padding: "8px 14px",
+                  fontSize: "0.8125rem",
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--bg-input)",
+                  color: "var(--text-primary)",
+                  border: "1px solid var(--border-subtle)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.title}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedSessionNumber}
+                onChange={(e) => handleSessionChange(Number(e.target.value))}
+                className="input-select"
+                style={{
+                  padding: "8px 14px",
+                  fontSize: "0.8125rem",
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--bg-input)",
+                  color: "var(--text-primary)",
+                  border: "1px solid var(--border-subtle)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {Array.from({ length: courses.find(c => c.id === selectedCourseId)?.total_classes || 40 }, (_, idx) => idx + 1).map((sNum) => (
+                  <option key={sNum} value={sNum}>
+                    Period {sNum}
+                  </option>
+                ))}
+              </select>
+
+              <a
+                href={exportsAPI.getCalendarUrl(selectedCourseId)}
+                download
+                className="btn btn-secondary"
+                title="Download iCalendar file for Google Calendar / Outlook"
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", textDecoration: "none" }}
+              >
+                <Calendar size={15} /> Export iCal
+              </a>
+            </>
           )}
           <button className="btn btn-primary" onClick={generatePlan} disabled={generating}>
             {generating ? <><div className="spinner" /> Generating...</> : <><Play size={16} /> Generate Plan</>}
@@ -167,6 +230,17 @@ export default function LessonPlansPage() {
                     </div>
                     <h2 style={{ fontSize: "1.125rem", fontWeight: 700 }}>{selectedPlan.title}</h2>
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>{selectedPlan.topic_title}</p>
+                  </div>
+                  <div>
+                    <a
+                      href={exportsAPI.getPrintableLessonPlanUrl(selectedPlan.session_id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary"
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", textDecoration: "none" }}
+                    >
+                      <Printer size={15} /> Print / Save PDF
+                    </a>
                   </div>
                 </div>
 

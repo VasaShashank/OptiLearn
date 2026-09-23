@@ -6,6 +6,7 @@ from app.api.auth import router as auth_router
 from app.api.courses import router as courses_router
 from app.api.syllabus import router as syllabus_router
 from app.api.dbms_insights import router as dbms_router
+from app.api.exports import router as exports_router
 
 app = FastAPI(
     title="OptiTeach API",
@@ -27,6 +28,7 @@ app.include_router(auth_router, prefix=settings.API_PREFIX)
 app.include_router(courses_router, prefix=settings.API_PREFIX)
 app.include_router(syllabus_router, prefix=settings.API_PREFIX)
 app.include_router(dbms_router, prefix=settings.API_PREFIX)
+app.include_router(exports_router, prefix=settings.API_PREFIX)
 
 @app.on_event("startup")
 def on_startup():

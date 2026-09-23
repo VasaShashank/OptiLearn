@@ -143,4 +143,47 @@ class LessonPlanService:
             created_at=lp.created_at
         )
 
+    def list_plans(
+        self,
+        db: Session,
+        course_id: str,
+        session_number: Optional[int] = None,
+        unit_id: Optional[str] = None,
+        topic_id: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> list[LessonPlanOut]:
+        query = (
+            db.query(LessonPlan)
+            .join(ClassSession)
+            .filter(ClassSession.course_id == course_id)
+        )
+        if session_number is not None:
+            query = query.filter(ClassSession.session_number == session_number)
+        if topic_id:
+            query = query.filter(LessonPlan.topic_id == topic_id)
+        if status:
+            query = query.filter(LessonPlan.status == status)
+        if unit_id:
+            query = query.join(Topic).filter(Topic.unit_id == unit_id)
+
+        existing_plans = query.order_by(ClassSession.session_number).all()
+
+        # If specific session requested or no plans exist at all, generate dynamically
+        if not existing_plans:
+            from app.optimization.class_optimizer import class_optimizer
+            target_session = session_number if session_number is not None else 1
+            try:
+                opt = class_optimizer.optimize_next_class(db, course_id, session_number=target_session)
+                generated = self.generate_plan(db, course_id, target_session, opt.dict())
+                return [generated]
+            except Exception:
+                return []
+
+        results = []
+        for lp in existing_plans:
+            plan_out = self.get_plan(db, lp.session_id)
+            if plan_out:
+                results.append(plan_out)
+        return results
+
 lesson_plan_service = LessonPlanService()

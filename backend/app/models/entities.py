@@ -119,6 +119,7 @@ class Section(Base):
     )
 
     course = relationship("Course", back_populates="sections")
+    students = relationship("Student", back_populates="section", cascade="all, delete-orphan")
 
 
 class TeacherConstraint(Base):
@@ -377,3 +378,45 @@ class MethodEffectiveness(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     method = relationship("TeachingMethod", back_populates="effect_records")
+
+
+class Student(Base):
+    __tablename__ = "students"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    section_id = Column(String(36), ForeignKey("sections.id", ondelete="CASCADE"), nullable=False, index=True)
+    roll_number = Column(String(50), nullable=False) # e.g. CS26-001
+    full_name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True)
+    average_score = Column(Float, default=70.0)
+    is_at_risk = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("section_id", "roll_number", name="uq_section_student_roll"),
+    )
+
+    section = relationship("Section", back_populates="students")
+    submissions = relationship("StudentSubmission", back_populates="student", cascade="all, delete-orphan")
+
+
+class StudentSubmission(Base):
+    __tablename__ = "student_submissions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    student_id = Column(String(36), ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    assessment_id = Column(String(36), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id = Column(String(36), ForeignKey("questions.id", ondelete="SET NULL"), nullable=True)
+    score = Column(Float, nullable=False)
+    max_marks = Column(Float, nullable=False, default=10.0)
+    feedback = Column(Text, nullable=True)
+    submitted_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("score >= 0.0", name="check_positive_submission_score"),
+    )
+
+    student = relationship("Student", back_populates="submissions")
+    assessment = relationship("Assessment")
+    question = relationship("Question")
+

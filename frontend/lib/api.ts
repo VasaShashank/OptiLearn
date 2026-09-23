@@ -69,7 +69,13 @@ export const coursesAPI = {
       `/courses/${id}/optimize-next-class${sessionNumber ? `?session_number=${sessionNumber}` : ""}`,
       { method: "POST" }
     ),
-  listLessonPlans: (id: string) => fetchAPI<LessonPlan[]>(`/courses/${id}/lesson-plans`),
+  listLessonPlans: (id: string, sessionNumber?: number, status?: string) => {
+    const params = new URLSearchParams();
+    if (sessionNumber) params.append("session_number", sessionNumber.toString());
+    if (status) params.append("status", status);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return fetchAPI<LessonPlan[]>(`/courses/${id}/lesson-plans${query}`);
+  },
   generateLessonPlan: (id: string, data: unknown) =>
     fetchAPI<LessonPlan>(`/courses/${id}/lesson-plans/generate`, {
       method: "POST",
@@ -144,3 +150,11 @@ export const healthAPI = {
       .then((r) => r.json())
       .catch(() => ({ status: "unreachable" })),
 };
+
+// ── Exports ────────────────────────────────────────
+export const exportsAPI = {
+  getCalendarUrl: (courseId: string) => `${API_BASE}/exports/courses/${courseId}/calendar.ics`,
+  getPrintableLessonPlanUrl: (sessionId: string) => `${API_BASE}/exports/lesson-plans/${sessionId}/printable`,
+  getOutcomesMatrix: (courseId: string) => fetchAPI<{ course_id: string; standard: string; outcomes_count: number; attainment_matrix: any[] }>(`/exports/courses/${courseId}/outcomes-matrix`),
+};
+

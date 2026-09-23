@@ -17,6 +17,8 @@ from app.services.assessment_service import assessment_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
 
+from app.auth.security import get_optional_current_teacher
+
 router = APIRouter(prefix="/courses", tags=["Courses & Optimization"])
 
 @router.get("", response_model=List[CourseOut])
@@ -46,8 +48,12 @@ def list_courses(db: Session = Depends(get_db)):
     return results
 
 @router.post("", response_model=CourseOut)
-def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
-    teacher = db.query(Teacher).first()
+def create_course(
+    payload: CourseCreate,
+    current_teacher: Optional[Teacher] = Depends(get_optional_current_teacher),
+    db: Session = Depends(get_db)
+):
+    teacher = current_teacher or db.query(Teacher).first()
     if not teacher:
         raise HTTPException(status_code=400, detail="No teacher profile exists. Run seed or register first.")
 
@@ -217,12 +223,18 @@ def generate_lesson_plan(course_id: str, payload: Dict[str, Any], db: Session = 
     session_num = payload.get("session_number", 15)
     return lesson_plan_service.generate_plan(db, course_id, session_num, payload)
 
-@router.get("/{course_id}/lesson-plans")
-def list_course_lesson_plans(course_id: str, db: Session = Depends(get_db)):
-    # Returns lesson plans for course
-    opt = class_optimizer.optimize_next_class(db, course_id, session_number=15)
-    plan = lesson_plan_service.generate_plan(db, course_id, 15, opt.dict())
-    return [plan]
+@router.get("/{course_id}/lesson-plans", response_model=List[LessonPlanOut])
+def list_course_lesson_plans(
+    course_id: str,
+    session_number: Optional[int] = None,
+    unit_id: Optional[str] = None,
+    topic_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    return lesson_plan_service.list_plans(
+        db, course_id, session_number=session_number, unit_id=unit_id, topic_id=topic_id, status=status
+    )
 
 # -------------------------------------------------------------
 # Assessments & Continuous Feedback

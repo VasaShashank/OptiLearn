@@ -46,46 +46,62 @@ class TimeAllocator:
                 formula_explanation={}
             )
 
-        # Baseline weighted demand: combine base estimated minutes and priority score
-        total_demand = sum(
-            t["topic"].estimated_minutes * (0.6 + 0.8 * t["priority_score"]) 
-            for t in topic_scores
-        )
+        from app.optimization.ilp_solver import ilp_solver
 
         allocated_allocations = []
         allocated_sum = 0
+        solver_used = "Discrete Period Knapsack Heuristic"
 
-        for item in topic_scores:
-            topic: Topic = item["topic"]
-            demand = topic.estimated_minutes * (0.6 + 0.8 * item["priority_score"])
-            ratio = demand / total_demand if total_demand > 0 else (1.0 / len(topic_scores))
-            
-            raw_allocated = instructional_budget * ratio
-            
-            # Snap to integer number of periods (minimum 1 period)
-            periods_count = max(1, round(raw_allocated / period_duration))
-            snapped_minutes = periods_count * period_duration
-            
-            allocated_allocations.append({
-                "topic": topic,
-                "allocated_minutes": snapped_minutes,
-                "periods_count": periods_count,
-                "priority_score": item["priority_score"],
-                "reason_codes": item["reason_codes"],
-                "explanation": item["explanation"],
-                "key_concepts": item["key_concepts"]
-            })
-            allocated_sum += snapped_minutes
+        # 1. Attempt exact MILP formulation with SciPy
+        milp_periods = ilp_solver.solve_period_allocation(topic_scores, instructional_budget, period_duration)
 
-        # Invariant enforcement: If sum exceeds instructional budget, scale down the lowest priority topics
-        while allocated_sum > instructional_budget and any(a["periods_count"] > 1 for a in allocated_allocations):
-            # Find highest period topic with lowest priority
-            reducible = [a for a in allocated_allocations if a["periods_count"] > 1]
-            reducible.sort(key=lambda x: x["priority_score"])
-            target = reducible[0]
-            target["periods_count"] -= 1
-            target["allocated_minutes"] -= period_duration
-            allocated_sum -= period_duration
+        if milp_periods is not None and len(milp_periods) == len(topic_scores):
+            solver_used = "SciPy MILP Exact Optimization (scipy.optimize.milp)"
+            for idx, item in enumerate(topic_scores):
+                topic: Topic = item["topic"]
+                periods_count = milp_periods[idx]
+                snapped_minutes = periods_count * period_duration
+                allocated_allocations.append({
+                    "topic": topic,
+                    "allocated_minutes": snapped_minutes,
+                    "periods_count": periods_count,
+                    "priority_score": item["priority_score"],
+                    "reason_codes": item["reason_codes"],
+                    "explanation": item["explanation"],
+                    "key_concepts": item["key_concepts"]
+                })
+                allocated_sum += snapped_minutes
+        else:
+            # 2. Discrete weighted demand fallback
+            total_demand = sum(
+                t["topic"].estimated_minutes * (0.6 + 0.8 * t["priority_score"]) 
+                for t in topic_scores
+            )
+            for item in topic_scores:
+                topic: Topic = item["topic"]
+                demand = topic.estimated_minutes * (0.6 + 0.8 * item["priority_score"])
+                ratio = demand / total_demand if total_demand > 0 else (1.0 / len(topic_scores))
+                raw_allocated = instructional_budget * ratio
+                periods_count = max(1, round(raw_allocated / period_duration))
+                snapped_minutes = periods_count * period_duration
+                allocated_allocations.append({
+                    "topic": topic,
+                    "allocated_minutes": snapped_minutes,
+                    "periods_count": periods_count,
+                    "priority_score": item["priority_score"],
+                    "reason_codes": item["reason_codes"],
+                    "explanation": item["explanation"],
+                    "key_concepts": item["key_concepts"]
+                })
+                allocated_sum += snapped_minutes
+
+            while allocated_sum > instructional_budget and any(a["periods_count"] > 1 for a in allocated_allocations):
+                reducible = [a for a in allocated_allocations if a["periods_count"] > 1]
+                reducible.sort(key=lambda x: x["priority_score"])
+                target = reducible[0]
+                target["periods_count"] -= 1
+                target["allocated_minutes"] -= period_duration
+                allocated_sum -= period_duration
 
         # Save allocated minutes and priority scores back to PostgreSQL in transaction
         for item in allocated_allocations:
@@ -132,7 +148,7 @@ class TimeAllocator:
             time_pressure_status=pressure,
             topic_allocations=output_topics,
             formula_explanation={
-                "model": "Multi-Factor Constrained Optimization (Knapsack Discrete Period Allocation)",
+                "model": solver_used,
                 "weights": scoring_engine.weights,
                 "invariant": f"Allocated ({allocated_sum}m) + Revision ({revision_budget}m) + Assessment ({assessment_budget}m) <= Total ({total_avail_min}m)",
                 "period_duration_minutes": period_duration

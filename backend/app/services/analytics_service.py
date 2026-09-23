@@ -83,15 +83,35 @@ class AnalyticsService:
                     action_route="/next-class"
                 ))
 
-        # Check for Time Pressure
+        from app.analytics.pacing_model import pacing_model
+        total_topics_count = db.query(Topic).join(Topic.unit).filter(Topic.unit.has(course_id=course_id)).count()
         remaining_topics_count = (
             db.query(Topic)
             .join(Topic.unit)
             .filter(Topic.unit.has(course_id=course_id), Topic.status != "completed")
             .count()
         )
+        covered_topics_count = max(0, total_topics_count - remaining_topics_count)
+        pacing_result = pacing_model.calculate_pacing_velocity(
+            total_classes=total_sessions,
+            completed_sessions=completed_sessions,
+            total_topics=total_topics_count,
+            covered_topics=covered_topics_count,
+            period_duration=course.period_duration,
+            actual_minutes_spent=actual_minutes_taught
+        )
+
         remaining_sessions_count = total_sessions - completed_sessions
-        if remaining_topics_count > remaining_sessions_count and remaining_sessions_count > 0:
+        if pacing_result["status"] in ["critically_behind", "moderately_behind"]:
+            alerts.append(AlertItem(
+                id="alert-time-pressure",
+                severity="warning" if pacing_result["status"] == "moderately_behind" else "danger",
+                title=f"Pacing Alert: {pacing_result['status'].replace('_', ' ').title()}",
+                message=pacing_result["recommendation"],
+                action_label="View Optimized Allocations",
+                action_route="/optimization"
+            ))
+        elif remaining_topics_count > remaining_sessions_count and remaining_sessions_count > 0:
             alerts.append(AlertItem(
                 id="alert-time-pressure",
                 severity="warning",
