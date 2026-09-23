@@ -215,6 +215,7 @@ The project includes 6 automated tests covering:
 ## 👥 Authors
 
 - **Vasa Shashank** — Full-stack development & system design
+- **Vignesh** — Full-stack development & system design
 
 ---
 
