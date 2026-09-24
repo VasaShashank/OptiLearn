@@ -4,10 +4,11 @@ from app.database.connection import get_db
 from app.models.entities import User, Teacher
 from app.schemas.schemas import Token, LoginRequest, RegisterRequest, UserOut
 from app.auth.security import hash_password, verify_password, create_access_token, get_current_user
+from app.core.rate_limiter import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=Token, dependencies=[Depends(rate_limit(max_requests=10, window_seconds=60))])
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
@@ -42,7 +43,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         role=user.role
     )
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(rate_limit(max_requests=20, window_seconds=60))])
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):

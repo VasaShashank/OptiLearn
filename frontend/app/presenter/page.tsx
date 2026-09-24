@@ -120,6 +120,48 @@ export default function PresenterPage() {
     }
   };
 
+  const handlePrevPhase = () => {
+    if (activePhaseIndex > 0) {
+      const prevIdx = activePhaseIndex - 1;
+      setActivePhaseIndex(prevIdx);
+      setIsRunning(false);
+      setSecondsRemaining(dynamicPhases[prevIdx].duration_minutes * 60);
+    }
+  };
+
+  // Keyboard Shortcuts Listener (Space, ArrowRight/K, ArrowLeft/J, E, F, R)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        setIsRunning((prev) => !prev);
+      } else if (e.key === "k" || e.key === "K" || e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNextPhase();
+      } else if (e.key === "j" || e.key === "J" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        handlePrevPhase();
+      } else if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        handleExtendBy5();
+      } else if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        setProjectorMode((prev) => !prev);
+      } else if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        resetCurrentPhase();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activePhaseIndex, dynamicPhases, isRunning]);
+
   const handleSelectPhase = (idx: number) => {
     setActivePhaseIndex(idx);
     setIsRunning(false);
@@ -307,6 +349,36 @@ export default function PresenterPage() {
             <Tv size={16} />
             {projectorMode ? "Standard View" : "Projector Mode"}
           </button>
+        </div>
+      </div>
+
+      {/* Keyboard Shortcuts Helper Bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
+          padding: "8px 16px",
+          background: projectorMode ? "#141414" : "rgba(255, 255, 255, 0.03)",
+          border: projectorMode ? "1px solid #333" : "1px solid var(--border-subtle)",
+          borderRadius: "var(--radius-md)",
+          fontSize: "0.75rem",
+          color: "var(--text-muted)",
+          marginBottom: 20,
+        }}
+      >
+        <span style={{ fontWeight: 600, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+          ⚡ Presenter Hotkeys:
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <span><kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>Space</kbd> Start/Pause</span>
+          <span><kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>→</kbd> / <kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>K</kbd> Next Phase</span>
+          <span><kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>←</kbd> / <kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>J</kbd> Prev Phase</span>
+          <span><kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>E</kbd> +5 Min</span>
+          <span><kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>F</kbd> Projector</span>
+          <span><kbd style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace" }}>R</kbd> Reset</span>
         </div>
       </div>
 

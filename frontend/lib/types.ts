@@ -74,7 +74,7 @@ export interface GraphNode {
 export interface GraphEdge {
   source: string;
   target: string;
-  relationship_type: string;
+  relationship_type?: string;
 }
 
 export interface CurriculumGraph {

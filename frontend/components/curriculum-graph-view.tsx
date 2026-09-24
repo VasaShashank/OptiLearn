@@ -15,9 +15,13 @@ import {
   CheckCircle2,
   Sliders,
   ShieldCheck,
+  Link2,
+  Plus,
+  Trash2,
+  ArrowRight,
 } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
-import type { CurriculumGraph, GraphNode } from "@/lib/types";
+import type { CurriculumGraph, GraphNode, GraphEdge } from "@/lib/types";
 
 interface CurriculumGraphViewProps {
   graph: CurriculumGraph;
@@ -31,6 +35,34 @@ interface PositionedNode extends GraphNode {
   y: number;
   width: number;
   height: number;
+}
+
+/**
+ * Strict Client-Side Cycle Detection using Breadth-First Search (BFS).
+ * Returns true if adding directed edge (newSource -> newTarget) would create a cycle.
+ */
+export function checkCycle(edges: GraphEdge[], newSource: string, newTarget: string): boolean {
+  if (newSource === newTarget) return true;
+  const adj = new Map<string, string[]>();
+  edges.forEach((e) => {
+    if (!adj.has(e.source)) adj.set(e.source, []);
+    adj.get(e.source)!.push(e.target);
+  });
+
+  const visited = new Set<string>();
+  const queue = [newTarget];
+  while (queue.length > 0) {
+    const curr = queue.shift()!;
+    if (curr === newSource) return true; // Cycle detected: newTarget can reach newSource
+    if (!visited.has(curr)) {
+      visited.add(curr);
+      const neighbors = adj.get(curr) || [];
+      for (const n of neighbors) {
+        if (!visited.has(n)) queue.push(n);
+      }
+    }
+  }
+  return false;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; glow: string; text: string }> = {
@@ -74,6 +106,20 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [customPositions, setCustomPositions] = useState<Record<string, { x: number; y: number }>>({});
 
+  // Dynamic local graph state for real-time edge additions and deletions
+  const [localEdges, setLocalEdges] = useState<GraphEdge[]>(graph.edges);
+  const [localNodes, setLocalNodes] = useState<GraphNode[]>(graph.nodes);
+
+  // Prerequisite linking mode
+  const [isLinkingMode, setIsLinkingMode] = useState<boolean>(false);
+  const [linkSourceId, setLinkSourceId] = useState<string | null>(null);
+  const [graphAlert, setGraphAlert] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
+
+  useEffect(() => {
+    setLocalEdges(graph.edges);
+    setLocalNodes(graph.nodes);
+  }, [graph]);
+
   // Pan and Zoom
   const [pan, setPan] = useState({ x: 30, y: 30 });
   const [zoom, setZoom] = useState(0.9);
@@ -82,17 +128,17 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
   const dragStartPos = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Compute node relationships for path highlighting
+  // Compute node relationships for path highlighting using localNodes and localEdges
   const nodeConnections = useMemo(() => {
     const upstream = new Map<string, Set<string>>(); // prerequisites of node
     const downstream = new Map<string, Set<string>>(); // dependents of node
 
-    graph.nodes.forEach((n) => {
+    localNodes.forEach((n) => {
       upstream.set(n.id, new Set());
       downstream.set(n.id, new Set());
     });
 
-    graph.edges.forEach((e) => {
+    localEdges.forEach((e) => {
       upstream.get(e.target)?.add(e.source);
       downstream.get(e.source)?.add(e.target);
     });
@@ -124,7 +170,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
     };
 
     return { upstream, downstream, getAncestors, getDescendants };
-  }, [graph]);
+  }, [localNodes, localEdges]);
 
   // Active highlighted nodes based on hover or selection
   const highlightedIds = useMemo(() => {
@@ -142,18 +188,18 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
     const inDegree = new Map<string, number>();
     const adj = new Map<string, string[]>();
 
-    graph.nodes.forEach((n) => {
+    localNodes.forEach((n) => {
       inDegree.set(n.id, 0);
       adj.set(n.id, []);
     });
 
-    graph.edges.forEach((e) => {
+    localEdges.forEach((e) => {
       inDegree.set(e.target, (inDegree.get(e.target) || 0) + 1);
       adj.get(e.source)?.push(e.target);
     });
 
     const rank = new Map<string, number>();
-    graph.nodes.forEach((n) => {
+    localNodes.forEach((n) => {
       if ((inDegree.get(n.id) || 0) === 0) rank.set(n.id, 0);
     });
 
@@ -162,7 +208,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
     let maxIter = 20;
     while (changed && maxIter-- > 0) {
       changed = false;
-      graph.edges.forEach((e) => {
+      localEdges.forEach((e) => {
         const srcRank = rank.get(e.source) ?? 0;
         const currentTargetRank = rank.get(e.target) ?? 0;
         if (srcRank + 1 > currentTargetRank) {
@@ -173,7 +219,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
     }
 
     return rank;
-  }, [graph]);
+  }, [localNodes, localEdges]);
 
   // Calculate coordinates for positioned nodes
   const nodeWidth = 230;
@@ -182,7 +228,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
   const positionedNodes: PositionedNode[] = useMemo(() => {
     if (layoutMode === "topological") {
       const rankBuckets = new Map<number, GraphNode[]>();
-      graph.nodes.forEach((n) => {
+      localNodes.forEach((n) => {
         const r = topologicalRanks.get(n.id) || 0;
         if (!rankBuckets.has(r)) rankBuckets.set(r, []);
         rankBuckets.get(r)!.push(n);
@@ -212,7 +258,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
       return result;
     } else {
       const unitBuckets = new Map<number, GraphNode[]>();
-      graph.nodes.forEach((n) => {
+      localNodes.forEach((n) => {
         const u = n.unit_number;
         if (!unitBuckets.has(u)) unitBuckets.set(u, []);
         unitBuckets.get(u)!.push(n);
@@ -241,7 +287,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
         });
       return result;
     }
-  }, [graph, layoutMode, topologicalRanks, customPositions]);
+  }, [localNodes, layoutMode, topologicalRanks, customPositions]);
 
   // Lookup node by id
   const nodeMap = useMemo(() => {
@@ -254,7 +300,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
   const matchingNodeIds = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return new Set(
-      graph.nodes
+      localNodes
         .filter((n) => {
           const matchesQuery = !q || n.name.toLowerCase().includes(q) || n.topic_title.toLowerCase().includes(q);
           const matchesStatus =
@@ -265,7 +311,73 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
         })
         .map((n) => n.id)
     );
-  }, [graph, searchQuery, statusFilter]);
+  }, [localNodes, searchQuery, statusFilter, graph.bottlenecks]);
+
+  const handleAddPrerequisiteEdge = async (sourceId: string, targetId: string) => {
+    if (!courseId) return;
+    const srcNode = localNodes.find((n) => n.id === sourceId);
+    const tgtNode = localNodes.find((n) => n.id === targetId);
+    const srcName = srcNode?.name || sourceId;
+    const tgtName = tgtNode?.name || targetId;
+
+    if (sourceId === targetId) {
+      setGraphAlert({
+        type: "error",
+        message: "Self-dependency blocked: A concept cannot depend on itself.",
+      });
+      return;
+    }
+
+    // Instant client-side cycle check
+    if (checkCycle(localEdges, sourceId, targetId)) {
+      setGraphAlert({
+        type: "error",
+        message: `Circular dependency blocked: Adding prerequisite '${srcName}' -> '${tgtName}' forms an invalid cycle in the curriculum DAG!`,
+      });
+      return;
+    }
+
+    try {
+      const res = await coursesAPI.addPrerequisite(courseId, sourceId, targetId);
+      setLocalEdges((prev) => {
+        const filtered = prev.filter((e) => !(e.source === sourceId && e.target === targetId));
+        return [...filtered, { source: sourceId, target: targetId, relationship_type: "prerequisite" }];
+      });
+      setGraphAlert({
+        type: "success",
+        message: res.message || `Prerequisite '${srcName}' -> '${tgtName}' established successfully!`,
+      });
+      setTimeout(() => setGraphAlert(null), 4500);
+    } catch (err: any) {
+      setGraphAlert({
+        type: "error",
+        message: err.message || "Failed to add prerequisite edge",
+      });
+    }
+  };
+
+  const handleDeletePrerequisiteEdge = async (sourceId: string, targetId: string) => {
+    if (!courseId) return;
+    const srcNode = localNodes.find((n) => n.id === sourceId);
+    const tgtNode = localNodes.find((n) => n.id === targetId);
+    const srcName = srcNode?.name || sourceId;
+    const tgtName = tgtNode?.name || targetId;
+
+    try {
+      const res = await coursesAPI.deletePrerequisite(courseId, sourceId, targetId);
+      setLocalEdges((prev) => prev.filter((e) => !(e.source === sourceId && e.target === targetId)));
+      setGraphAlert({
+        type: "success",
+        message: res.message || `Prerequisite link '${srcName}' -> '${tgtName}' removed.`,
+      });
+      setTimeout(() => setGraphAlert(null), 3500);
+    } catch (err: any) {
+      setGraphAlert({
+        type: "error",
+        message: err.message || "Failed to delete prerequisite edge",
+      });
+    }
+  };
 
   // Dragging event handlers
   const handleMouseDownCanvas = (e: React.MouseEvent) => {
@@ -490,6 +602,42 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
             </button>
           </div>
 
+          {/* Visual Link Prerequisite Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextMode = !isLinkingMode;
+              setIsLinkingMode(nextMode);
+              setLinkSourceId(null);
+              if (nextMode) {
+                setGraphAlert({
+                  type: "info",
+                  message: "🔗 Visual Link Mode Active: Click a prerequisite concept (source), then click the dependent concept (target).",
+                });
+              } else {
+                setGraphAlert(null);
+              }
+            }}
+            className="btn"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              fontSize: "0.75rem",
+              borderRadius: "var(--radius-sm)",
+              border: isLinkingMode ? "1px solid var(--accent-purple)" : "1px solid var(--border-subtle)",
+              background: isLinkingMode ? "rgba(168, 85, 247, 0.2)" : "var(--bg-input)",
+              color: isLinkingMode ? "#c084fc" : "var(--text-secondary)",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+            title="Interactive Prerequisite Graph Linker"
+          >
+            <Link2 size={13} />
+            {isLinkingMode ? "Cancel Linking" : "Link Prerequisite"}
+          </button>
+
           {/* Zoom Buttons */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
@@ -519,6 +667,52 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
           </div>
         </div>
       </div>
+
+      {/* Real-Time Graph Alert & Linking Instructions Banner */}
+      {graphAlert && (
+        <div
+          style={{
+            padding: "10px 16px",
+            borderRadius: "var(--radius-md)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            fontSize: "0.8125rem",
+            background:
+              graphAlert.type === "error"
+                ? "rgba(239, 68, 68, 0.15)"
+                : graphAlert.type === "success"
+                ? "rgba(16, 185, 129, 0.15)"
+                : "rgba(59, 130, 246, 0.15)",
+            border:
+              graphAlert.type === "error"
+                ? "1px solid rgba(239, 68, 68, 0.4)"
+                : graphAlert.type === "success"
+                ? "1px solid rgba(16, 185, 129, 0.4)"
+                : "1px solid rgba(59, 130, 246, 0.4)",
+            color:
+              graphAlert.type === "error"
+                ? "#fca5a5"
+                : graphAlert.type === "success"
+                ? "#6ee7b7"
+                : "#93c5fd",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {graphAlert.type === "error" && <AlertTriangle size={16} />}
+            {graphAlert.type === "success" && <CheckCircle2 size={16} />}
+            {graphAlert.type === "info" && <Network size={16} />}
+            <span>{graphAlert.message}</span>
+          </div>
+          <button
+            onClick={() => setGraphAlert(null)}
+            style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer" }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Main Graph Canvas Area */}
       {layoutMode === "grid" ? (
@@ -643,7 +837,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
 
             <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
               {/* Edges */}
-              {graph.edges.map((edge, idx) => {
+              {localEdges.map((edge, idx) => {
                 const src = nodeMap.get(edge.source);
                 const tgt = nodeMap.get(edge.target);
                 if (!src || !tgt) return null;
@@ -682,13 +876,22 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
                 }
 
                 return (
-                  <g key={`${edge.source}-${edge.target}-${idx}`}>
+                  <g
+                    key={`${edge.source}-${edge.target}-${idx}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Remove prerequisite edge '${src.name}' -> '${tgt.name}'?`)) {
+                        handleDeletePrerequisiteEdge(edge.source, edge.target);
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <title>{`Prerequisite: ${src.name} -> ${tgt.name} (Click to remove)`}</title>
                     <path
                       d={pathD}
                       fill="none"
                       stroke="transparent"
                       strokeWidth={14}
-                      style={{ cursor: "pointer" }}
                       onMouseEnter={() => setHoveredNodeId(edge.source)}
                       onMouseLeave={() => setHoveredNodeId(null)}
                     />
@@ -716,6 +919,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
                 const isBottleneck = graph.bottlenecks.includes(node.id) || node.status === "bottleneck";
                 const isMatchingSearch = matchingNodeIds.has(node.id);
                 const isDimmed = highlightedIds ? !highlightedIds.has(node.id) : !isMatchingSearch;
+                const isLinkSource = linkSourceId === node.id;
 
                 const styling = STATUS_COLORS[node.status] || STATUS_COLORS.pending;
 
@@ -724,18 +928,54 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
                     key={node.id}
                     transform={`translate(${node.x}, ${node.y})`}
                     style={{
-                      cursor: "grab",
+                      cursor: isLinkingMode ? "crosshair" : "grab",
                       opacity: isDimmed ? 0.22 : 1,
                       transition: "opacity 0.2s ease",
                     }}
-                    onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                    onMouseDown={(e) => {
+                      if (!isLinkingMode) handleNodeMouseDown(e, node.id);
+                    }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (isLinkingMode) {
+                        if (!linkSourceId) {
+                          setLinkSourceId(node.id);
+                          setGraphAlert({
+                            type: "info",
+                            message: `Prerequisite '${node.name}' selected. Now click the dependent concept that depends on it.`,
+                          });
+                        } else if (linkSourceId === node.id) {
+                          setGraphAlert({
+                            type: "error",
+                            message: "Self-dependency forbidden: A concept cannot be a prerequisite of itself.",
+                          });
+                        } else {
+                          handleAddPrerequisiteEdge(linkSourceId, node.id);
+                          setIsLinkingMode(false);
+                          setLinkSourceId(null);
+                        }
+                        return;
+                      }
                       setSelectedNodeId(isSelected ? null : node.id);
                     }}
                     onMouseEnter={() => setHoveredNodeId(node.id)}
                     onMouseLeave={() => setHoveredNodeId(null)}
                   >
+                    {/* Visual Link Mode Source Ring */}
+                    {isLinkSource && (
+                      <rect
+                        x={-6}
+                        y={-6}
+                        width={node.width + 12}
+                        height={node.height + 12}
+                        rx={16}
+                        fill="none"
+                        stroke="#38bdf8"
+                        strokeWidth={2.5}
+                        strokeDasharray="5 4"
+                      />
+                    )}
+
                     {/* Bottleneck Warning Ring */}
                     {isBottleneck && (
                       <rect
@@ -958,11 +1198,15 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
             <ConceptInspector
               node={selectedNode}
               graph={graph}
+              allNodes={localNodes}
+              localEdges={localEdges}
               nodeConnections={nodeConnections}
               nodeMap={nodeMap}
               courseId={courseId}
               onClose={() => setSelectedNodeId(null)}
               onSelectNode={(id) => setSelectedNodeId(id)}
+              onAddPrerequisite={handleAddPrerequisiteEdge}
+              onDeletePrerequisite={handleDeletePrerequisiteEdge}
             />
           )}
         </div>
@@ -999,7 +1243,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
           ))}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <span style={{ color: "#818cf8" }}>⟶</span>
-            <span>Prerequisite Path</span>
+            <span>Prerequisite Path (Click edge to delete)</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <span style={{ color: "#c084fc" }}>↓k</span>
@@ -1007,7 +1251,7 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
           </div>
         </div>
         <div>
-          <span>{graph.nodes.length} concepts</span> · <span>{graph.edges.length} edges</span> · <span>{graph.bottlenecks.length} bottlenecks</span>
+          <span>{localNodes.length} concepts</span> · <span>{localEdges.length} edges</span> · <span>{graph.bottlenecks.length} bottlenecks</span>
         </div>
       </div>
     </div>
@@ -1017,14 +1261,20 @@ export default function CurriculumGraphView({ graph, courseId }: CurriculumGraph
 function ConceptInspector({
   node,
   graph,
+  allNodes,
+  localEdges,
   nodeConnections,
   nodeMap,
   courseId,
   onClose,
   onSelectNode,
+  onAddPrerequisite,
+  onDeletePrerequisite,
 }: {
   node: PositionedNode;
   graph: CurriculumGraph;
+  allNodes: GraphNode[];
+  localEdges: GraphEdge[];
   nodeConnections: {
     upstream: Map<string, Set<string>>;
     downstream: Map<string, Set<string>>;
@@ -1033,6 +1283,8 @@ function ConceptInspector({
   courseId?: string;
   onClose: () => void;
   onSelectNode: (id: string) => void;
+  onAddPrerequisite: (sourceId: string, targetId: string) => Promise<void>;
+  onDeletePrerequisite: (sourceId: string, targetId: string) => Promise<void>;
 }) {
   const isBottleneck = graph.bottlenecks.includes(node.id) || node.status === "bottleneck";
   const directPrereqIds = Array.from(nodeConnections.upstream.get(node.id) || []);
@@ -1043,10 +1295,17 @@ function ConceptInspector({
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
+  // Quick Prerequisite Linker State
+  const [candidatePrereqId, setCandidatePrereqId] = useState("");
+  const [linkingPrereq, setLinkingPrereq] = useState(false);
+  const [prereqError, setPrereqError] = useState<string | null>(null);
+
   useEffect(() => {
     setDifficulty(node.difficulty);
     setImportance(node.importance);
     setSaveSuccess(null);
+    setCandidatePrereqId("");
+    setPrereqError(null);
   }, [node.id, node.difficulty, node.importance]);
 
   const handleSaveParameters = async () => {
@@ -1067,6 +1326,33 @@ function ConceptInspector({
     }
   };
 
+  const handleAddCandidatePrereq = async () => {
+    if (!candidatePrereqId) return;
+    setLinkingPrereq(true);
+    setPrereqError(null);
+
+    // Client-side cycle check
+    if (checkCycle(localEdges, candidatePrereqId, node.id)) {
+      setPrereqError("Circular dependency blocked! Concept would create a cycle.");
+      setLinkingPrereq(false);
+      return;
+    }
+
+    try {
+      await onAddPrerequisite(candidatePrereqId, node.id);
+      setCandidatePrereqId("");
+    } catch (err: any) {
+      setPrereqError(err.message || "Failed to add prerequisite link");
+    } finally {
+      setLinkingPrereq(false);
+    }
+  };
+
+  // Concepts eligible to be linked as prerequisites
+  const availableCandidates = allNodes.filter(
+    (n) => n.id !== node.id && !directPrereqIds.includes(n.id)
+  );
+
   const styling = STATUS_COLORS[node.status] || STATUS_COLORS.pending;
 
   return (
@@ -1077,12 +1363,12 @@ function ConceptInspector({
         top: 14,
         right: 14,
         bottom: 14,
-        width: 330,
-        background: "rgba(15, 20, 36, 0.95)",
+        width: 350,
+        background: "rgba(15, 20, 36, 0.96)",
         border: "1px solid var(--border-subtle)",
-        backdropFilter: "blur(16px)",
+        backdropFilter: "blur(18px)",
         borderRadius: "var(--radius-lg)",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.6)",
+        boxShadow: "0 14px 36px rgba(0,0,0,0.65)",
         display: "flex",
         flexDirection: "column",
         zIndex: 50,
@@ -1161,7 +1447,7 @@ function ConceptInspector({
           }}
         >
           <ShieldCheck size={14} style={{ flexShrink: 0 }} />
-          <span>Strict DAG Invariant Verified (No Cyclic Dependencies)</span>
+          <span>Strict DAG Invariant Verified (No Cyclic Loops)</span>
         </div>
 
         {isBottleneck && (
@@ -1316,53 +1602,123 @@ function ConceptInspector({
           </div>
         </div>
 
+        {/* Direct Prerequisites Section with Interactive Unlink & Quick Link */}
         <div>
-          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-            Direct Prerequisites ({directPrereqIds.length})
+          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Direct Prerequisites ({directPrereqIds.length})</span>
           </div>
+
           {directPrereqIds.length === 0 ? (
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic", marginBottom: 8 }}>
               None (Foundational concept)
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
               {directPrereqIds.map((pId) => {
                 const pNode = nodeMap.get(pId);
                 if (!pNode) return null;
                 return (
-                  <button
+                  <div
                     key={pId}
-                    onClick={() => onSelectNode(pId)}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "8px 10px",
+                      padding: "6px 10px",
                       background: "var(--bg-input)",
                       border: "1px solid var(--border-subtle)",
                       borderRadius: "var(--radius-md)",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      color: "var(--text-primary)",
                       fontSize: "0.75rem",
                     }}
                   >
-                    <span>{pNode.name}</span>
-                    <span style={{ fontSize: "0.6875rem", color: "var(--brand-start)" }}>Unit {pNode.unit_number}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectNode(pId)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flex: 1,
+                      }}
+                    >
+                      <span>{pNode.name}</span>
+                      <span style={{ fontSize: "0.6875rem", color: "var(--brand-start)" }}>U{pNode.unit_number}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeletePrerequisite(pId, node.id)}
+                      style={{
+                        background: "rgba(239, 68, 68, 0.12)",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        color: "#f87171",
+                        borderRadius: "var(--radius-sm)",
+                        padding: "3px 6px",
+                        fontSize: "0.6875rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                      title="Remove Prerequisite Dependency"
+                    >
+                      <Trash2 size={11} /> Unlink
+                    </button>
+                  </div>
                 );
               })}
             </div>
           )}
+
+          {/* Quick Prerequisite Linker Dropdown */}
+          <div style={{ marginTop: 8, background: "rgba(255, 255, 255, 0.02)", padding: 8, borderRadius: "var(--radius-md)", border: "1px dashed var(--border-subtle)" }}>
+            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginBottom: 6, fontWeight: 600 }}>
+              + Link Prerequisite to this Concept:
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <select
+                value={candidatePrereqId}
+                onChange={(e) => setCandidatePrereqId(e.target.value)}
+                className="input-select"
+                style={{ flex: 1, fontSize: "0.75rem", padding: "4px 8px" }}
+              >
+                <option value="">Select candidate prerequisite...</option>
+                {availableCandidates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} (Unit {c.unit_number})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!candidatePrereqId || linkingPrereq}
+                onClick={handleAddCandidatePrereq}
+                className="btn-secondary"
+                style={{ padding: "4px 10px", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 4 }}
+              >
+                <Plus size={12} /> Link
+              </button>
+            </div>
+            {prereqError && (
+              <div style={{ fontSize: "0.6875rem", color: "#f87171", marginTop: 6 }}>
+                ⚠️ {prereqError}
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Downstream Dependents Section with Unlink */}
         <div>
           <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
             Downstream Dependents ({directDependentIds.length})
           </div>
           {directDependentIds.length === 0 ? (
             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-              Terminal concept in curriculum
+              Terminal concept in curriculum (no downstream dependents)
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1370,26 +1726,57 @@ function ConceptInspector({
                 const dNode = nodeMap.get(dId);
                 if (!dNode) return null;
                 return (
-                  <button
+                  <div
                     key={dId}
-                    onClick={() => onSelectNode(dId)}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "8px 10px",
+                      padding: "6px 10px",
                       background: "var(--bg-input)",
                       border: "1px solid var(--border-subtle)",
                       borderRadius: "var(--radius-md)",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      color: "var(--text-primary)",
                       fontSize: "0.75rem",
                     }}
                   >
-                    <span>{dNode.name}</span>
-                    <span style={{ fontSize: "0.6875rem", color: "#c084fc" }}>Unit {dNode.unit_number}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectNode(dId)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flex: 1,
+                      }}
+                    >
+                      <span>{dNode.name}</span>
+                      <span style={{ fontSize: "0.6875rem", color: "#c084fc" }}>U{dNode.unit_number}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeletePrerequisite(node.id, dId)}
+                      style={{
+                        background: "rgba(239, 68, 68, 0.12)",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        color: "#f87171",
+                        borderRadius: "var(--radius-sm)",
+                        padding: "3px 6px",
+                        fontSize: "0.6875rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                      title="Remove Dependent Link"
+                    >
+                      <Trash2 size={11} /> Unlink
+                    </button>
+                  </div>
                 );
               })}
             </div>

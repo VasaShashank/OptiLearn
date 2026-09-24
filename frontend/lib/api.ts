@@ -81,6 +81,20 @@ export const coursesAPI = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  addPrerequisite: (courseId: string, sourceId: string, targetId: string) =>
+    fetchAPI<{ status: string; message: string; source_id: string; target_id: string }>(`/courses/${courseId}/prerequisites`, {
+      method: "POST",
+      body: JSON.stringify({ source_id: sourceId, target_id: targetId }),
+    }),
+  deletePrerequisite: (courseId: string, sourceId: string, targetId: string) =>
+    fetchAPI<{ status: string; message: string }>(`/courses/${courseId}/prerequisites/${sourceId}/${targetId}`, {
+      method: "DELETE",
+    }),
+  reorderCurriculum: (courseId: string, data: { topic_orders?: { id: string; order_index: number }[]; concept_moves?: { id: string; topic_id?: string; order_index?: number }[] }) =>
+    fetchAPI<{ status: string; message: string }>(`/courses/${courseId}/curriculum/reorder`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   confirmCurriculum: (id: string, data: unknown) =>
     fetchAPI(`/courses/${id}/curriculum/confirm`, { method: "POST", body: JSON.stringify(data) }),
   optimize: (id: string) =>

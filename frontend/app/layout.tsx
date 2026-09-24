@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/sidebar";
+import AppShell from "@/components/app-shell";
 import { AuthProvider } from "@/lib/auth-context";
 
 const inter = Inter({
@@ -34,19 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         }}
       >
         <AuthProvider>
-          <Sidebar />
-          <main
-            style={{
-              flex: 1,
-              marginLeft: "var(--sidebar-width)",
-              minHeight: "100vh",
-              transition: "margin-left var(--transition-base)",
-            }}
-          >
-            <div style={{ padding: "32px 40px", maxWidth: 1400, margin: "0 auto" }}>
-              {children}
-            </div>
-          </main>
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>

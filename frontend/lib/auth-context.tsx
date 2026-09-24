@@ -38,6 +38,18 @@ const AuthContext = createContext<AuthContextType>({
 const TOKEN_KEY = "optilearn_token";
 const USER_KEY = "optilearn_user";
 
+function setAuthCookie(token: string) {
+  if (typeof document !== "undefined") {
+    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+  }
+}
+
+function clearAuthCookie() {
+  if (typeof document !== "undefined") {
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -50,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = localStorage.getItem(USER_KEY);
       if (storedToken) {
         setToken(storedToken);
+        setAuthCookie(storedToken);
         if (storedUser) {
           try {
             setUser(JSON.parse(storedUser));
@@ -97,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(authUser);
       localStorage.setItem(USER_KEY, JSON.stringify(authUser));
+      setAuthCookie(res.access_token);
       return res;
     } finally {
       setLoading(false);
@@ -129,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(authUser);
       localStorage.setItem(USER_KEY, JSON.stringify(authUser));
+      setAuthCookie(res.access_token);
       return res;
     } finally {
       setLoading(false);
@@ -138,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setToken(null);
     setUser(null);
+    clearAuthCookie();
     try {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);

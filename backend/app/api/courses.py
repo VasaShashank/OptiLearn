@@ -19,6 +19,8 @@ from app.services.lesson_plan_service import lesson_plan_service
 from app.services.assessment_service import assessment_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
+from app.core.rate_limiter import rate_limit
+import networkx as nx
 
 from app.auth.security import get_optional_current_teacher
 
@@ -143,7 +145,13 @@ def get_course(course_id: str, db: Session = Depends(get_db)):
 # -------------------------------------------------------------
 # Curriculum & Knowledge Graph
 # -------------------------------------------------------------
-@router.post("/{course_id}/syllabus")
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB limit
+MAX_RAW_TEXT_LENGTH = 500_000       # 500k characters limit
+
+@router.post(
+    "/{course_id}/syllabus",
+    dependencies=[Depends(rate_limit(max_requests=10, window_seconds=60))]
+)
 async def upload_course_syllabus(
     course_id: str,
     file: Optional[UploadFile] = File(None),
@@ -158,14 +166,31 @@ async def upload_course_syllabus(
     try:
         if file:
             content_bytes = await file.read()
-            filename = file.filename.lower()
+            if len(content_bytes) > MAX_UPLOAD_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Uploaded file exceeds maximum permitted size of 10MB (got {round(len(content_bytes)/(1024*1024), 2)}MB)."
+                )
+
+            filename = file.filename.lower() if file.filename else "upload"
             if filename.endswith(".pdf"):
+                if not content_bytes.startswith(b"%PDF"):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid PDF file format: Missing '%PDF' magic header bytes."
+                    )
                 curriculum = nlp_provider.extract_from_pdf(content_bytes)
             else:
-                text = content_bytes.decode("utf-8", errors="ignore")
+                text = content_bytes.decode("utf-8", errors="ignore").replace("\x00", "")
                 curriculum = nlp_provider.extract_from_text(text)
         elif raw_text and raw_text.strip():
-            curriculum = nlp_provider.extract_from_text(raw_text.strip())
+            cleaned_text = raw_text.strip().replace("\x00", "")
+            if len(cleaned_text) > MAX_RAW_TEXT_LENGTH:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"Syllabus text exceeds maximum length of {MAX_RAW_TEXT_LENGTH} characters."
+                )
+            curriculum = nlp_provider.extract_from_text(cleaned_text)
         else:
             raise HTTPException(status_code=400, detail="No syllabus content provided. Please upload a PDF or paste text.")
     except ValueError as ve:
@@ -513,3 +538,165 @@ def update_concept_parameters(course_id: str, concept_id: str, payload: Dict[str
         "difficulty": concept.difficulty,
         "importance": concept.importance
     }
+
+# -------------------------------------------------------------
+# Prerequisite Edge Graph Mutation & Cycle Detection
+# -------------------------------------------------------------
+@router.post("/{course_id}/prerequisites")
+def add_prerequisite_edge(
+    course_id: str,
+    payload: Dict[str, str],
+    db: Session = Depends(get_db)
+):
+    source_id = payload.get("source_id")
+    target_id = payload.get("target_id")
+    if not source_id or not target_id:
+        raise HTTPException(status_code=400, detail="Both 'source_id' and 'target_id' are required.")
+    if source_id == target_id:
+        raise HTTPException(status_code=400, detail="Self-prerequisite loop forbidden: A concept cannot depend on itself.")
+
+    # Fetch concepts ensuring they belong to this course
+    source = (
+        db.query(Concept)
+        .join(Topic, Concept.topic_id == Topic.id)
+        .join(Unit, Topic.unit_id == Unit.id)
+        .filter(Concept.id == source_id, Unit.course_id == course_id)
+        .first()
+    )
+    target = (
+        db.query(Concept)
+        .join(Topic, Concept.topic_id == Topic.id)
+        .join(Unit, Topic.unit_id == Unit.id)
+        .filter(Concept.id == target_id, Unit.course_id == course_id)
+        .first()
+    )
+    if not source or not target:
+        raise HTTPException(status_code=404, detail="One or both concepts do not exist in this course.")
+
+    if source in target.prerequisites:
+        return {"status": "exists", "message": f"Prerequisite '{source.name}' -> '{target.name}' already exists."}
+
+    # Strict Cycle Detection via NetworkX DiGraph
+    all_concepts = (
+        db.query(Concept)
+        .join(Topic, Concept.topic_id == Topic.id)
+        .join(Unit, Topic.unit_id == Unit.id)
+        .filter(Unit.course_id == course_id)
+        .all()
+    )
+    dag = nx.DiGraph()
+    for c in all_concepts:
+        dag.add_node(c.id)
+        for p in c.prerequisites:
+            dag.add_edge(p.id, c.id)
+
+    # Tentatively add edge source -> target
+    dag.add_edge(source_id, target_id)
+    if not nx.is_directed_acyclic_graph(dag):
+        try:
+            cycle = nx.find_cycle(dag, orientation="original")
+            cycle_desc = " -> ".join([step[0] for step in cycle] + [cycle[0][0]])
+        except Exception:
+            cycle_desc = f"{source_id} -> {target_id}"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Circular dependency detected! Adding edge '{source.name}' -> '{target.name}' forms an invalid cycle in curriculum DAG: {cycle_desc}"
+        )
+
+    # Persist in DB
+    target.prerequisites.append(source)
+    db.commit()
+
+    # Sync into MongoDB if available
+    mongo_db = get_mongo_db()
+    if mongo_db is not None:
+        try:
+            mongo_db["curriculum_graphs"].update_one(
+                {"course_id": course_id},
+                {"$push": {f"adjacency_list.{target_id}": source_id}},
+                upsert=True
+            )
+        except Exception:
+            pass
+
+    # Recalculate course optimization
+    time_allocator.optimize_course_time(db, course_id)
+
+    return {
+        "status": "success",
+        "message": f"Prerequisite '{source.name}' -> '{target.name}' successfully established.",
+        "source_id": source_id,
+        "target_id": target_id
+    }
+
+@router.delete("/{course_id}/prerequisites/{source_id}/{target_id}")
+def delete_prerequisite_edge(
+    course_id: str,
+    source_id: str,
+    target_id: str,
+    db: Session = Depends(get_db)
+):
+    target = (
+        db.query(Concept)
+        .join(Topic, Concept.topic_id == Topic.id)
+        .join(Unit, Topic.unit_id == Unit.id)
+        .filter(Concept.id == target_id, Unit.course_id == course_id)
+        .first()
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="Target concept not found in this course.")
+
+    source = db.query(Concept).filter(Concept.id == source_id).first()
+    if not source or source not in target.prerequisites:
+        raise HTTPException(status_code=404, detail="Prerequisite edge does not exist.")
+
+    target.prerequisites.remove(source)
+    db.commit()
+
+    # Re-optimize time allocation
+    time_allocator.optimize_course_time(db, course_id)
+
+    return {
+        "status": "success",
+        "message": f"Prerequisite link '{source.name}' -> '{target.name}' successfully removed.",
+        "source_id": source_id,
+        "target_id": target_id
+    }
+
+@router.post("/{course_id}/curriculum/reorder")
+def reorder_curriculum_elements(
+    course_id: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """
+    Reorder topics within units or move concepts between topics.
+    Payload shape:
+    {
+        "topic_orders": [{"id": "topic-uuid", "order_index": 1}],
+        "concept_moves": [{"id": "concept-uuid", "topic_id": "topic-uuid", "order_index": 1}]
+    }
+    """
+    topic_orders = payload.get("topic_orders", [])
+    for item in topic_orders:
+        t = db.query(Topic).join(Unit).filter(Topic.id == item["id"], Unit.course_id == course_id).first()
+        if t and "order_index" in item:
+            t.order_index = int(item["order_index"])
+
+    concept_moves = payload.get("concept_moves", [])
+    for item in concept_moves:
+        c = db.query(Concept).join(Topic).join(Unit).filter(Concept.id == item["id"], Unit.course_id == course_id).first()
+        if c:
+            if "topic_id" in item and item["topic_id"]:
+                c.topic_id = item["topic_id"]
+            if "order_index" in item:
+                c.order_index = int(item["order_index"])
+
+    db.commit()
+    time_allocator.optimize_course_time(db, course_id)
+
+    return {
+        "status": "success",
+        "message": "Curriculum ordering updated successfully."
+    }
+
