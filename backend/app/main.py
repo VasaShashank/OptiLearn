@@ -4,7 +4,8 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 from app.database.config import settings, DEV_SECRET_KEY
-from app.database.connection import get_db_info, logger
+from app.database.connection import get_db_info, get_mongo_db, logger
+from app.database.mongo_schema import ensure_mongo_schema
 from app.services.errors import ConflictError
 from app.api.auth import router as auth_router
 from app.api.courses import router as courses_router
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
     from app.models import entities  # noqa: F401 — ensure models are registered
     if settings.SECRET_KEY == DEV_SECRET_KEY:
         logger.warning("SECRET_KEY is the development default; set SECRET_KEY in backend/.env before sharing this server")
+    ensure_mongo_schema(get_mongo_db())
     if db_dialect == "sqlite":
         Base.metadata.create_all(bind=db_engine)
     elif not inspect(db_engine).has_table("alembic_version"):

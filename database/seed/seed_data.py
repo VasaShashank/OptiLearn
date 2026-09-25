@@ -16,10 +16,13 @@ from app.models.entities import (
     prerequisites, teacher_preferred_methods
 )
 from app.optimization.scoring import scoring_engine
+from app.database.mongo_schema import ensure_mongo_schema
+from app.services.artifact_service import artifact_service
 from app.optimization.time_allocator import time_allocator
 
 def seed_database():
     print("Initializing Database tables...")
+    ensure_mongo_schema(get_mongo_db())
     if db_dialect == "sqlite":
         Base.metadata.create_all(bind=db_engine)
     # PostgreSQL tables come from Alembic: alembic -c database/migrations/alembic.ini upgrade head
@@ -30,6 +33,8 @@ def seed_database():
         existing_course = db.query(Course).filter(Course.code == "CS302").first()
         if existing_course:
             print("Database already contains CS302 course. Cleaning previous seed...")
+            # No cross-store cascade exists, so remove the course's MongoDB artifacts explicitly
+            artifact_service.delete_course_artifacts(existing_course.id)
             db.delete(existing_course)
             db.commit()
 
@@ -385,20 +390,8 @@ def seed_database():
         print("Running initial Course-Level Time Optimizer...")
         time_allocator.optimize_course_time(db, course.id)
 
-        # Seed MongoDB curriculum graph artifact
-        mongo_db = get_mongo_db()
-        graph_artifact = {
-            "course_id": course.id,
-            "title": course.title,
-            "seeded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "nodes_count": 22,
-            "edges_count": 18
-        }
-        mongo_db["curriculum_graphs"].update_one(
-            {"course_id": course.id},
-            {"$set": graph_artifact},
-            upsert=True
-        )
+        # Versioned curriculum graph snapshot in MongoDB, built from the SQL graph
+        artifact_service.snapshot_curriculum_graph(db, course.id, reason="Seeded sample course")
 
         refresh_dashboard_snapshot(db)
 

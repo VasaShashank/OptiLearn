@@ -74,13 +74,18 @@ class CourseOut(BaseModel):
 # -------------------------------------------------------------
 # Curriculum & Extraction Schemas
 # -------------------------------------------------------------
+# Same value sets as the CHECK constraints on concepts.concept_type / course_outcomes.bloom_level,
+# so bad input is a 422 from the API rather than a constraint error from the database
+ConceptType = Literal["conceptual", "procedural", "problem_solving", "practical", "analytical", "revision"]
+BloomLevel = Literal["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"]
+
 class ConceptDraft(BaseModel):
     id: Optional[str] = None
     name: str
     description: Optional[str] = None
     difficulty: int = Field(default=3, ge=1, le=5)
     importance: int = Field(default=3, ge=1, le=5)
-    concept_type: str = "conceptual"
+    concept_type: ConceptType = "conceptual"
     prerequisites: List[str] = [] # list of prerequisite concept names or IDs
     bloom_level: Optional[str] = "Understand"
 
@@ -101,7 +106,7 @@ class UnitDraft(BaseModel):
 class OutcomeDraft(BaseModel):
     code: str
     description: str
-    bloom_level: str = "Understand"
+    bloom_level: BloomLevel = "Understand"
 
 class ExtractedCurriculum(BaseModel):
     course_name: str

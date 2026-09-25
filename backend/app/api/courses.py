@@ -16,6 +16,7 @@ from app.services.analytics_service import analytics_service
 from app.services.lesson_plan_service import lesson_plan_service
 from app.services.assessment_service import assessment_service
 from app.services.session_service import session_service
+from app.services.artifact_service import artifact_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
 
@@ -192,6 +193,7 @@ async def upload_course_syllabus(
         units=curriculum.units,
         outcomes=curriculum.outcomes
     )
+    artifact_service.record_extraction(curriculum, course_id=course_id, extracted_by=course.teacher.user_id)
     result = curriculum_service.confirm_and_persist(db, course_id, confirm_payload)
     time_allocator.optimize_course_time(db, course_id)
 
@@ -212,6 +214,15 @@ def confirm_curriculum(course_id: str, payload: ConfirmCurriculumRequest, db: Se
 @router.get("/{course_id}/graph", response_model=CurriculumGraphResponse)
 def get_curriculum_graph(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     return curriculum_service.get_graph(db, course_id)
+
+@router.get("/{course_id}/graph/versions")
+def list_graph_versions(course_id: str, _: Course = Depends(get_accessible_course)):
+    """Curriculum graph snapshots stored in MongoDB, newest first."""
+    return artifact_service.list_graph_versions(course_id)
+
+@router.get("/{course_id}/graph/diff")
+def diff_graph_versions(course_id: str, from_version: int, to_version: int, _: Course = Depends(get_accessible_course)):
+    return artifact_service.diff_graph_versions(course_id, from_version, to_version)
 
 # -------------------------------------------------------------
 # Optimization Endpoints
@@ -269,6 +280,17 @@ def review_lesson_plan(
 ):
     """Accept / edit / reject a recommended plan. Stale expected_version -> 409."""
     return lesson_plan_service.update_plan(db, course_id, session_number, payload, current_user.id)
+
+@router.get("/{course_id}/lesson-plans/{session_number}/history")
+def lesson_plan_history(course_id: str, session_number: int, db: Session = Depends(get_db),
+                        _: Course = Depends(get_accessible_course)):
+    """Every saved version of the plan (MongoDB), newest first, with who changed it."""
+    return artifact_service.lesson_plan_history(db, course_id, session_number)
+
+@router.get("/{course_id}/lesson-plans/{session_number}/diff")
+def lesson_plan_diff(course_id: str, session_number: int, from_version: int, to_version: int,
+                     db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
+    return artifact_service.diff_lesson_plan_versions(db, course_id, session_number, from_version, to_version)
 
 # -------------------------------------------------------------
 # Class Sessions (timetable + post-class record)

@@ -9,7 +9,8 @@ from app.schemas.schemas import TableSchemaInfo, QueryDemoResult
 from app.services.dbms_insights_service import dbms_insights_service
 from app.services.sql_console_service import run_console_query
 from app.services.transaction_lab_service import transaction_lab_service
-from app.auth.security import get_current_user, get_accessible_course
+from app.auth.security import get_current_user, get_accessible_course, require_admin
+from app.services.artifact_service import artifact_service
 
 router = APIRouter(prefix="/dbms", tags=["DBMS Insights & Academic Showcase"], dependencies=[Depends(get_current_user)])
 
@@ -59,3 +60,33 @@ def list_transaction_scenarios():
 def run_transaction_scenario(scenario: str, db: Session = Depends(get_db)):
     """Runs interleaved transactions on the txn_lab_accounts scratch table and returns the timeline."""
     return jsonable_encoder(transaction_lab_service.run(db.bind, scenario))
+
+
+
+# ---------------------------------------------------------------- MongoDB (NoSQL) side
+@router.get("/nosql/aggregations")
+def list_nosql_aggregations():
+    return artifact_service.list_aggregations()
+
+
+@router.post("/nosql/aggregations/{aggregation_id}/execute")
+def run_nosql_aggregation(aggregation_id: str, course_id: str, db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    get_accessible_course(course_id, current_user, db)
+    return jsonable_encoder(artifact_service.run_aggregation(aggregation_id, course_id))
+
+
+@router.get("/consistency")
+def cross_store_consistency(course_id: str = None, db: Session = Depends(get_db),
+                            current_user: User = Depends(get_current_user)):
+    """Compare PostgreSQL pointers with MongoDB documents. Without course_id: all courses (admin)."""
+    if course_id:
+        get_accessible_course(course_id, current_user, db)
+    elif current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Administrator role required for a global check")
+    return jsonable_encoder(artifact_service.consistency_report(db, course_id))
+
+
+@router.post("/consistency/repair")
+def repair_cross_store_consistency(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    return artifact_service.repair(db)

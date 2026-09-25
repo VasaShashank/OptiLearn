@@ -2,19 +2,19 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from typing import Optional
 from app.nlp.deterministic import nlp_provider
 from app.schemas.schemas import ExtractedCurriculum
-from app.database.connection import get_mongo_db
+from app.models.entities import User
+from app.services.artifact_service import artifact_service
 from app.auth.security import get_current_user
 from app.api.courses import read_syllabus_upload
-import datetime
 
 router = APIRouter(prefix="/syllabus", tags=["Syllabus Extraction"], dependencies=[Depends(get_current_user)])
 
 @router.post("/upload", response_model=ExtractedCurriculum)
 async def upload_syllabus(
     file: Optional[UploadFile] = File(None),
-    raw_text: Optional[str] = Form(None)
+    raw_text: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
 ):
-    mongo_db = get_mongo_db()
     curriculum = None
 
     try:
@@ -40,17 +40,7 @@ async def upload_syllabus(
             raise e
         raise HTTPException(status_code=500, detail=f"Syllabus extraction failed: {str(e)}")
 
-    # Save raw extraction draft in MongoDB
-    try:
-        mongo_db["nlp_extractions"].insert_one({
-            "course_code": curriculum.course_code,
-            "course_name": curriculum.course_name,
-            "confidence_score": curriculum.confidence_score,
-            "units_count": len(curriculum.units),
-            "raw_payload": curriculum.dict(),
-            "extracted_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
-        })
-    except Exception as e:
-        pass # Non-blocking for offline mock
+    # Raw extraction draft in MongoDB (expires via TTL unless confirmed into a course)
+    artifact_service.record_extraction(curriculum, course_id=None, extracted_by=current_user.id)
 
     return curriculum
