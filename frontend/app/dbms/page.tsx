@@ -1,277 +1,139 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Database, Table2, Play, Clock, Key, Link2, CheckCircle2,
-  ChevronRight, ChevronDown, Server, Layers, Code, Zap,
-} from "lucide-react";
-import { dbmsAPI, coursesAPI } from "@/lib/api";
-import type { TableSchemaInfo, QueryDemoResult, TableColumn } from "@/lib/types";
+import { Code, Database, Layers, Server, Table2 } from "lucide-react";
+import { coursesAPI, dbmsAPI } from "@/lib/api";
+import { useSession } from "@/lib/auth";
+import type { Course, QueryMeta, TableSchemaInfo } from "@/lib/types";
+import SchemaTab from "@/components/dbms/schema-tab";
+import ERDiagramTab from "@/components/dbms/er-diagram-tab";
+import NormalizationTab from "@/components/dbms/normalization-tab";
+import QueriesTab from "@/components/dbms/queries-tab";
+import ObjectsTab from "@/components/dbms/objects-tab";
+import ConsoleTab from "@/components/dbms/console-tab";
+import TransactionsTab from "@/components/dbms/transactions-tab";
+import NoSQLTab from "@/components/dbms/nosql-tab";
+import AuditTab from "@/components/dbms/audit-tab";
 
-type QueryMeta = { id: string; title: string; category: string; purpose: string };
+const TABS = [
+  { id: "schema", label: "Schema", pgOnly: false },
+  { id: "er", label: "ER Diagram", pgOnly: false },
+  { id: "normalization", label: "Normalization", pgOnly: false },
+  { id: "queries", label: "SQL Queries", pgOnly: false },
+  { id: "objects", label: "Database Objects", pgOnly: true },
+  { id: "console", label: "SQL Console", pgOnly: true },
+  { id: "transactions", label: "Transactions", pgOnly: true },
+  { id: "nosql", label: "MongoDB", pgOnly: false },
+  { id: "audit", label: "Audit & Consistency", pgOnly: false },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
 
 export default function DBMSInsightsPage() {
+  const { user } = useSession();
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
   const [schema, setSchema] = useState<TableSchemaInfo[]>([]);
   const [queries, setQueries] = useState<QueryMeta[]>([]);
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
-  const [queryResult, setQueryResult] = useState<QueryDemoResult | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [courseId, setCourseId] = useState("");
+  const [tab, setTab] = useState<TabId>("schema");
   const [loading, setLoading] = useState(true);
-  const [executing, setExecuting] = useState(false);
-  const [courseId, setCourseId] = useState<string>("");
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [s, sc, q, courses] = await Promise.all([
-          dbmsAPI.getStatus(),
-          dbmsAPI.getSchema().catch(() => []),
-          dbmsAPI.listQueries().catch(() => []),
-          coursesAPI.list().catch(() => []),
-        ]);
-        setStatus(s);
-        setSchema(sc);
-        setQueries(q);
-        if (courses.length > 0) setCourseId(courses[0].id);
-      } catch { /* ignore */ }
+    Promise.all([
+      dbmsAPI.getStatus().catch(() => null),
+      dbmsAPI.getSchema().catch(() => []),
+      dbmsAPI.listQueries().catch(() => []),
+      coursesAPI.list().catch(() => []),
+    ]).then(([s, sc, q, c]) => {
+      setStatus(s);
+      setSchema(sc);
+      setQueries(q);
+      setCourses(c);
+      if (c.length > 0) setCourseId(c[0].id);
       setLoading(false);
-    }
-    load();
+    });
   }, []);
 
-  const executeQuery = async (queryId: string) => {
-    setSelectedQuery(queryId);
-    setExecuting(true);
-    try {
-      const result = await dbmsAPI.executeQuery(queryId, courseId || undefined);
-      setQueryResult(result);
-    } catch { /* ignore */ }
-    setExecuting(false);
-  };
+  const dialect = String(status?.relational_dialect || "unknown");
+  const isPostgres = dialect === "postgresql";
 
   if (loading) {
     return (
       <div>
         <div className="skeleton" style={{ width: 300, height: 32, marginBottom: 24 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-          {[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 80, borderRadius: "var(--radius-lg)" }} />)}
-        </div>
         <div className="skeleton" style={{ height: 400, borderRadius: "var(--radius-lg)" }} />
       </div>
     );
   }
 
-  const tableInfo = schema.find((t) => t.table_name === selectedTable);
-
   return (
     <div className="animate-fade-in">
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
-          <Database size={24} style={{ display: "inline", verticalAlign: "middle", marginRight: 8, color: "var(--accent-cyan)" }} />
-          DBMS Academic Showcase
-        </h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
-          Relational schema inspector, normalization analysis, and live demonstration queries
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 8 }}>
+            <Database size={24} style={{ color: "var(--accent-cyan)" }} /> DBMS Showcase
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+            Schema, normalization, SQL, server-side objects, security, transactions and the document store, all live.
+          </p>
+        </div>
+        {courses.length > 0 && (
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+            Course
+            <select className="select" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}
+            </select>
+          </label>
+        )}
       </div>
 
-      {/* Status Cards */}
       {status && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }} className="animate-fade-in-up">
-          <StatusCard label="Relational DB" value={String(status.relational_dialect || "unknown").toUpperCase()} connected={!!status.relational_connected} icon={<Server size={18} />} />
-          <StatusCard label="NoSQL Engine" value={String(status.nosql_mode || "unknown")} connected={!!status.nosql_connected} icon={<Layers size={18} />} />
-          <StatusCard label="Tables" value={schema.length.toString()} connected={true} icon={<Table2 size={18} />} />
-          <StatusCard label="Demo Queries" value={String(status.total_demonstration_queries || queries.length)} connected={true} icon={<Code size={18} />} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+          <StatusCard label="Relational DB" value={dialect.toUpperCase()} ok={!!status.relational_connected} icon={<Server size={16} />} />
+          <StatusCard label="Document store" value={String(status.nosql_mode || "unknown")} ok={!!status.nosql_connected} icon={<Layers size={16} />} />
+          <StatusCard label="Tables" value={String(schema.length)} ok icon={<Table2 size={16} />} />
+          <StatusCard label="Demo queries" value={String(queries.length)} ok icon={<Code size={16} />} />
         </div>
       )}
 
-      {/* Two Column: Schema + Queries */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        {/* Schema Explorer */}
-        <div>
-          <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-            <Table2 size={18} style={{ color: "var(--accent-purple)" }} />
-            Relational Schema ({schema.length} tables)
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {schema.map((table) => (
-              <div key={table.table_name} className="card" style={{ overflow: "hidden" }}>
-                <div
-                  onClick={() => setSelectedTable(selectedTable === table.table_name ? null : table.table_name)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", cursor: "pointer" }}
-                >
-                  {selectedTable === table.table_name ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <Table2 size={14} style={{ color: "var(--accent-cyan)" }} />
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{table.table_name}</span>
-                  <span className="badge badge-neutral" style={{ marginLeft: "auto", fontSize: "0.5625rem" }}>{table.columns.length} cols</span>
-                </div>
-                {selectedTable === table.table_name && (
-                  <div style={{ padding: "0 16px 16px" }}>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 8 }}>{table.description}</div>
-                    <div style={{ padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "rgba(99,102,241,0.06)", fontSize: "0.6875rem", color: "var(--accent-blue)", marginBottom: 10, display: "inline-block" }}>
-                      {table.normal_form}
-                    </div>
-                    <table className="data-table" style={{ fontSize: "0.75rem" }}>
-                      <thead>
-                        <tr>
-                          <th style={{ padding: "8px 10px", fontSize: "0.625rem" }}>Column</th>
-                          <th style={{ padding: "8px 10px", fontSize: "0.625rem" }}>Type</th>
-                          <th style={{ padding: "8px 10px", fontSize: "0.625rem" }}>PK</th>
-                          <th style={{ padding: "8px 10px", fontSize: "0.625rem" }}>FK</th>
-                          <th style={{ padding: "8px 10px", fontSize: "0.625rem" }}>Nullable</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {table.columns.map((col: TableColumn) => (
-                          <tr key={col.name}>
-                            <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono)", fontWeight: col.primary_key ? 700 : 400, color: col.primary_key ? "var(--accent-amber)" : col.foreign_key ? "var(--accent-cyan)" : "var(--text-secondary)" }}>
-                              {col.primary_key && <Key size={10} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />}
-                              {col.foreign_key && <Link2 size={10} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />}
-                              {col.name}
-                            </td>
-                            <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--text-muted)" }}>{col.type}</td>
-                            <td style={{ padding: "6px 10px" }}>{col.primary_key ? <CheckCircle2 size={12} style={{ color: "var(--accent-amber)" }} /> : "–"}</td>
-                            <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono)", fontSize: "0.625rem", color: "var(--accent-cyan)" }}>{col.foreign_key || "–"}</td>
-                            <td style={{ padding: "6px 10px", fontSize: "0.6875rem" }}>{col.nullable ? "Yes" : "No"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+      {!isPostgres && (
+        <div className="card" style={{ padding: 12, marginBottom: 16, fontSize: "0.8125rem", color: "#fbbf24" }}>
+          The API is running on the {dialect} fallback. Views, triggers, roles, row-level security and the Transaction Lab need PostgreSQL.
         </div>
+      )}
 
-        {/* Queries */}
-        <div>
-          <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-            <Code size={18} style={{ color: "var(--accent-emerald)" }} />
-            Demonstration Queries ({queries.length})
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
-            {queries.map((q) => (
-              <div
-                key={q.id}
-                className="card"
-                style={{
-                  padding: 14, cursor: "pointer",
-                  borderColor: selectedQuery === q.id ? "var(--brand-start)" : "var(--border-default)",
-                  background: selectedQuery === q.id ? "rgba(99,102,241,0.06)" : "var(--bg-card)",
-                }}
-                onClick={() => executeQuery(q.id)}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{q.title}</span>
-                  <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: "0.6875rem" }}>
-                    <Play size={12} /> Run
-                  </button>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <span className="badge badge-neutral" style={{ fontSize: "0.5625rem" }}>{q.category}</span>
-                </div>
-                <p style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>{q.purpose}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="tab-list" role="tablist" style={{ marginBottom: 24, flexWrap: "wrap" }}>
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id}
+            className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}
+            disabled={t.pgOnly && !isPostgres} title={t.pgOnly && !isPostgres ? "Requires PostgreSQL" : undefined}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Query Result */}
-      {queryResult && (
-        <div className="animate-fade-in-up" style={{ marginTop: 24 }}>
-          <div className="glass-card" style={{ overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-default)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <h3 style={{ fontSize: "0.9375rem", fontWeight: 700 }}>{queryResult.title}</h3>
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <span className="badge badge-neutral">{queryResult.category}</span>
-                  <span className="badge badge-success">{queryResult.row_count} rows</span>
-                  <span className="badge badge-info">
-                    <Clock size={10} /> {queryResult.execution_time_ms}ms
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* SQL */}
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border-default)" }}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>SQL Query</div>
-              <pre className="code-block" style={{ margin: 0, maxHeight: 200, overflow: "auto" }}>
-                {highlightSQL(queryResult.sql)}
-              </pre>
-            </div>
-
-            {/* Results Table */}
-            {queryResult.rows.length > 0 ? (
-              <div style={{ overflow: "auto", maxHeight: 400 }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      {queryResult.columns.map((col) => (
-                        <th key={col} style={{ fontFamily: "var(--font-mono)" }}>{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {queryResult.rows.map((row, i) => (
-                      <tr key={i}>
-                        {queryResult.columns.map((col) => (
-                          <td key={col} style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>
-                            {row[col] != null ? String(row[col]) : <span style={{ color: "var(--text-muted)" }}>NULL</span>}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)" }}>
-                No rows returned
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {executing && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40, gap: 12 }}>
-          <div className="spinner" />
-          <span style={{ color: "var(--text-secondary)" }}>Executing query...</span>
-        </div>
-      )}
+      {tab === "schema" && <SchemaTab schema={schema} />}
+      {tab === "er" && <ERDiagramTab />}
+      {tab === "normalization" && <NormalizationTab />}
+      {tab === "queries" && <QueriesTab queries={queries} courseId={courseId} dialect={dialect} />}
+      {tab === "objects" && <ObjectsTab />}
+      {tab === "console" && <ConsoleTab />}
+      {tab === "transactions" && <TransactionsTab />}
+      {tab === "nosql" && <NoSQLTab courseId={courseId} />}
+      {tab === "audit" && <AuditTab courseId={courseId} dialect={dialect} isAdmin={user?.role === "admin"} />}
     </div>
   );
 }
 
-function StatusCard({ label, value, connected, icon }: { label: string; value: string; connected: boolean; icon: React.ReactNode }) {
+function StatusCard({ label, value, ok, icon }: { label: string; value: string; ok: boolean; icon: React.ReactNode }) {
   return (
-    <div className="card" style={{ padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <div style={{ color: connected ? "var(--accent-emerald)" : "var(--text-muted)" }}>{icon}</div>
+    <div className="card" style={{ padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ color: ok ? "var(--accent-emerald)" : "var(--text-muted)" }}>{icon}</span>
         <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>{label}</span>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: connected ? "#34d399" : "#fb7185", marginLeft: "auto" }} />
+        <span aria-label={ok ? "connected" : "disconnected"} style={{ width: 7, height: 7, borderRadius: "50%", background: ok ? "#34d399" : "#fb7185", marginLeft: "auto" }} />
       </div>
-      <div style={{ fontSize: "1rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>{value}</div>
+      <div style={{ fontSize: "0.9375rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>{value}</div>
     </div>
   );
-}
-
-function highlightSQL(sql: string): React.ReactNode {
-  // Simple keyword highlighting
-  const keywords = /\b(SELECT|FROM|JOIN|LEFT|RIGHT|INNER|OUTER|ON|WHERE|AND|OR|GROUP|BY|HAVING|ORDER|ASC|DESC|AS|COUNT|SUM|AVG|MAX|MIN|ROUND|COALESCE|CASE|WHEN|THEN|END|DISTINCT|IN|NOT|NULL|LIKE|BETWEEN|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|INDEX|CONSTRAINT|PRIMARY|FOREIGN|KEY|REFERENCES|CASCADE|SET|INTO|VALUES)\b/gi;
-  const parts = sql.split(keywords);
-  return parts.map((part, i) => {
-    if (keywords.test(part)) {
-      return <span key={i} style={{ color: "#ff7b72", fontWeight: 600 }}>{part}</span>;
-    }
-    // Check for strings
-    if (part.includes("'")) {
-      return <span key={i} style={{ color: "#a5d6ff" }}>{part}</span>;
-    }
-    return <span key={i}>{part}</span>;
-  });
 }

@@ -446,6 +446,14 @@ class DBMSInsightsService:
 
         return result
 
+    def explain_demo_query(self, db: Session, query_id: str, course_id: str) -> Dict[str, Any]:
+        from app.services.db_catalog_service import db_catalog_service
+        query_def = next((q for q in DEMO_QUERIES if q["id"] == query_id), None)
+        if not query_def:
+            raise ValueError(f"Demonstration query {query_id} not found")
+        plan = db_catalog_service.explain(db, query_def["sql"], {"course_id": course_id})
+        return {"query_id": query_id, "plan": plan}
+
     def execute_demo_query(self, db: Session, query_id: str, course_id: str) -> QueryDemoResult:
         query_def = next((q for q in DEMO_QUERIES if q["id"] == query_id), None)
         if not query_def:

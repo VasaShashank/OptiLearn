@@ -12,8 +12,11 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { clearSession, useSession } from "@/lib/auth";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -26,7 +29,14 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user } = useSession();
   const [collapsed, setCollapsed] = useState(false);
+
+  const signOut = () => {
+    clearSession();
+    router.replace("/login");
+  };
 
   return (
     <aside
@@ -129,6 +139,25 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Signed-in user */}
+      {user && (
+        <div style={{ padding: collapsed ? "12px 8px" : "12px 16px", borderTop: "1px solid var(--border-default)", display: "flex", alignItems: "center", gap: 10, justifyContent: collapsed ? "center" : "flex-start" }}>
+          {!collapsed && (
+            <div style={{ overflow: "hidden", flex: 1 }}>
+              <div style={{ fontSize: "0.8125rem", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.full_name}</div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", display: "flex", gap: 6, alignItems: "center" }}>
+                <span className={`badge ${user.role === "admin" ? "badge-purple" : "badge-info"}`} style={{ fontSize: "0.5625rem", padding: "1px 6px" }}>{user.role}</span>
+                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</span>
+              </div>
+            </div>
+          )}
+          <button onClick={signOut} className="btn-ghost" title="Sign out" aria-label="Sign out"
+            style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 6, borderRadius: "var(--radius-sm)", display: "flex" }}>
+            <LogOut size={18} />
+          </button>
+        </div>
+      )}
 
       {/* Collapse Toggle */}
       <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border-default)" }}>

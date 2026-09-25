@@ -11,6 +11,7 @@ from app.services.sql_console_service import run_console_query
 from app.services.transaction_lab_service import transaction_lab_service
 from app.auth.security import get_current_user, get_accessible_course, require_admin
 from app.services.artifact_service import artifact_service
+from app.services.db_catalog_service import db_catalog_service
 
 router = APIRouter(prefix="/dbms", tags=["DBMS Insights & Academic Showcase"], dependencies=[Depends(get_current_user)])
 
@@ -39,6 +40,25 @@ def execute_query(query_id: str, course_id: str = None, db: Session = Depends(ge
     get_accessible_course(course_id, current_user, db)
 
     return dbms_insights_service.execute_demo_query(db, query_id, course_id)
+
+
+@router.post("/queries/{query_id}/explain")
+def explain_query(query_id: str, course_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """EXPLAIN (ANALYZE, BUFFERS) of a demo query: the executed plan, timings and index use."""
+    get_accessible_course(course_id, current_user, db)
+    return dbms_insights_service.explain_demo_query(db, query_id, course_id)
+
+
+@router.get("/objects")
+def list_database_objects(db: Session = Depends(get_db)):
+    """Views, routines, triggers, RLS policies, indexes and roles from the system catalogs."""
+    return jsonable_encoder(db_catalog_service.database_objects(db))
+
+
+@router.get("/er-diagram")
+def get_er_diagram(db: Session = Depends(get_db)):
+    """Mermaid erDiagram generated from the live schema."""
+    return db_catalog_service.er_diagram(db)
 
 
 class ConsoleRequest(BaseModel):

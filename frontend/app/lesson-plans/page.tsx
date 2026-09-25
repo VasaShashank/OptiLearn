@@ -161,15 +161,15 @@ export default function LessonPlansPage() {
                 ))}
               </select>
 
-              <a
-                href={exportsAPI.getCalendarUrl(selectedCourseId)}
-                download
+              <button
+                type="button"
+                onClick={() => exportsAPI.downloadCalendar(selectedCourseId).catch(() => {})}
                 className="btn btn-secondary"
                 title="Download iCalendar file for Google Calendar / Outlook"
-                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", textDecoration: "none" }}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem" }}
               >
                 <Calendar size={15} /> Export iCal
-              </a>
+              </button>
             </>
           )}
           <button className="btn btn-primary" onClick={generatePlan} disabled={generating}>
@@ -232,15 +232,14 @@ export default function LessonPlansPage() {
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>{selectedPlan.topic_title}</p>
                   </div>
                   <div>
-                    <a
-                      href={exportsAPI.getPrintableLessonPlanUrl(selectedPlan.session_id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => exportsAPI.openPrintableLessonPlan(selectedPlan.session_id).catch(() => {})}
                       className="btn btn-secondary"
-                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", textDecoration: "none" }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem" }}
                     >
                       <Printer size={15} /> Print / Save PDF
-                    </a>
+                    </button>
                   </div>
                 </div>
 

@@ -215,3 +215,19 @@ def test_transaction_lab_scenarios(pg_app):
     deadlock = lab.run(pg_app, "deadlock")
     assert sorted(deadlock["outcome"].values()) == ["aborted", "committed"]
     assert any("deadlock detected" in str(s["result"]) for s in deadlock["timeline"])
+
+
+def test_catalog_and_explain_on_postgres(pg_app):
+    from app.services.db_catalog_service import db_catalog_service
+    from app.services.dbms_insights_service import dbms_insights_service
+
+    with Session(bind=pg_app) as session:
+        objects = db_catalog_service.database_objects(session)
+        assert {"trg_prerequisite_guard", "trg_performance_weakness"} <= {t["name"] for t in objects["triggers"]}
+        assert any(r["name"] == "fn_audit_row_change" and r["security_definer"] for r in objects["routines"])
+        assert len(objects["policies"]) == 20
+        assert any(i["is_partial"] for i in objects["indexes"])
+
+        course_id = session.execute(text("SELECT id FROM courses WHERE code = 'CS302'")).scalar()
+        plan = dbms_insights_service.explain_demo_query(session, "q11_curriculum_depth_recursive", course_id)["plan"]
+        assert any("actual time" in line for line in plan)
