@@ -42,60 +42,53 @@
 - Strict invariant: phase durations sum exactly to period duration
 - Automatic revision injection when weak prerequisites are detected
 
-### 📝 Lesson Plan Generation
-- Auto-generated structured lesson plans with pedagogical method recommendations
-- Teaching method effectiveness tracking across concept types
+### 📝 Lesson Plans with Human-in-the-Loop Review
+- Generated plans start as **drafts**; the teacher approves, rejects or edits them
+- Every save is a new immutable version in MongoDB with who/when/why, plus a field-level diff
+- Optimistic locking: a save based on a stale version is refused (409) and the UI offers the latest
 
-### 📈 Analytics & Continuous Feedback
-- Course progress tracking
-- Assessment performance analysis per concept
-- Intelligent alerts for curriculum bottlenecks and weak areas
-- Teaching method effectiveness comparison
+### 👨‍🏫 Teacher Workflow
+- **Next Class** card on the dashboard: topic, revision decision, methods, period timeline and the reason
+- **Teaching Calendar**: every period by status; record what was actually taught
+- **Assessment results** per concept feed weakness flags, priorities and alerts (re-optimization)
 
-### 🗄️ DBMS Insights Dashboard
-- Live schema visualization of the relational database
-- Pre-built analytical SQL queries demonstrating DBMS concepts
-- Real-time query execution against course data
+### 🗄️ DBMS Showcase (the graded core)
+- **Schema** with live row counts, **ER diagram** generated from the database's own foreign keys
+- **Normalization**: the 1NF and derived-attribute fixes (migration 0002), FDs and keys per table
+- **19 SQL demos** incl. recursive CTEs, window functions, relational division, `EXCEPT`, with `EXPLAIN ANALYZE`
+- **Server-side objects**: views, a materialized view, functions, a stored procedure, 16 triggers, RLS policies, indexes
+- **SQL console** running as a read-only role under row-level security, with attack examples PostgreSQL refuses
+- **Transaction Lab**: atomicity, isolation levels, lost updates and deadlocks on real concurrent connections
+- **MongoDB**: collection contracts, aggregation pipelines, curriculum graph versions and diffs
+- **Audit trail** written by triggers, and a **cross-store consistency** check with repair
+
+See **[docs/DBMS_REPORT.md](docs/DBMS_REPORT.md)** for the full write-up mapped to the evaluation criteria.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-OptiTeach/
-├── backend/                    # FastAPI Python Backend
-│   ├── app/
-│   │   ├── api/                # REST API endpoints
-│   │   │   ├── auth.py         # JWT authentication
-│   │   │   ├── courses.py      # Course CRUD, optimization, syllabus upload
-│   │   │   ├── syllabus.py     # Standalone syllabus extraction
-│   │   │   └── dbms_insights.py# Schema & query demos
-│   │   ├── auth/               # Security & JWT
-│   │   ├── database/           # SQLAlchemy + MongoDB connections
-│   │   ├── models/             # SQLAlchemy ORM entities
-│   │   ├── nlp/                # Deterministic NLP extraction engine
-│   │   ├── optimization/       # Time allocator, class optimizer, scoring
-│   │   ├── schemas/            # Pydantic request/response models
-│   │   ├── services/           # Business logic services
-│   │   └── main.py             # FastAPI app entry point
-│   ├── sample_syllabi/         # Sample syllabus files for testing
-│   └── tests/                  # Pytest test suite
-├── frontend/                   # Next.js React Frontend
-│   ├── app/                    # Next.js App Router pages
-│   │   ├── courses/            # Course listing & detail pages
-│   │   ├── upload/             # Syllabus upload & extraction UI
-│   │   ├── optimization/       # Optimization dashboard
-│   │   ├── lesson-plans/       # Lesson plan viewer
-│   │   └── dbms/               # DBMS insights dashboard
-│   ├── components/             # Reusable React components
-│   └── lib/                    # API client & type definitions
-├── database/                   # SQL scripts & seed data
-│   ├── sql/                    # Demo queries
-│   └── seed/                   # Database seeding script
-└── ai/                         # AI module placeholders
-    ├── extractors/
-    ├── curriculum/
-    └── recommendations/
+OptiMaximus/
+├── backend/app/
+│   ├── api/            # auth, courses (+ sessions, plan review), syllabus, exports, dbms, teaching_methods
+│   ├── auth/           # bcrypt, JWT, login throttling, course-level access control, audit actor
+│   ├── database/       # engine setup, config, MongoDB validators/indexes (mongo_schema.py)
+│   ├── models/         # SQLAlchemy entities (mirrors the migrations)
+│   ├── services/       # curriculum, assessment, lesson plan, session, artifact (MongoDB),
+│   │                   # SQL console, transaction lab, DB catalog, DBMS demo queries
+│   ├── optimization/   # time allocator (MILP), class optimizer, scoring, revision, methods
+│   └── nlp/            # deterministic syllabus extraction
+├── backend/tests/      # 102 tests: SQLite suite + PostgreSQL + real MongoDB
+├── database/
+│   ├── migrations/     # Alembic 0001-0004 (source of truth for the schema)
+│   ├── scripts/        # backup.py, restore.py, export_sql_reference.py
+│   ├── sql/            # GENERATED: 01_schema.sql (pg_dump), 02_demo_queries.sql
+│   ├── erd/            # GENERATED: schema_erd.mermaid
+│   └── seed/           # sample CS302 course, teacher + admin accounts
+├── frontend/           # Next.js 15: login, dashboard, courses, lesson plans, calendar, DBMS showcase
+├── docs/               # DBMS_REPORT.md, api_documentation.md, architecture, formulation, manual
+└── .github/workflows/  # CI: PostgreSQL 17 + MongoDB 8 services, migrations, tests, frontend build
 ```
 
 ---
@@ -104,14 +97,13 @@ OptiTeach/
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | Next.js 14 (App Router), React 18, TypeScript, Lucide Icons |
-| **Backend** | FastAPI (Python 3.11+), Uvicorn |
-| **Relational DB** | PostgreSQL (primary) / SQLite (fallback) via SQLAlchemy ORM |
-| **Document DB** | MongoDB / MongoMock (for NLP extraction artifacts) |
-| **NLP Engine** | Deterministic rule-based extraction (pypdf, regex) |
-| **Optimization** | Custom mathematical time-allocation algorithms |
-| **Authentication** | JWT (HS256) with bcrypt password hashing |
-| **Testing** | Pytest with FastAPI TestClient |
+| **Frontend** | Next.js 15 (App Router), React 19, TypeScript, Lucide icons, Mermaid (ER diagram) |
+| **Backend** | FastAPI, Uvicorn, Pydantic v2 |
+| **Relational DB** | PostgreSQL 17 via SQLAlchemy 2 + Alembic (SQLite fallback for zero-config runs) |
+| **Document DB** | MongoDB 8 via PyMongo (MongoMock fallback) |
+| **Optimization** | SciPy MILP, NetworkX |
+| **Security** | bcrypt, JWT (HS256), PostgreSQL roles, row-level security, column privileges |
+| **Testing / CI** | Pytest, headless Chromium checks, GitHub Actions with database service containers |
 
 ---
 
@@ -177,34 +169,28 @@ npm run dev
 
 The frontend will be available at `http://localhost:3000`.
 
-### Running Tests
+### Running Tests & Maintenance
 
 ```bash
 # From the repository root. Tests use their own throwaway SQLite DB + MongoMock,
 # so they never touch your development database.
 python -m pytest backend/tests -v
+
+# Regenerate the reference SQL / ER diagram after a migration
+python database/scripts/export_sql_reference.py
+
+# Backup both stores, restore into a scratch database
+python database/scripts/backup.py
+python database/scripts/restore.py backups/<timestamp> --target-db optiteach_copy
 ```
 
 ---
 
 ## 📡 API Endpoints
 
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| `POST` | `/api/auth/login` | JWT authentication |
-| `POST` | `/api/auth/register` | User registration |
-| `GET` | `/api/courses` | List all courses |
-| `POST` | `/api/courses` | Create a new course |
-| `GET` | `/api/courses/{id}` | Get course details |
-| `POST` | `/api/courses/{id}/syllabus` | Upload syllabus to existing course |
-| `POST` | `/api/courses/{id}/curriculum/confirm` | Confirm extracted curriculum |
-| `GET` | `/api/courses/{id}/graph` | Get curriculum knowledge graph |
-| `POST` | `/api/courses/{id}/optimize` | Run time allocation optimization |
-| `POST` | `/api/courses/{id}/optimize-next-class` | Optimize next class session |
-| `GET` | `/api/courses/{id}/analytics` | Get course analytics |
-| `POST` | `/api/syllabus/upload` | Standalone syllabus extraction |
-| `GET` | `/api/dbms/schema` | Database schema information |
-| `POST` | `/api/dbms/queries/{id}/execute` | Execute demo SQL query |
+46 operations, listed in **[docs/api_documentation.md](docs/api_documentation.md)** (generated from the
+OpenAPI schema) and browsable at `http://localhost:8000/docs`. All routes except `/`, `/health`,
+login and register require a bearer token.
 
 ---
 
@@ -225,14 +211,18 @@ The NLP extraction engine uses **deterministic rule-based parsing** (no external
 
 ## 🧪 Test Suite
 
-The project includes 6 automated tests covering:
+102 tests (`python -m pytest backend/tests`):
 
-1. **API Health Check** — Verifies server and database connectivity
-2. **Authentication** — JWT login flow validation
-3. **NLP Extraction** — Syllabus text parsing accuracy
-4. **Optimization Invariant** — `Allocated + Revision + Assessment ≤ Total Available`
-5. **Class Optimizer** — Phase durations sum exactly to period duration (55m)
-6. **Assessment Feedback Loop** — Re-optimization after assessment results
+| Area | What is checked |
+|------|-----------------|
+| Core (SQLite) | extraction, optimizer invariants, assessment feedback loop, demo queries, exports |
+| Security | auth required everywhere, bcrypt + legacy upgrade, throttling, course isolation, nested-ID checks, XSS escaping, upload limits |
+| PostgreSQL objects | generated column, preference table, every trigger, functions, procedure, views, materialized view |
+| PostgreSQL security | app-role limits, append-only audit, RLS isolation, hidden password hashes, console attack attempts, timeouts |
+| Concurrency | optimistic-lock conflicts with Mongo compensation, two-thread race on recording a class, Transaction Lab scenarios |
+| MongoDB | graph versions/diffs, plan history/diffs, pipelines, consistency repair; validator, unique and TTL indexes on a real server |
+
+PostgreSQL and MongoDB tests create throwaway databases and are skipped if no server is reachable.
 
 ---
 

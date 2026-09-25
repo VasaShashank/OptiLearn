@@ -16,11 +16,12 @@ if str(backend_dir) not in sys.path:
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-# Isolate the suite from any developer database: a throwaway SQLite file and
-# in-memory Mongo. Must be set before `app` is imported anywhere.
+# Isolate the suite from any real database: a throwaway SQLite file and in-memory Mongo,
+# forced even when DATABASE_URL is set (e.g. in CI). Must happen before `app` is imported.
+# PostgreSQL/MongoDB-backed tests use their own throwaway databases (fixtures below).
 _test_db_dir = tempfile.mkdtemp(prefix="optiteach-tests-")
-os.environ.setdefault("DATABASE_URL", f"sqlite:///{Path(_test_db_dir, 'test.db').as_posix()}")
-os.environ.setdefault("MONGODB_URL", "mongomock://")
+os.environ["DATABASE_URL"] = f"sqlite:///{Path(_test_db_dir, 'test.db').as_posix()}"
+os.environ["MONGODB_URL"] = "mongomock://"
 
 
 @pytest.fixture(scope="session", autouse=True)

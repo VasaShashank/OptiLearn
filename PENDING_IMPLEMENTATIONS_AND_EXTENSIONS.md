@@ -71,17 +71,35 @@ The following core modules are **fully implemented, tested, and verified**:
 
 ---
 
+## ✅ Completed in the DBMS phases (feature/dbms-phases branch)
+
+- **PostgreSQL-owned schema**: Alembic migrations 0001–0004 with working downgrades; normalization fixes
+  (1NF preference table, generated `total_available_minutes`); views, materialized view, functions,
+  stored procedure, 16 triggers, JSONB audit log, partial and FK indexes.
+- **Security**: bcrypt, JWT on every route, login throttling, course-level authorization, least-privilege
+  `optiteach_app` role, append-only audit via `SECURITY DEFINER`, row-level security for a read-only SQL
+  console, upload limits, stored-XSS fix, explicit CORS. *(Replaces "Frontend Auth Workflow" and
+  "Security & Rate Limiting Hardening" below.)*
+- **Transactions**: row locks, savepoints, optimistic locking with 409 handling, Transaction Lab.
+- **MongoDB**: validators, unique/TTL indexes, lesson-plan version history + diffs, curriculum graph
+  snapshots + diffs, aggregation pipelines, cross-store consistency check/repair. *(Covers "Version history
+  tracking of teacher-modified lesson plans with diff inspection".)*
+- **Workflow UI**: login, Next Class card, plan review (approve/edit/reject), teaching calendar,
+  post-class record, assessment results entry, nine-tab DBMS showcase.
+- **Operations**: backup/restore scripts, generated reference SQL + ER diagram, GitHub Actions CI with
+  PostgreSQL and MongoDB service containers. *(Covers "Automated CI/CD Pipeline"; linting is not yet in CI.)*
+
 ## 📊 Remaining Feature Prioritization Matrix
 
 | Priority | Feature / Module | Impact | Complexity | Status |
 |:---:|---|:---:|:---:|:---:|
-| 🔴 **P0** | Frontend Auth UI & Route Protection | Critical | Medium | Pending |
-| 🟡 **P1** | Drag-and-Drop Curriculum & DAG Editor | High | High | Pending |
+| 🔴 **P0** | Frontend Auth UI & Route Protection | Critical | Medium | ✅ Done |
+| 🟡 **P1** | Full MongoDB Unstructured Content Integration | High | Medium | ✅ Done (versions, graphs, pipelines) |
+| 🟢 **P2** | Automated CI/CD GitHub Actions Pipeline | Medium | Low | ✅ Done (tests + build; linting pending) |
+| 🟢 **P2** | Security & Rate Limiting Hardening | Medium | Low | ✅ Done |
+| 🟡 **P1** | Drag-and-Drop Curriculum & DAG Editor | High | High | Pending (the DB-side cycle guard already exists) |
 | 🟡 **P1** | Live Lecture Presenter Mode with Pacing Timer | High | Medium | Pending |
-| 🟡 **P1** | Full MongoDB Unstructured Content Integration | High | Medium | Pending |
 | 🟢 **P2** | Production Dockerization & docker-compose | High | Medium | Pending |
-| 🟢 **P2** | Automated CI/CD GitHub Actions Pipeline | Medium | Low | Pending |
-| 🟢 **P2** | Security & Rate Limiting Hardening | Medium | Low | Pending |
 | ⚪ **P3** | LMS Integration (Canvas / Moodle LTI 1.3) | Medium | High | Future |
 | ⚪ **P3** | Multi-Faculty Co-teaching & Department Sync | Low | High | Future |
 
