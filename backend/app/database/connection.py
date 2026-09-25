@@ -69,7 +69,8 @@ def refresh_dashboard_snapshot(db) -> None:
     if db.bind.dialect.name != "postgresql":
         return
     try:
-        db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_course_dashboard"))
+        # SECURITY DEFINER wrapper: only the view's owner may refresh it (migration 0003)
+        db.execute(text("SELECT fn_refresh_course_dashboard()"))
         db.commit()
     except Exception as exc:
         db.rollback()

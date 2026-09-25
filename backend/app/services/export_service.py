@@ -1,6 +1,7 @@
 """
 Multi-Format Export Service (iCalendar .ics, Printable Lesson Plan HTML, ABET/NBA Matrix)
 """
+from html import escape as html_escape
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
@@ -80,21 +81,26 @@ class ExportService:
         misconceptions = doc.get("misconceptions", [])
         questions = doc.get("assessment_questions", [])
 
+        # Everything interpolated below can originate from an uploaded syllabus or a teacher
+        # edit, so it is HTML-escaped to prevent stored XSS in the printable page.
+        esc = lambda value: html_escape(str(value))
         phases_rows = "".join(
-            f"<tr><td><b>{p.get('phase_name', '')}</b></td><td>{p.get('duration_minutes', 0)} mins</td><td>{p.get('method_name', '')}</td><td>{p.get('activity_description', '')}</td></tr>"
+            f"<tr><td><b>{esc(p.get('phase_name', ''))}</b></td><td>{esc(p.get('duration_minutes', 0))} mins</td><td>{esc(p.get('method_name', ''))}</td><td>{esc(p.get('activity_description', ''))}</td></tr>"
             for p in phases
         )
 
-        obj_items = "".join(f"<li>{o}</li>" for o in objectives)
-        ex_items = "".join(f"<li>{e}</li>" for e in worked_examples)
-        misc_items = "".join(f"<li>{m}</li>" for m in misconceptions)
-        q_items = "".join(f"<li>{q}</li>" for q in questions)
+        obj_items = "".join(f"<li>{esc(o)}</li>" for o in objectives)
+        ex_items = "".join(f"<li>{esc(e)}</li>" for e in worked_examples)
+        misc_items = "".join(f"<li>{esc(m)}</li>" for m in misconceptions)
+        q_items = "".join(f"<li>{esc(q)}</li>" for q in questions)
+        title = esc(lp.title)
+        topic_title = esc(lp.topic.title if lp.topic else '')
 
         html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>{lp.title}</title>
+<title>{title}</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 40px; color: #1e293b; line-height: 1.6; }}
   .header {{ border-bottom: 2px solid #6366f1; padding-bottom: 16px; margin-bottom: 24px; }}
@@ -111,8 +117,8 @@ class ExportService:
 <body>
 <div class="header">
   <span class="badge">OptiTeach Structured Lesson Plan</span>
-  <h1>{lp.title}</h1>
-  <p><b>Topic:</b> {lp.topic.title if lp.topic else ''} | <b>Period:</b> {lp.session.session_number if lp.session else 1}</p>
+  <h1>{title}</h1>
+  <p><b>Topic:</b> {topic_title} | <b>Period:</b> {lp.session.session_number if lp.session else 1}</p>
 </div>
 
 <div class="section-title">⏱️ Period Phases Breakdown</div>

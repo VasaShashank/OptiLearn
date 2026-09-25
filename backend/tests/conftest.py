@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -27,3 +28,74 @@ def seeded_database():
     from database.seed.seed_data import seed_database
     seed_database()
     yield
+
+
+def login_client(email: str, password: str):
+    """TestClient that sends a bearer token for the given user on every request."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    resp = client.post("/api/auth/login", json={"email": email, "password": password})
+    assert resp.status_code == 200, resp.text
+    client.headers["Authorization"] = f"Bearer {resp.json()['access_token']}"
+    return client
+
+
+@pytest.fixture(scope="session")
+def api(seeded_database):
+    """Authenticated client for the seeded CS302 teacher."""
+    return login_client("faculty@optiteach.edu", "admin123")
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL test database (tests needing it are skipped if no server is reachable)
+# ---------------------------------------------------------------------------
+PG_ADMIN_URL = os.getenv("TEST_PG_ADMIN_URL", "postgresql://postgres:postgres@localhost:5432/postgres")
+PG_TEST_DB = "optiteach_test"
+PG_TEST_URL = PG_ADMIN_URL.rsplit("/", 1)[0] + f"/{PG_TEST_DB}"
+PG_APP_TEST_URL = os.getenv(
+    "TEST_PG_APP_URL", f"postgresql://optiteach_app:optiteach_app_dev@localhost:5432/{PG_TEST_DB}"
+)
+
+
+def _run_with_test_db(args):
+    subprocess.run(
+        [sys.executable, *args], cwd=root_dir, check=True, capture_output=True,
+        env={**os.environ, "DATABASE_URL": PG_APP_TEST_URL, "MIGRATION_DATABASE_URL": PG_TEST_URL,
+             "MONGODB_URL": "mongomock://"},
+    )
+
+
+@pytest.fixture(scope="session")
+def pg():
+    """Superuser engine on a fresh optiteach_test DB: migrated as owner, seeded as optiteach_app."""
+    from sqlalchemy import create_engine, text
+
+    try:
+        admin = create_engine(PG_ADMIN_URL, isolation_level="AUTOCOMMIT", connect_args={"connect_timeout": 3})
+        with admin.connect() as conn:
+            conn.execute(text(f"DROP DATABASE IF EXISTS {PG_TEST_DB} WITH (FORCE)"))
+            conn.execute(text(f"CREATE DATABASE {PG_TEST_DB}"))
+    except Exception as exc:
+        pytest.skip(f"PostgreSQL not available: {exc}")
+
+    _run_with_test_db(["-m", "alembic", "-c", "database/migrations/alembic.ini", "upgrade", "head"])
+    _run_with_test_db(["-m", "database.seed.seed_data"])
+
+    engine = create_engine(PG_TEST_URL)
+    yield engine
+    engine.dispose()
+    with admin.connect() as conn:
+        conn.execute(text(f"DROP DATABASE IF EXISTS {PG_TEST_DB} WITH (FORCE)"))
+    admin.dispose()
+
+
+@pytest.fixture(scope="session")
+def pg_app(pg):
+    """Engine connected as the least-privilege optiteach_app role."""
+    from sqlalchemy import create_engine
+
+    engine = create_engine(PG_APP_TEST_URL)
+    yield engine
+    engine.dispose()

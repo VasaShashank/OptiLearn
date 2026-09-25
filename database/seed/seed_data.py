@@ -58,6 +58,16 @@ def seed_database():
             db.add(teacher)
             db.flush()
 
+        # Department administrator: sees every course (role-based access demo)
+        if not db.query(User).filter(User.email == "admin@optiteach.edu").first():
+            db.add(User(
+                email="admin@optiteach.edu",
+                hashed_password=hash_password("admin123"),
+                full_name="Dept. Administrator",
+                role="admin"
+            ))
+            db.flush()
+
         print("Seeding Course: Database Management Systems (CS302)...")
         # 2. Course: CS302
         course = Course(

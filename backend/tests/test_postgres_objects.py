@@ -2,51 +2,12 @@
 Server-side PostgreSQL objects from migration 0002: generated column, triggers,
 functions, stored procedure, views and the materialized view.
 
-Runs against a throwaway `optiteach_test` database that is migrated with Alembic and
-seeded, so it exercises exactly what production gets. Skipped when no PostgreSQL
-server is reachable (set TEST_PG_ADMIN_URL to point elsewhere).
+Runs against the throwaway `optiteach_test` database from the `pg` fixture (conftest):
+migrated with Alembic and seeded, so it exercises exactly what production gets.
 """
-import os
-import subprocess
-import sys
-from pathlib import Path
-
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
-
-ROOT = Path(__file__).resolve().parents[2]
-ADMIN_URL = os.getenv("TEST_PG_ADMIN_URL", "postgresql://postgres:postgres@localhost:5432/postgres")
-TEST_DB = "optiteach_test"
-TEST_URL = ADMIN_URL.rsplit("/", 1)[0] + f"/{TEST_DB}"
-
-
-def _run(args, **env):
-    subprocess.run(
-        [sys.executable, *args], cwd=ROOT, check=True, capture_output=True,
-        env={**os.environ, "DATABASE_URL": TEST_URL, "MONGODB_URL": "mongomock://", **env},
-    )
-
-
-@pytest.fixture(scope="module")
-def pg():
-    try:
-        admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT", connect_args={"connect_timeout": 3})
-        with admin.connect() as conn:
-            conn.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB} WITH (FORCE)"))
-            conn.execute(text(f"CREATE DATABASE {TEST_DB}"))
-    except Exception as exc:
-        pytest.skip(f"PostgreSQL not available: {exc}")
-
-    _run(["-m", "alembic", "-c", "database/migrations/alembic.ini", "upgrade", "head"])
-    _run(["-m", "database.seed.seed_data"])
-
-    engine = create_engine(TEST_URL)
-    yield engine
-    engine.dispose()
-    with admin.connect() as conn:
-        conn.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB} WITH (FORCE)"))
-    admin.dispose()
 
 
 @pytest.fixture

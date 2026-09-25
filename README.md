@@ -137,11 +137,13 @@ pip install -r backend/requirements.txt
 # 2. Configuration (optional — defaults match a local PostgreSQL with user/password postgres)
 copy backend\.env.example backend\.env
 
-# 3. Create the database and apply the schema (PostgreSQL)
+# 3. Create the database and apply the schema (PostgreSQL). Migrations run as the
+#    owner (MIGRATION_DATABASE_URL) and create the least-privilege optiteach_app role
+#    that the API itself connects as (DATABASE_URL).
 createdb -U postgres optiteach
 alembic -c database/migrations/alembic.ini upgrade head
 
-# 4. Seed the sample CS302 course
+# 4. Seed the sample CS302 course (runs as optiteach_app)
 python -m database.seed.seed_data
 
 # 5. Start the API server
@@ -150,7 +152,20 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 The API will be available at `http://localhost:8000` with interactive docs at `/docs`.
-Demo login: `faculty@optiteach.edu` / `admin123`.
+Demo logins: `faculty@optiteach.edu` / `admin123` (teacher, owns CS302) and
+`admin@optiteach.edu` / `admin123` (administrator, sees every course).
+
+### Security model
+
+| Layer | Mechanism |
+|-------|-----------|
+| Passwords | bcrypt (per-password salt, cost 12); legacy SHA-256 hashes upgraded on next login |
+| API authentication | JWT bearer tokens on every route except `/`, `/health`, login and register; login throttled per IP + email |
+| Authorization | Roles `teacher` / `admin`; teachers reach only their own courses (others' IDs return 404); nested IDs (assessment, topic) must belong to the course in the URL |
+| Database login | API connects as `optiteach_app`: DML only — no DDL, no `TRUNCATE`, cannot write `audit_log` |
+| Audit trail | Row triggers record every change with the acting user (`app.user_id`); the trigger is `SECURITY DEFINER`, so the log is append-only for the app |
+| SQL console | Read-only transaction, `SET LOCAL ROLE optiteach_readonly`, row-level security per teacher, column privileges hide `users.hashed_password`, statement timeout + row cap |
+| Input | Pydantic validation, parameterized queries only, upload size/type limits, HTML-escaped printable exports, explicit CORS origins |
 
 ### Frontend Setup
 

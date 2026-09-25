@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.database.connection import get_db
-from app.models.entities import Course, Teacher, Unit, Topic, Concept, CourseOutcome, Section, TeacherConstraint, Assessment
+from app.models.entities import Course, Teacher, Unit, Topic, Concept, CourseOutcome, Section, TeacherConstraint, Assessment, User
 from app.schemas.schemas import (
     CourseCreate, CourseOut, ConfirmCurriculumRequest, CurriculumGraphResponse,
     CourseOptimizationResponse, NextClassOptimizationResponse,
@@ -17,13 +18,21 @@ from app.services.assessment_service import assessment_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
 
-from app.auth.security import get_optional_current_teacher
+from app.auth.security import get_current_user, get_current_teacher, get_accessible_course
 
-router = APIRouter(prefix="/courses", tags=["Courses & Optimization"])
+# Every route requires a valid bearer token; /{course_id} routes additionally resolve the
+# course through get_accessible_course (owner or admin, otherwise 404).
+router = APIRouter(prefix="/courses", tags=["Courses & Optimization"], dependencies=[Depends(get_current_user)])
+
+MAX_SYLLABUS_BYTES = 5 * 1024 * 1024
+ALLOWED_SYLLABUS_SUFFIXES = (".pdf", ".txt", ".md")
 
 @router.get("", response_model=List[CourseOut])
-def list_courses(db: Session = Depends(get_db)):
-    courses = db.query(Course).all()
+def list_courses(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    query = db.query(Course)
+    if current_user.role != "admin":
+        query = query.join(Teacher).filter(Teacher.user_id == current_user.id)
+    courses = query.order_by(Course.created_at).all()
     results = []
     for c in courses:
         u_count = len(c.units)
@@ -50,12 +59,11 @@ def list_courses(db: Session = Depends(get_db)):
 @router.post("", response_model=CourseOut)
 def create_course(
     payload: CourseCreate,
-    current_teacher: Optional[Teacher] = Depends(get_optional_current_teacher),
+    teacher: Optional[Teacher] = Depends(get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    teacher = current_teacher or db.query(Teacher).first()
     if not teacher:
-        raise HTTPException(status_code=400, detail="No teacher profile exists. Run seed or register first.")
+        raise HTTPException(status_code=403, detail="Only teachers can create courses")
 
     course = Course(
         teacher_id=teacher.id,
@@ -87,7 +95,11 @@ def create_course(
         default_revision_minutes=c_vals.default_revision_minutes if c_vals else 10
     )
     db.add(constraint)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="You already have a course with this code in this semester")
     db.refresh(course)
 
     return CourseOut(
@@ -108,11 +120,7 @@ def create_course(
     )
 
 @router.get("/{course_id}", response_model=CourseOut)
-def get_course(course_id: str, db: Session = Depends(get_db)):
-    c = db.query(Course).filter(Course.id == course_id).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Course not found")
-
+def get_course(c: Course = Depends(get_accessible_course)):
     u_count = len(c.units)
     t_count = sum(len(u.topics) for u in c.units)
     c_count = sum(sum(len(t.concepts) for t in u.topics) for u in c.units)
@@ -137,21 +145,28 @@ def get_course(course_id: str, db: Session = Depends(get_db)):
 # -------------------------------------------------------------
 # Curriculum & Knowledge Graph
 # -------------------------------------------------------------
+async def read_syllabus_upload(file: UploadFile) -> bytes:
+    """Bounded read with an extension allow-list; rejects oversized or unexpected files."""
+    if not file.filename or not file.filename.lower().endswith(ALLOWED_SYLLABUS_SUFFIXES):
+        raise HTTPException(status_code=415, detail="Syllabus must be a .pdf, .txt or .md file")
+    content = await file.read(MAX_SYLLABUS_BYTES + 1)
+    if len(content) > MAX_SYLLABUS_BYTES:
+        raise HTTPException(status_code=413, detail="Syllabus file exceeds the 5 MB limit")
+    if file.filename.lower().endswith(".pdf") and not content.startswith(b"%PDF"):
+        raise HTTPException(status_code=415, detail="File is not a valid PDF")
+    return content
 @router.post("/{course_id}/syllabus")
 async def upload_course_syllabus(
     course_id: str,
     file: Optional[UploadFile] = File(None),
     raw_text: Optional[str] = Form(None),
+    course: Course = Depends(get_accessible_course),
     db: Session = Depends(get_db)
 ):
-    course = db.query(Course).filter(Course.id == course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
     curriculum = None
     try:
         if file:
-            content_bytes = await file.read()
+            content_bytes = await read_syllabus_upload(file)
             filename = file.filename.lower()
             if filename.endswith(".pdf"):
                 curriculum = nlp_provider.extract_from_pdf(content_bytes)
@@ -187,36 +202,43 @@ async def upload_course_syllabus(
     }
 
 @router.post("/{course_id}/curriculum/confirm")
-def confirm_curriculum(course_id: str, payload: ConfirmCurriculumRequest, db: Session = Depends(get_db)):
+def confirm_curriculum(course_id: str, payload: ConfirmCurriculumRequest, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     result = curriculum_service.confirm_and_persist(db, course_id, payload)
     # Automatically run optimizer to update allocations
     time_allocator.optimize_course_time(db, course_id)
     return result
 
 @router.get("/{course_id}/graph", response_model=CurriculumGraphResponse)
-def get_curriculum_graph(course_id: str, db: Session = Depends(get_db)):
+def get_curriculum_graph(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     return curriculum_service.get_graph(db, course_id)
 
 # -------------------------------------------------------------
 # Optimization Endpoints
 # -------------------------------------------------------------
 @router.post("/{course_id}/optimize", response_model=CourseOptimizationResponse)
-def run_course_optimization(course_id: str, db: Session = Depends(get_db)):
+def run_course_optimization(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     return time_allocator.optimize_course_time(db, course_id)
 
 @router.get("/{course_id}/optimization", response_model=CourseOptimizationResponse)
-def get_course_optimization(course_id: str, db: Session = Depends(get_db)):
+def get_course_optimization(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     return time_allocator.optimize_course_time(db, course_id)
 
 @router.post("/{course_id}/optimize-next-class", response_model=NextClassOptimizationResponse)
-def optimize_next_class(course_id: str, session_number: Optional[int] = None, db: Session = Depends(get_db)):
+def optimize_next_class(course_id: str, session_number: Optional[int] = None, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     return class_optimizer.optimize_next_class(db, course_id, session_number=session_number)
 
 # -------------------------------------------------------------
 # Lesson Plans
 # -------------------------------------------------------------
 @router.post("/{course_id}/lesson-plans/generate", response_model=LessonPlanOut)
-def generate_lesson_plan(course_id: str, payload: Dict[str, Any], db: Session = Depends(get_db)):
+def generate_lesson_plan(course_id: str, payload: Dict[str, Any], db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
+    topic_in_course = (
+        db.query(Topic.id).join(Unit)
+        .filter(Topic.id == payload.get("topic_id"), Unit.course_id == course_id)
+        .first()
+    )
+    if not topic_in_course:
+        raise HTTPException(status_code=404, detail="Topic not found in this course")
     session_num = payload.get("session_number", 15)
     return lesson_plan_service.generate_plan(db, course_id, session_num, payload)
 
@@ -227,7 +249,8 @@ def list_course_lesson_plans(
     unit_id: Optional[str] = None,
     topic_id: Optional[str] = None,
     status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Course = Depends(get_accessible_course)
 ):
     return lesson_plan_service.list_plans(
         db, course_id, session_number=session_number, unit_id=unit_id, topic_id=topic_id, status=status
@@ -237,7 +260,7 @@ def list_course_lesson_plans(
 # Assessments & Continuous Feedback
 # -------------------------------------------------------------
 @router.get("/{course_id}/assessments")
-def list_assessments(course_id: str, db: Session = Depends(get_db)):
+def list_assessments(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     assessments = db.query(Assessment).filter(Assessment.course_id == course_id).all()
     results = []
     for a in assessments:
@@ -262,16 +285,20 @@ def list_assessments(course_id: str, db: Session = Depends(get_db)):
     return results
 
 @router.post("/{course_id}/assessments", response_model=AssessmentOut)
-def create_assessment(course_id: str, payload: AssessmentCreate, db: Session = Depends(get_db)):
+def create_assessment(course_id: str, payload: AssessmentCreate, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     return assessment_service.create_assessment(db, course_id, payload)
 
 @router.post("/{course_id}/assessments/{assessment_id}/results")
-def record_assessment_results(course_id: str, assessment_id: str, payload: RecordAssessmentResultsRequest, db: Session = Depends(get_db)):
+def record_assessment_results(course_id: str, assessment_id: str, payload: RecordAssessmentResultsRequest, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
+    # The assessment must belong to the course in the URL, or a teacher could write
+    # into another course's assessment through their own course's path
+    if not db.query(Assessment.id).filter(Assessment.id == assessment_id, Assessment.course_id == course_id).first():
+        raise HTTPException(status_code=404, detail="Assessment not found")
     return assessment_service.record_results(db, assessment_id, payload)
 
 # -------------------------------------------------------------
 # Analytics & Alerts
 # -------------------------------------------------------------
 @router.get("/{course_id}/analytics", response_model=CourseAnalyticsResponse)
-def get_analytics(course_id: str, db: Session = Depends(get_db)):
+def get_analytics(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
     return analytics_service.get_course_analytics(db, course_id)

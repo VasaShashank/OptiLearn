@@ -3,9 +3,11 @@ from typing import Optional
 from app.nlp.deterministic import nlp_provider
 from app.schemas.schemas import ExtractedCurriculum
 from app.database.connection import get_mongo_db
+from app.auth.security import get_current_user
+from app.api.courses import read_syllabus_upload
 import datetime
 
-router = APIRouter(prefix="/syllabus", tags=["Syllabus Extraction"])
+router = APIRouter(prefix="/syllabus", tags=["Syllabus Extraction"], dependencies=[Depends(get_current_user)])
 
 @router.post("/upload", response_model=ExtractedCurriculum)
 async def upload_syllabus(
@@ -17,7 +19,7 @@ async def upload_syllabus(
 
     try:
         if file:
-            content_bytes = await file.read()
+            content_bytes = await read_syllabus_upload(file)
             filename = file.filename.lower()
             if filename.endswith(".pdf"):
                 curriculum = nlp_provider.extract_from_pdf(content_bytes)

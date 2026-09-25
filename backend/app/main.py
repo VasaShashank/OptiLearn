@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
-from app.database.config import settings
+from app.database.config import settings, DEV_SECRET_KEY
 from app.database.connection import get_db_info, logger
 from app.api.auth import router as auth_router
 from app.api.courses import router as courses_router
@@ -20,6 +20,8 @@ async def lifespan(app: FastAPI):
     """
     from app.database.connection import db_engine, db_dialect, Base
     from app.models import entities  # noqa: F401 — ensure models are registered
+    if settings.SECRET_KEY == DEV_SECRET_KEY:
+        logger.warning("SECRET_KEY is the development default; set SECRET_KEY in backend/.env before sharing this server")
     if db_dialect == "sqlite":
         Base.metadata.create_all(bind=db_engine)
     elif not inspect(db_engine).has_table("alembic_version"):
@@ -44,12 +46,14 @@ async def value_error_handler(request: Request, exc: ValueError):
     return JSONResponse(status_code=status_code, content={"detail": message})
 
 # CORS Configuration
+# Explicit origin list: a wildcard origin together with credentials would let any site
+# make authenticated calls from a logged-in teacher's browser.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for seamless local dev
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Register API Routers

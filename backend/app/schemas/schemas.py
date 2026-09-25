@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -14,16 +14,17 @@ class Token(BaseModel):
     role: str
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
 
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    department: str
-    employee_id: str
-    designation: Optional[str] = "Assistant Professor"
+    email: EmailStr
+    # bcrypt only uses the first 72 bytes; cap well below any abuse size
+    password: str = Field(min_length=8, max_length=72)
+    full_name: str = Field(min_length=1, max_length=255)
+    department: str = Field(min_length=1, max_length=100)
+    employee_id: str = Field(min_length=1, max_length=50)
+    designation: Optional[str] = Field(default="Assistant Professor", max_length=100)
 
 class UserOut(BaseModel):
     id: str

@@ -27,9 +27,11 @@ from app.database.connection import Base
 from app.models import entities  # noqa: F401
 target_metadata = Base.metadata
 
-# Migrate the same database the app uses (DATABASE_URL), not a hardcoded URL.
+# Migrations run as the schema owner (MIGRATION_DATABASE_URL); the app itself connects
+# as the least-privilege role in DATABASE_URL. A SQLite DATABASE_URL is migrated directly.
 # ConfigParser treats '%' as interpolation, so escape it.
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
+migration_url = settings.DATABASE_URL if settings.DATABASE_URL.startswith("sqlite") else settings.MIGRATION_DATABASE_URL
+config.set_main_option("sqlalchemy.url", migration_url.replace("%", "%%"))
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""

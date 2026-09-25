@@ -2,14 +2,8 @@
 Recording assessment results is one transaction with per-item savepoints.
 Runs on the default test database (SQLite, ORM upsert path).
 """
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.database.connection import SessionLocal
 from app.models.entities import Assessment, Concept, Course, Performance, Topic, Unit
-
-client = TestClient(app)
-
 
 # A leaf concept (nothing depends on it), so recording a weak score here cannot change
 # the revision decisions other test modules assert on.
@@ -30,10 +24,10 @@ def _cs302_assessment_and_leaf_concept():
         db.close()
 
 
-def test_results_are_recorded_and_foreign_concepts_reported():
+def test_results_are_recorded_and_foreign_concepts_reported(api):
     course_id, assessment_id, concept_id = _cs302_assessment_and_leaf_concept()
 
-    resp = client.post(
+    resp = api.post(
         f"/api/courses/{course_id}/assessments/{assessment_id}/results",
         json={"performances": [
             {"concept_id": concept_id, "average_score": 35.0, "sample_size": 60},
@@ -56,18 +50,18 @@ def test_results_are_recorded_and_foreign_concepts_reported():
         db.close()
 
 
-def test_out_of_range_scores_rejected_before_the_database():
+def test_out_of_range_scores_rejected_before_the_database(api):
     course_id, assessment_id, concept_id = _cs302_assessment_and_leaf_concept()
-    resp = client.post(
+    resp = api.post(
         f"/api/courses/{course_id}/assessments/{assessment_id}/results",
         json={"performances": [{"concept_id": concept_id, "average_score": 150.0}]},
     )
     assert resp.status_code == 422
 
 
-def test_unknown_assessment_is_404():
+def test_unknown_assessment_is_404(api):
     course_id, _, concept_id = _cs302_assessment_and_leaf_concept()
-    resp = client.post(
+    resp = api.post(
         f"/api/courses/{course_id}/assessments/missing/results",
         json={"performances": [{"concept_id": concept_id, "average_score": 50.0}]},
     )
