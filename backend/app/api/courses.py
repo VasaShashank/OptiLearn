@@ -57,8 +57,6 @@ def create_course(
     if not teacher:
         raise HTTPException(status_code=400, detail="No teacher profile exists. Run seed or register first.")
 
-    total_avail = payload.total_classes * payload.period_duration
-
     course = Course(
         teacher_id=teacher.id,
         code=payload.code,
@@ -67,7 +65,6 @@ def create_course(
         academic_year=payload.academic_year,
         total_classes=payload.total_classes,
         period_duration=payload.period_duration,
-        total_available_minutes=total_avail,
         start_date=payload.start_date,
         end_date=payload.end_date
     )

@@ -2,6 +2,7 @@ import math
 from typing import Dict, List, Any
 from sqlalchemy.orm import Session
 from app.models.entities import Course, Topic
+from app.database.connection import refresh_dashboard_snapshot
 from app.optimization.scoring import scoring_engine
 from app.schemas.schemas import CourseOptimizationResponse, TopicAllocationOut
 
@@ -109,6 +110,7 @@ class TimeAllocator:
             t.allocated_minutes = item["allocated_minutes"]
             t.priority_score = item["priority_score"]
         db.commit()
+        refresh_dashboard_snapshot(db)
 
         unallocated_buffer = total_avail_min - (allocated_sum + revision_budget + assessment_budget)
 

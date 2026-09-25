@@ -244,12 +244,12 @@ class AssessmentCreate(BaseModel):
 
 class PerformanceRecordIn(BaseModel):
     concept_id: str
-    average_score: float
-    sample_size: int = 58
-    common_errors: Optional[str] = None
+    average_score: float = Field(ge=0.0, le=100.0)
+    sample_size: int = Field(default=58, gt=0)
+    common_errors: Optional[str] = Field(default=None, max_length=2000)
 
 class RecordAssessmentResultsRequest(BaseModel):
-    performances: List[PerformanceRecordIn]
+    performances: List[PerformanceRecordIn] = Field(min_length=1)
 
 class AssessmentOut(BaseModel):
     id: str
@@ -308,6 +308,8 @@ class QueryDemoResult(BaseModel):
     category: str
     sql: str
     purpose: str
+    sql_features: List[str] = []
+    requires: Optional[str] = None
     params: Dict[str, Any] = {}
     row_count: int
     columns: List[str]

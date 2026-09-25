@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 from app.database.config import settings
@@ -34,6 +35,13 @@ app = FastAPI(
     version=settings.VERSION,
     lifespan=lifespan
 )
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    """Services raise ValueError for bad references; surface them as 404/400, not 500."""
+    message = str(exc)
+    status_code = 404 if "not found" in message.lower() else 400
+    return JSONResponse(status_code=status_code, content={"detail": message})
 
 # CORS Configuration
 app.add_middleware(

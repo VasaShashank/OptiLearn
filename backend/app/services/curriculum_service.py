@@ -3,7 +3,7 @@ from typing import Dict, List, Any
 from sqlalchemy.orm import Session
 from app.models.entities import Course, Unit, Topic, Concept, CourseOutcome, ClassSession, Performance, prerequisites
 from app.schemas.schemas import ConfirmCurriculumRequest, CurriculumGraphResponse, GraphNode, GraphEdge
-from app.database.connection import get_mongo_db
+from app.database.connection import get_mongo_db, refresh_dashboard_snapshot
 
 class CurriculumService:
     """
@@ -120,6 +120,7 @@ class CurriculumService:
                 db.add(cs)
 
         db.commit()
+        refresh_dashboard_snapshot(db)
 
         # 6. Save Graph Artifact to MongoDB
         mongo_db = get_mongo_db()

@@ -60,6 +60,21 @@ def init_relational_db():
 
 init_relational_db()
 
+def refresh_dashboard_snapshot(db) -> None:
+    """
+    Re-materialize mv_course_dashboard (PostgreSQL only). CONCURRENTLY keeps the old
+    snapshot readable during the refresh (needs the view's unique index). Called after
+    writes that change progress/mastery; a failed refresh must never undo that write.
+    """
+    if db.bind.dialect.name != "postgresql":
+        return
+    try:
+        db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_course_dashboard"))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning(f"mv_course_dashboard refresh failed: {exc}")
+
 def get_db():
     """FastAPI Dependency for Relational DB Session"""
     db = SessionLocal()

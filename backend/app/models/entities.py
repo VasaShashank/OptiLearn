@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey, 
-    CheckConstraint, UniqueConstraint, Table
+    Column, String, Integer, BigInteger, Float, Boolean, Text, DateTime, ForeignKey,
+    CheckConstraint, UniqueConstraint, Table, Computed, JSON, Index, text
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.database.connection import Base
 
@@ -21,7 +22,9 @@ concept_outcomes = Table(
     "concept_outcomes",
     Base.metadata,
     Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
-    Column("outcome_id", String(36), ForeignKey("course_outcomes.id", ondelete="CASCADE"), primary_key=True)
+    Column("outcome_id", String(36), ForeignKey("course_outcomes.id", ondelete="CASCADE"), primary_key=True),
+    # The composite PK only serves lookups by its leading column (concept_id); FK side needs its own index
+    Index("ix_concept_outcomes_outcome", "outcome_id"),
 )
 
 prerequisites = Table(
@@ -29,7 +32,21 @@ prerequisites = Table(
     Base.metadata,
     Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
     Column("prerequisite_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
-    CheckConstraint("concept_id != prerequisite_id", name="check_no_self_prerequisite")
+    CheckConstraint("concept_id != prerequisite_id", name="check_no_self_prerequisite"),
+    Index("ix_prerequisites_prerequisite", "prerequisite_id"),
+)
+
+# 1NF fix: replaces the former teacher_constraints.preferred_methods_json list column.
+# One row per (constraint, method); `rank` keeps the teacher's preference order.
+teacher_preferred_methods = Table(
+    "teacher_preferred_methods",
+    Base.metadata,
+    Column("constraint_id", String(36), ForeignKey("teacher_constraints.id", ondelete="CASCADE"), primary_key=True),
+    Column("method_id", String(36), ForeignKey("teaching_methods.id", ondelete="CASCADE"), primary_key=True),
+    Column("rank", Integer, nullable=False),
+    UniqueConstraint("constraint_id", "rank", name="uq_preferred_method_rank"),
+    CheckConstraint("rank >= 1", name="check_positive_preference_rank"),
+    Index("ix_teacher_preferred_methods_method", "method_id"),
 )
 
 question_concepts = Table(
@@ -38,7 +55,8 @@ question_concepts = Table(
     Column("question_id", String(36), ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True),
     Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
     Column("weightage", Float, default=1.0),
-    CheckConstraint("weightage > 0", name="check_positive_weightage")
+    CheckConstraint("weightage > 0", name="check_positive_weightage"),
+    Index("ix_question_concepts_concept", "concept_id"),
 )
 
 # -------------------------------------------------------------------
@@ -88,7 +106,9 @@ class Course(Base):
     academic_year = Column(String(20), default="2026-2027")
     total_classes = Column(Integer, nullable=False) # e.g. 40
     period_duration = Column(Integer, nullable=False, default=55) # minutes
-    total_available_minutes = Column(Integer, nullable=False) # e.g. 40 * 55 = 2200
+    # Derived attribute stored as a generated column: the DBMS computes it, so it can
+    # never disagree with total_classes/period_duration (no update anomaly).
+    total_available_minutes = Column(Integer, Computed("total_classes * period_duration", persisted=True))
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now)
@@ -97,8 +117,8 @@ class Course(Base):
     __table_args__ = (
         CheckConstraint("total_classes > 0", name="check_positive_total_classes"),
         CheckConstraint("period_duration > 0", name="check_positive_period_duration"),
-        CheckConstraint("total_available_minutes >= 0", name="check_non_negative_available_time"),
         UniqueConstraint("teacher_id", "code", "semester", name="uq_teacher_course_semester"),
+        CheckConstraint("end_date IS NULL OR start_date IS NULL OR end_date >= start_date", name="check_course_date_order"),
     )
 
     teacher = relationship("Teacher", back_populates="courses")
@@ -136,7 +156,6 @@ class TeacherConstraint(Base):
     min_practice_ratio = Column(Float, default=0.35) # Min 35% practice / worked examples
     revision_threshold_score = Column(Float, default=60.0) # Trigger revision if prereq avg < 60%
     default_revision_minutes = Column(Integer, default=10)
-    preferred_methods_json = Column(Text, default="[]") # JSON list of preferred methods
     created_at = Column(DateTime, default=utc_now)
 
     __table_args__ = (
@@ -147,6 +166,12 @@ class TeacherConstraint(Base):
     )
 
     course = relationship("Course", back_populates="constraints")
+    preferred_methods = relationship(
+        "TeachingMethod",
+        secondary=teacher_preferred_methods,
+        order_by=teacher_preferred_methods.c.rank,
+        viewonly=True
+    )
 
 
 class CourseOutcome(Base):
@@ -266,6 +291,12 @@ class ClassSession(Base):
         CheckConstraint("duration_minutes > 0", name="check_positive_session_duration"),
         UniqueConstraint("course_id", "session_number", name="uq_course_session_number"),
         CheckConstraint("status IN ('scheduled', 'in_progress', 'completed', 'cancelled')", name="check_session_status"),
+        Index("ix_class_sessions_current_topic", "current_topic_id"),
+        # Partial index: "next scheduled session" lookups only ever touch the upcoming slice
+        Index(
+            "ix_class_sessions_upcoming", "course_id", "session_number",
+            postgresql_where=text("status = 'scheduled'"), sqlite_where=text("status = 'scheduled'")
+        ),
     )
 
     course = relationship("Course", back_populates="class_sessions")
@@ -394,6 +425,8 @@ class Performance(Base):
         CheckConstraint("average_score >= 0.0 AND average_score <= 100.0", name="check_average_score_range"),
         CheckConstraint("sample_size > 0", name="check_positive_sample_size"),
         UniqueConstraint("concept_id", "assessment_id", name="uq_concept_assessment_performance"),
+        # Partial index: weakness/revision queries only need flagged rows
+        Index("ix_performance_weak", "concept_id", postgresql_where=text("weakness_flag"), sqlite_where=text("weakness_flag")),
     )
 
     concept = relationship("Concept", back_populates="performances")
@@ -417,3 +450,25 @@ class MethodEffectiveness(Base):
     )
 
     method = relationship("TeachingMethod", back_populates="effect_records")
+
+
+class AuditLog(Base):
+    """
+    Append-only change history. On PostgreSQL it is filled by the fn_audit_row_change()
+    trigger (migration 0002), so every write is captured regardless of which client made it.
+    """
+    __tablename__ = "audit_log"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    table_name = Column(String(63), nullable=False)
+    operation = Column(String(6), nullable=False)
+    row_id = Column(String(36), nullable=True)
+    old_data = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    new_data = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    changed_by = Column(String(36), nullable=True)  # users.id taken from the app.user_id session setting
+    changed_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        CheckConstraint("operation IN ('INSERT', 'UPDATE', 'DELETE')", name="check_audit_operation"),
+        Index("ix_audit_log_table_row", "table_name", "row_id", "changed_at"),
+    )

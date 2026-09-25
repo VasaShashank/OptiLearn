@@ -7,13 +7,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 from sqlalchemy.orm import Session
-from app.database.connection import db_engine, db_dialect, SessionLocal, Base, init_relational_db, get_mongo_db
+from app.database.connection import db_engine, db_dialect, SessionLocal, Base, init_relational_db, get_mongo_db, refresh_dashboard_snapshot
 from app.auth.security import hash_password
 from app.models.entities import (
     User, Teacher, Course, Section, TeacherConstraint, CourseOutcome,
     Unit, Topic, Concept, ClassSession, TeachingMethod, LessonPlan,
     TeachingSession, Assessment, Question, Performance, MethodEffectiveness,
-    prerequisites
+    prerequisites, teacher_preferred_methods
 )
 from app.optimization.scoring import scoring_engine
 from app.optimization.time_allocator import time_allocator
@@ -68,7 +68,6 @@ def seed_database():
             academic_year="2026-2027",
             total_classes=40,
             period_duration=55,
-            total_available_minutes=40 * 55, # 2200 minutes
             start_date=datetime.datetime(2026, 8, 1, 9, 0),
             end_date=datetime.datetime(2026, 12, 15, 17, 0)
         )
@@ -123,6 +122,13 @@ def seed_database():
                 db.flush()
             method_entities[m_name] = existing_m
 
+        # Teacher's ranked method preferences (normalized association table)
+        db.flush()
+        for rank, m_name in enumerate(["Worked Examples & Decomposition", "Guided Practice & Formative Exit Check"], start=1):
+            db.execute(teacher_preferred_methods.insert().values(
+                constraint_id=constraint.id, method_id=method_entities[m_name].id, rank=rank
+            ))
+
         # Method Effectiveness
         eff_records = [
             (method_entities["Worked Examples & Decomposition"].id, "problem_solving", 50.0, 68.0, 18.0, 12),
@@ -132,6 +138,10 @@ def seed_database():
             (method_entities["Hands-on Live Demonstration"].id, "practical", 54.0, 71.0, 17.0, 9),
             (method_entities["Case Study & Schema Review"].id, "analytical", 58.0, 70.0, 12.0, 6)
         ]
+        # Methods outlive the course, so clear their evidence rows to keep re-seeding idempotent
+        db.query(MethodEffectiveness).filter(
+            MethodEffectiveness.method_id.in_([m.id for m in method_entities.values()])
+        ).delete(synchronize_session=False)
         for mid, ctype, base_s, post_s, gain, cnt in eff_records:
             me = MethodEffectiveness(
                 method_id=mid,
@@ -258,7 +268,9 @@ def seed_database():
         db.flush()
         p1 = Performance(concept_id=c_ra_ops.id, assessment_id=a1.id, average_score=78.5, sample_size=62, weakness_flag=False, common_errors="Minor syntax error in Cartesian product")
         p2 = Performance(concept_id=c_sql_dml.id, assessment_id=a1.id, average_score=72.0, sample_size=62, weakness_flag=False, common_errors="GROUP BY column list omissions")
-        db.add_all([p1, p2])
+        # Completes evidence for every concept of "Relational Algebra" (relational-division demo)
+        p_join = Performance(concept_id=c_ra_join.id, assessment_id=a1.id, average_score=74.0, sample_size=62, weakness_flag=False, common_errors="Division operator rewritten as nested NOT EXISTS incorrectly")
+        db.add_all([p1, p2, p_join])
 
         # Quiz 2: Functional Dependencies & Keys (THE WEAK PREREQUISITE)
         a2 = Assessment(
@@ -377,6 +389,8 @@ def seed_database():
             {"$set": graph_artifact},
             upsert=True
         )
+
+        refresh_dashboard_snapshot(db)
 
         print("OptiTeach Seed Dataset successfully populated!")
         print("Teacher: faculty@optiteach.edu / admin123")
