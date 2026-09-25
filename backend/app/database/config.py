@@ -1,5 +1,9 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
 import os
+
+# backend/ directory — anchors file-based paths so they don't depend on the CWD
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "OptiTeach"
@@ -11,9 +15,13 @@ class Settings(BaseSettings):
         "DATABASE_URL", 
         "postgresql://postgres:postgres@localhost:5432/optiteach"
     )
-    SQLITE_FALLBACK_URL: str = "sqlite:///./optiteach.db"
+    SQLITE_FALLBACK_URL: str = os.getenv(
+        "SQLITE_FALLBACK_URL",
+        f"sqlite:///{(BACKEND_DIR / 'optiteach.db').as_posix()}"
+    )
     
     # MongoDB
+    # "mongomock://" skips the server and uses the in-memory engine (tests)
     MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
     MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "optiteach_artifacts")
     
@@ -31,7 +39,7 @@ class Settings(BaseSettings):
     ]
 
     class Config:
-        env_file = ".env"
+        env_file = BACKEND_DIR / ".env"
         extra = "allow"
 
 settings = Settings()

@@ -37,7 +37,8 @@ question_concepts = Table(
     Base.metadata,
     Column("question_id", String(36), ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True),
     Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
-    Column("weightage", Float, default=1.0)
+    Column("weightage", Float, default=1.0),
+    CheckConstraint("weightage > 0", name="check_positive_weightage")
 )
 
 # -------------------------------------------------------------------
@@ -54,6 +55,10 @@ class User(Base):
     role = Column(String(50), nullable=False, default="teacher") # teacher, admin
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('teacher', 'admin')", name="check_user_role"),
+    )
 
     teacher_profile = relationship("Teacher", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
@@ -116,10 +121,10 @@ class Section(Base):
 
     __table_args__ = (
         UniqueConstraint("course_id", "name", name="uq_course_section_name"),
+        CheckConstraint("student_count > 0", name="check_positive_student_count"),
     )
 
     course = relationship("Course", back_populates="sections")
-    students = relationship("Student", back_populates="section", cascade="all, delete-orphan")
 
 
 class TeacherConstraint(Base):
@@ -133,6 +138,13 @@ class TeacherConstraint(Base):
     default_revision_minutes = Column(Integer, default=10)
     preferred_methods_json = Column(Text, default="[]") # JSON list of preferred methods
     created_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("max_lecture_ratio >= 0.0 AND max_lecture_ratio <= 1.0", name="check_max_lecture_ratio_range"),
+        CheckConstraint("min_practice_ratio >= 0.0 AND min_practice_ratio <= 1.0", name="check_min_practice_ratio_range"),
+        CheckConstraint("revision_threshold_score >= 0.0 AND revision_threshold_score <= 100.0", name="check_revision_threshold_range"),
+        CheckConstraint("default_revision_minutes >= 0", name="check_non_negative_revision_minutes"),
+    )
 
     course = relationship("Course", back_populates="constraints")
 
@@ -148,6 +160,10 @@ class CourseOutcome(Base):
 
     __table_args__ = (
         UniqueConstraint("course_id", "code", name="uq_course_outcome_code"),
+        CheckConstraint(
+            "bloom_level IN ('Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create')",
+            name="check_bloom_level"
+        ),
     )
 
     course = relationship("Course", back_populates="outcomes")
@@ -190,6 +206,7 @@ class Topic(Base):
         CheckConstraint("estimated_minutes > 0", name="check_positive_estimated_minutes"),
         CheckConstraint("allocated_minutes >= 0", name="check_non_negative_allocated_minutes"),
         UniqueConstraint("unit_id", "order_index", name="uq_unit_topic_order"),
+        CheckConstraint("status IN ('pending', 'in_progress', 'completed')", name="check_topic_status"),
     )
 
     unit = relationship("Unit", back_populates="topics")
@@ -212,6 +229,10 @@ class Concept(Base):
     __table_args__ = (
         CheckConstraint("difficulty >= 1 AND difficulty <= 5", name="check_difficulty_range"),
         CheckConstraint("importance >= 1 AND importance <= 5", name="check_importance_range"),
+        CheckConstraint(
+            "concept_type IN ('conceptual', 'procedural', 'problem_solving', 'practical', 'analytical', 'revision')",
+            name="check_concept_type"
+        ),
     )
 
     topic = relationship("Topic", back_populates="concepts")
@@ -244,6 +265,7 @@ class ClassSession(Base):
         CheckConstraint("session_number >= 1", name="check_positive_session_number"),
         CheckConstraint("duration_minutes > 0", name="check_positive_session_duration"),
         UniqueConstraint("course_id", "session_number", name="uq_course_session_number"),
+        CheckConstraint("status IN ('scheduled', 'in_progress', 'completed', 'cancelled')", name="check_session_status"),
     )
 
     course = relationship("Course", back_populates="class_sessions")
@@ -260,6 +282,10 @@ class TeachingMethod(Base):
     category = Column(String(50), nullable=False) # conceptual, problem_solving, practical, active_learning, revision
     description = Column(Text, nullable=True)
     typical_time_ratio = Column(Float, default=0.25) # Recommended fraction of period
+
+    __table_args__ = (
+        CheckConstraint("typical_time_ratio > 0.0 AND typical_time_ratio <= 1.0", name="check_typical_time_ratio_range"),
+    )
 
     teaching_sessions = relationship("TeachingSession", back_populates="method")
     effect_records = relationship("MethodEffectiveness", back_populates="method")
@@ -279,6 +305,11 @@ class LessonPlan(Base):
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'approved', 'rejected', 'modified', 'completed')", name="check_lesson_plan_status"),
+        CheckConstraint("ai_confidence >= 0.0 AND ai_confidence <= 1.0", name="check_ai_confidence_range"),
+    )
+
     session = relationship("ClassSession", back_populates="lesson_plan")
     topic = relationship("Topic", back_populates="lesson_plans")
 
@@ -297,6 +328,8 @@ class TeachingSession(Base):
 
     __table_args__ = (
         CheckConstraint("actual_minutes > 0", name="check_positive_actual_minutes"),
+        CheckConstraint("student_engagement_rating >= 1 AND student_engagement_rating <= 5", name="check_engagement_rating_range"),
+        CheckConstraint("completion_rate >= 0.0 AND completion_rate <= 1.0", name="check_completion_rate_range"),
     )
 
     session = relationship("ClassSession", back_populates="teaching_session")
@@ -317,6 +350,8 @@ class Assessment(Base):
 
     __table_args__ = (
         CheckConstraint("max_marks > 0", name="check_positive_max_marks"),
+        CheckConstraint("assessment_type IN ('quiz', 'assignment', 'midterm', 'final')", name="check_assessment_type"),
+        CheckConstraint("status IN ('upcoming', 'completed')", name="check_assessment_status"),
     )
 
     course = relationship("Course", back_populates="assessments")
@@ -377,46 +412,8 @@ class MethodEffectiveness(Base):
     sample_sessions_count = Column(Integer, default=5)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
+    __table_args__ = (
+        CheckConstraint("sample_sessions_count >= 0", name="check_non_negative_sample_sessions"),
+    )
+
     method = relationship("TeachingMethod", back_populates="effect_records")
-
-
-class Student(Base):
-    __tablename__ = "students"
-
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    section_id = Column(String(36), ForeignKey("sections.id", ondelete="CASCADE"), nullable=False, index=True)
-    roll_number = Column(String(50), nullable=False) # e.g. CS26-001
-    full_name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=True)
-    average_score = Column(Float, default=70.0)
-    is_at_risk = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utc_now)
-
-    __table_args__ = (
-        UniqueConstraint("section_id", "roll_number", name="uq_section_student_roll"),
-    )
-
-    section = relationship("Section", back_populates="students")
-    submissions = relationship("StudentSubmission", back_populates="student", cascade="all, delete-orphan")
-
-
-class StudentSubmission(Base):
-    __tablename__ = "student_submissions"
-
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    student_id = Column(String(36), ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
-    assessment_id = Column(String(36), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
-    question_id = Column(String(36), ForeignKey("questions.id", ondelete="SET NULL"), nullable=True)
-    score = Column(Float, nullable=False)
-    max_marks = Column(Float, nullable=False, default=10.0)
-    feedback = Column(Text, nullable=True)
-    submitted_at = Column(DateTime, default=utc_now)
-
-    __table_args__ = (
-        CheckConstraint("score >= 0.0", name="check_positive_submission_score"),
-    )
-
-    student = relationship("Student", back_populates="submissions")
-    assessment = relationship("Assessment")
-    question = relationship("Question")
-

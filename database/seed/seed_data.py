@@ -1,7 +1,13 @@
+import sys
 import uuid
 import datetime
+from pathlib import Path
+
+# Allow `python -m database.seed.seed_data` from the repo root
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+
 from sqlalchemy.orm import Session
-from app.database.connection import db_engine, SessionLocal, Base, init_relational_db, get_mongo_db
+from app.database.connection import db_engine, db_dialect, SessionLocal, Base, init_relational_db, get_mongo_db
 from app.auth.security import hash_password
 from app.models.entities import (
     User, Teacher, Course, Section, TeacherConstraint, CourseOutcome,
@@ -14,7 +20,9 @@ from app.optimization.time_allocator import time_allocator
 
 def seed_database():
     print("Initializing Database tables...")
-    Base.metadata.create_all(bind=db_engine)
+    if db_dialect == "sqlite":
+        Base.metadata.create_all(bind=db_engine)
+    # PostgreSQL tables come from Alembic: alembic -c database/migrations/alembic.ini upgrade head
     db: Session = SessionLocal()
 
     try:

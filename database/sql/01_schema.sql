@@ -1,267 +1,836 @@
 -- ===================================================================
--- OptiTeach: PostgreSQL 3NF Normalized Relational Schema
--- Source of Truth for Academic Data Management
+-- OptiTeach: PostgreSQL 3NF Normalized Relational Schema (reference DDL)
+--
+-- GENERATED from the live database after `alembic upgrade head`:
+--   pg_dump -U postgres --schema-only --no-owner --no-privileges -T alembic_version optiteach
+-- Source of truth is database/migrations/ — regenerate this file, don't hand-edit it.
 -- ===================================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+--
+-- PostgreSQL database dump
+--
 
--- 1. Users Table (Authentication & Access Control)
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    hashed_password VARCHAR(255) NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'teacher' CHECK (role IN ('teacher', 'admin')),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+
+--
+-- Name: assessments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessments (
+    id character varying(36) NOT NULL,
+    course_id character varying(36) NOT NULL,
+    title character varying(255) NOT NULL,
+    assessment_type character varying(50) NOT NULL,
+    max_marks double precision NOT NULL,
+    scheduled_date timestamp without time zone,
+    status character varying(50),
+    created_at timestamp without time zone,
+    CONSTRAINT check_assessment_status CHECK (((status)::text = ANY ((ARRAY['upcoming'::character varying, 'completed'::character varying])::text[]))),
+    CONSTRAINT check_assessment_type CHECK (((assessment_type)::text = ANY ((ARRAY['quiz'::character varying, 'assignment'::character varying, 'midterm'::character varying, 'final'::character varying])::text[]))),
+    CONSTRAINT check_positive_max_marks CHECK ((max_marks > (0)::double precision))
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+--
+-- Name: class_sessions; Type: TABLE; Schema: public; Owner: -
+--
 
--- 2. Teachers Table (Faculty Profile)
-CREATE TABLE IF NOT EXISTS teachers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    department VARCHAR(100) NOT NULL,
-    designation VARCHAR(100) DEFAULT 'Assistant Professor',
-    employee_id VARCHAR(50) UNIQUE NOT NULL,
-    office_location VARCHAR(100)
+CREATE TABLE public.class_sessions (
+    id character varying(36) NOT NULL,
+    course_id character varying(36) NOT NULL,
+    session_number integer NOT NULL,
+    scheduled_date timestamp without time zone,
+    duration_minutes integer NOT NULL,
+    current_topic_id character varying(36),
+    status character varying(50),
+    CONSTRAINT check_positive_session_duration CHECK ((duration_minutes > 0)),
+    CONSTRAINT check_positive_session_number CHECK ((session_number >= 1)),
+    CONSTRAINT check_session_status CHECK (((status)::text = ANY ((ARRAY['scheduled'::character varying, 'in_progress'::character varying, 'completed'::character varying, 'cancelled'::character varying])::text[])))
 );
 
-CREATE INDEX IF NOT EXISTS idx_teachers_user ON teachers(user_id);
+--
+-- Name: concept_outcomes; Type: TABLE; Schema: public; Owner: -
+--
 
--- 3. Courses Table (Course Metadata & Calendar Bounds)
-CREATE TABLE IF NOT EXISTS courses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
-    code VARCHAR(50) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    semester VARCHAR(50) NOT NULL,
-    academic_year VARCHAR(20) DEFAULT '2026-2027',
-    total_classes INTEGER NOT NULL CHECK (total_classes > 0),
-    period_duration INTEGER NOT NULL DEFAULT 55 CHECK (period_duration > 0),
-    total_available_minutes INTEGER NOT NULL CHECK (total_available_minutes >= 0),
-    start_date TIMESTAMP WITH TIME ZONE,
-    end_date TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_teacher_course_semester UNIQUE(teacher_id, code, semester)
+CREATE TABLE public.concept_outcomes (
+    concept_id character varying(36) NOT NULL,
+    outcome_id character varying(36) NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_courses_teacher ON courses(teacher_id);
-CREATE INDEX IF NOT EXISTS idx_courses_code ON courses(code);
+--
+-- Name: concepts; Type: TABLE; Schema: public; Owner: -
+--
 
--- 4. Sections Table
-CREATE TABLE IF NOT EXISTS sections (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    name VARCHAR(50) NOT NULL,
-    room_number VARCHAR(50),
-    student_count INTEGER DEFAULT 60 CHECK (student_count > 0),
-    CONSTRAINT uq_course_section_name UNIQUE(course_id, name)
+CREATE TABLE public.concepts (
+    id character varying(36) NOT NULL,
+    topic_id character varying(36) NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    difficulty integer,
+    importance integer,
+    concept_type character varying(50),
+    order_index integer,
+    CONSTRAINT check_concept_type CHECK (((concept_type)::text = ANY ((ARRAY['conceptual'::character varying, 'procedural'::character varying, 'problem_solving'::character varying, 'practical'::character varying, 'analytical'::character varying, 'revision'::character varying])::text[]))),
+    CONSTRAINT check_difficulty_range CHECK (((difficulty >= 1) AND (difficulty <= 5))),
+    CONSTRAINT check_importance_range CHECK (((importance >= 1) AND (importance <= 5)))
 );
 
-CREATE INDEX IF NOT EXISTS idx_sections_course ON sections(course_id);
+--
+-- Name: course_outcomes; Type: TABLE; Schema: public; Owner: -
+--
 
--- 5. Teacher Constraints Table
-CREATE TABLE IF NOT EXISTS teacher_constraints (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id UUID UNIQUE NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    max_lecture_ratio FLOAT DEFAULT 0.45 CHECK (max_lecture_ratio >= 0.0 AND max_lecture_ratio <= 1.0),
-    min_practice_ratio FLOAT DEFAULT 0.35 CHECK (min_practice_ratio >= 0.0 AND min_practice_ratio <= 1.0),
-    revision_threshold_score FLOAT DEFAULT 60.0 CHECK (revision_threshold_score >= 0.0 AND revision_threshold_score <= 100.0),
-    default_revision_minutes INTEGER DEFAULT 10 CHECK (default_revision_minutes >= 0),
-    preferred_methods_json TEXT DEFAULT '[]',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.course_outcomes (
+    id character varying(36) NOT NULL,
+    course_id character varying(36) NOT NULL,
+    code character varying(20) NOT NULL,
+    description text NOT NULL,
+    bloom_level character varying(50),
+    CONSTRAINT check_bloom_level CHECK (((bloom_level)::text = ANY ((ARRAY['Remember'::character varying, 'Understand'::character varying, 'Apply'::character varying, 'Analyze'::character varying, 'Evaluate'::character varying, 'Create'::character varying])::text[])))
 );
 
--- 6. Course Outcomes (Bloom's Taxonomy Alignment)
-CREATE TABLE IF NOT EXISTS course_outcomes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    code VARCHAR(20) NOT NULL,
-    description TEXT NOT NULL,
-    bloom_level VARCHAR(50) DEFAULT 'Understand' CHECK (bloom_level IN ('Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create')),
-    CONSTRAINT uq_course_outcome_code UNIQUE(course_id, code)
+--
+-- Name: courses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.courses (
+    id character varying(36) NOT NULL,
+    teacher_id character varying(36) NOT NULL,
+    code character varying(50) NOT NULL,
+    title character varying(255) NOT NULL,
+    semester character varying(50) NOT NULL,
+    academic_year character varying(20),
+    total_classes integer NOT NULL,
+    period_duration integer NOT NULL,
+    total_available_minutes integer NOT NULL,
+    start_date timestamp without time zone,
+    end_date timestamp without time zone,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    CONSTRAINT check_non_negative_available_time CHECK ((total_available_minutes >= 0)),
+    CONSTRAINT check_positive_period_duration CHECK ((period_duration > 0)),
+    CONSTRAINT check_positive_total_classes CHECK ((total_classes > 0))
 );
 
-CREATE INDEX IF NOT EXISTS idx_outcomes_course ON course_outcomes(course_id);
+--
+-- Name: lesson_plans; Type: TABLE; Schema: public; Owner: -
+--
 
--- 7. Units Table (Curriculum Modules)
-CREATE TABLE IF NOT EXISTS units (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    unit_number INTEGER NOT NULL CHECK (unit_number >= 1),
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    order_index INTEGER NOT NULL,
-    CONSTRAINT uq_course_unit_number UNIQUE(course_id, unit_number)
+CREATE TABLE public.lesson_plans (
+    id character varying(36) NOT NULL,
+    session_id character varying(36) NOT NULL,
+    topic_id character varying(36) NOT NULL,
+    title character varying(255) NOT NULL,
+    status character varying(50),
+    mongo_doc_id character varying(100),
+    ai_confidence double precision,
+    teacher_overridden boolean,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    CONSTRAINT check_ai_confidence_range CHECK (((ai_confidence >= (0.0)::double precision) AND (ai_confidence <= (1.0)::double precision))),
+    CONSTRAINT check_lesson_plan_status CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'approved'::character varying, 'rejected'::character varying, 'modified'::character varying, 'completed'::character varying])::text[])))
 );
 
-CREATE INDEX IF NOT EXISTS idx_units_course ON units(course_id);
+--
+-- Name: method_effectiveness; Type: TABLE; Schema: public; Owner: -
+--
 
--- 8. Topics Table
-CREATE TABLE IF NOT EXISTS topics (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    order_index INTEGER NOT NULL,
-    estimated_minutes INTEGER NOT NULL DEFAULT 110 CHECK (estimated_minutes > 0),
-    allocated_minutes INTEGER NOT NULL DEFAULT 0 CHECK (allocated_minutes >= 0),
-    priority_score FLOAT DEFAULT 0.0,
-    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed')),
-    CONSTRAINT uq_unit_topic_order UNIQUE(unit_id, order_index)
+CREATE TABLE public.method_effectiveness (
+    id character varying(36) NOT NULL,
+    method_id character varying(36) NOT NULL,
+    concept_type character varying(50) NOT NULL,
+    baseline_score double precision,
+    post_score double precision,
+    observed_gain double precision,
+    sample_sessions_count integer,
+    updated_at timestamp without time zone,
+    CONSTRAINT check_non_negative_sample_sessions CHECK ((sample_sessions_count >= 0))
 );
 
-CREATE INDEX IF NOT EXISTS idx_topics_unit ON topics(unit_id);
+--
+-- Name: performance; Type: TABLE; Schema: public; Owner: -
+--
 
--- 9. Concepts Table (Atomic Knowledge Units)
-CREATE TABLE IF NOT EXISTS concepts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    topic_id UUID NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    difficulty INTEGER DEFAULT 3 CHECK (difficulty >= 1 AND difficulty <= 5),
-    importance INTEGER DEFAULT 3 CHECK (importance >= 1 AND importance <= 5),
-    concept_type VARCHAR(50) DEFAULT 'conceptual' CHECK (concept_type IN ('conceptual', 'procedural', 'problem_solving', 'practical', 'analytical', 'revision')),
-    order_index INTEGER DEFAULT 1
+CREATE TABLE public.performance (
+    id character varying(36) NOT NULL,
+    concept_id character varying(36) NOT NULL,
+    assessment_id character varying(36) NOT NULL,
+    average_score double precision NOT NULL,
+    sample_size integer,
+    weakness_flag boolean,
+    common_errors text,
+    recorded_at timestamp without time zone,
+    CONSTRAINT check_average_score_range CHECK (((average_score >= (0.0)::double precision) AND (average_score <= (100.0)::double precision))),
+    CONSTRAINT check_positive_sample_size CHECK ((sample_size > 0))
 );
 
-CREATE INDEX IF NOT EXISTS idx_concepts_topic ON concepts(topic_id);
+--
+-- Name: prerequisites; Type: TABLE; Schema: public; Owner: -
+--
 
--- 10. Concept Outcomes Association Table (M:N)
-CREATE TABLE IF NOT EXISTS concept_outcomes (
-    concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
-    outcome_id UUID NOT NULL REFERENCES course_outcomes(id) ON DELETE CASCADE,
-    PRIMARY KEY (concept_id, outcome_id)
+CREATE TABLE public.prerequisites (
+    concept_id character varying(36) NOT NULL,
+    prerequisite_id character varying(36) NOT NULL,
+    CONSTRAINT check_no_self_prerequisite CHECK (((concept_id)::text <> (prerequisite_id)::text))
 );
 
--- 11. Prerequisites Table (Directed Concept Graph Edges)
-CREATE TABLE IF NOT EXISTS prerequisites (
-    concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
-    prerequisite_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
-    PRIMARY KEY (concept_id, prerequisite_id),
-    CONSTRAINT check_no_self_prerequisite CHECK (concept_id != prerequisite_id)
+--
+-- Name: question_concepts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.question_concepts (
+    question_id character varying(36) NOT NULL,
+    concept_id character varying(36) NOT NULL,
+    weightage double precision,
+    CONSTRAINT check_positive_weightage CHECK ((weightage > (0)::double precision))
 );
 
-CREATE INDEX IF NOT EXISTS idx_prereq_source ON prerequisites(concept_id);
-CREATE INDEX IF NOT EXISTS idx_prereq_target ON prerequisites(prerequisite_id);
+--
+-- Name: questions; Type: TABLE; Schema: public; Owner: -
+--
 
--- 12. Class Sessions Table (Discrete Timetable Periods)
-CREATE TABLE IF NOT EXISTS class_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    session_number INTEGER NOT NULL CHECK (session_number >= 1),
-    scheduled_date TIMESTAMP WITH TIME ZONE,
-    duration_minutes INTEGER NOT NULL DEFAULT 55 CHECK (duration_minutes > 0),
-    current_topic_id UUID REFERENCES topics(id) ON DELETE SET NULL,
-    status VARCHAR(50) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
-    CONSTRAINT uq_course_session_number UNIQUE(course_id, session_number)
+CREATE TABLE public.questions (
+    id character varying(36) NOT NULL,
+    assessment_id character varying(36) NOT NULL,
+    question_number integer NOT NULL,
+    max_marks double precision NOT NULL,
+    text text NOT NULL,
+    CONSTRAINT check_positive_question_marks CHECK ((max_marks > (0)::double precision)),
+    CONSTRAINT check_positive_question_number CHECK ((question_number >= 1))
 );
 
-CREATE INDEX IF NOT EXISTS idx_sessions_course ON class_sessions(course_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_topic ON class_sessions(current_topic_id);
+--
+-- Name: sections; Type: TABLE; Schema: public; Owner: -
+--
 
--- 13. Teaching Methods Table (Pedagogical Strategy Catalog)
-CREATE TABLE IF NOT EXISTS teaching_methods (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) UNIQUE NOT NULL,
-    category VARCHAR(50) NOT NULL,
-    description TEXT,
-    typical_time_ratio FLOAT DEFAULT 0.25
+CREATE TABLE public.sections (
+    id character varying(36) NOT NULL,
+    course_id character varying(36) NOT NULL,
+    name character varying(50) NOT NULL,
+    room_number character varying(50),
+    student_count integer,
+    CONSTRAINT check_positive_student_count CHECK ((student_count > 0))
 );
 
--- 14. Lesson Plans Table (Relational Pointer to MongoDB Document)
-CREATE TABLE IF NOT EXISTS lesson_plans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID UNIQUE NOT NULL REFERENCES class_sessions(id) ON DELETE CASCADE,
-    topic_id UUID NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'approved', 'rejected', 'modified', 'completed')),
-    mongo_doc_id VARCHAR(100),
-    ai_confidence FLOAT DEFAULT 0.90,
-    teacher_overridden BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+--
+-- Name: teacher_constraints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.teacher_constraints (
+    id character varying(36) NOT NULL,
+    course_id character varying(36) NOT NULL,
+    max_lecture_ratio double precision,
+    min_practice_ratio double precision,
+    revision_threshold_score double precision,
+    default_revision_minutes integer,
+    preferred_methods_json text,
+    created_at timestamp without time zone,
+    CONSTRAINT check_max_lecture_ratio_range CHECK (((max_lecture_ratio >= (0.0)::double precision) AND (max_lecture_ratio <= (1.0)::double precision))),
+    CONSTRAINT check_min_practice_ratio_range CHECK (((min_practice_ratio >= (0.0)::double precision) AND (min_practice_ratio <= (1.0)::double precision))),
+    CONSTRAINT check_non_negative_revision_minutes CHECK ((default_revision_minutes >= 0)),
+    CONSTRAINT check_revision_threshold_range CHECK (((revision_threshold_score >= (0.0)::double precision) AND (revision_threshold_score <= (100.0)::double precision)))
 );
 
-CREATE INDEX IF NOT EXISTS idx_lesson_plans_session ON lesson_plans(session_id);
+--
+-- Name: teachers; Type: TABLE; Schema: public; Owner: -
+--
 
--- 15. Teaching Sessions Table (Audit of Conducted Classroom Periods)
-CREATE TABLE IF NOT EXISTS teaching_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID UNIQUE NOT NULL REFERENCES class_sessions(id) ON DELETE CASCADE,
-    method_id UUID REFERENCES teaching_methods(id) ON DELETE SET NULL,
-    actual_minutes INTEGER NOT NULL DEFAULT 55 CHECK (actual_minutes > 0),
-    teacher_notes TEXT,
-    student_engagement_rating INTEGER DEFAULT 4 CHECK (student_engagement_rating >= 1 AND student_engagement_rating <= 5),
-    completion_rate FLOAT DEFAULT 1.0 CHECK (completion_rate >= 0.0 AND completion_rate <= 1.0),
-    conducted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.teachers (
+    id character varying(36) NOT NULL,
+    user_id character varying(36) NOT NULL,
+    department character varying(100) NOT NULL,
+    designation character varying(100),
+    employee_id character varying(50) NOT NULL,
+    office_location character varying(100)
 );
 
-CREATE INDEX IF NOT EXISTS idx_teaching_sessions_session ON teaching_sessions(session_id);
+--
+-- Name: teaching_methods; Type: TABLE; Schema: public; Owner: -
+--
 
--- 16. Assessments Table
-CREATE TABLE IF NOT EXISTS assessments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    assessment_type VARCHAR(50) NOT NULL CHECK (assessment_type IN ('quiz', 'assignment', 'midterm', 'final')),
-    max_marks FLOAT NOT NULL DEFAULT 25.0 CHECK (max_marks > 0),
-    scheduled_date TIMESTAMP WITH TIME ZONE,
-    status VARCHAR(50) DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'completed')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.teaching_methods (
+    id character varying(36) NOT NULL,
+    name character varying(100) NOT NULL,
+    category character varying(50) NOT NULL,
+    description text,
+    typical_time_ratio double precision,
+    CONSTRAINT check_typical_time_ratio_range CHECK (((typical_time_ratio > (0.0)::double precision) AND (typical_time_ratio <= (1.0)::double precision)))
 );
 
-CREATE INDEX IF NOT EXISTS idx_assessments_course ON assessments(course_id);
+--
+-- Name: teaching_sessions; Type: TABLE; Schema: public; Owner: -
+--
 
--- 17. Questions Table
-CREATE TABLE IF NOT EXISTS questions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
-    question_number INTEGER NOT NULL CHECK (question_number >= 1),
-    max_marks FLOAT NOT NULL CHECK (max_marks > 0),
-    text TEXT NOT NULL,
-    CONSTRAINT uq_assessment_question_num UNIQUE(assessment_id, question_number)
+CREATE TABLE public.teaching_sessions (
+    id character varying(36) NOT NULL,
+    session_id character varying(36) NOT NULL,
+    method_id character varying(36),
+    actual_minutes integer NOT NULL,
+    teacher_notes text,
+    student_engagement_rating integer,
+    completion_rate double precision,
+    conducted_at timestamp without time zone,
+    CONSTRAINT check_completion_rate_range CHECK (((completion_rate >= (0.0)::double precision) AND (completion_rate <= (1.0)::double precision))),
+    CONSTRAINT check_engagement_rating_range CHECK (((student_engagement_rating >= 1) AND (student_engagement_rating <= 5))),
+    CONSTRAINT check_positive_actual_minutes CHECK ((actual_minutes > 0))
 );
 
-CREATE INDEX IF NOT EXISTS idx_questions_assessment ON questions(assessment_id);
+--
+-- Name: topics; Type: TABLE; Schema: public; Owner: -
+--
 
--- 18. Question Concepts Association Table (M:N)
-CREATE TABLE IF NOT EXISTS question_concepts (
-    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-    concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
-    weightage FLOAT DEFAULT 1.0 CHECK (weightage > 0),
-    PRIMARY KEY (question_id, concept_id)
+CREATE TABLE public.topics (
+    id character varying(36) NOT NULL,
+    unit_id character varying(36) NOT NULL,
+    title character varying(255) NOT NULL,
+    description text,
+    order_index integer NOT NULL,
+    estimated_minutes integer,
+    allocated_minutes integer,
+    priority_score double precision,
+    status character varying(50),
+    CONSTRAINT check_non_negative_allocated_minutes CHECK ((allocated_minutes >= 0)),
+    CONSTRAINT check_positive_estimated_minutes CHECK ((estimated_minutes > 0)),
+    CONSTRAINT check_topic_status CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'in_progress'::character varying, 'completed'::character varying])::text[])))
 );
 
--- 19. Performance Table (Aggregate Concept-Level Mastery)
-CREATE TABLE IF NOT EXISTS performance (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
-    assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
-    average_score FLOAT NOT NULL CHECK (average_score >= 0.0 AND average_score <= 100.0),
-    sample_size INTEGER DEFAULT 60 CHECK (sample_size > 0),
-    weakness_flag BOOLEAN DEFAULT FALSE,
-    common_errors TEXT,
-    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_concept_assessment_performance UNIQUE(concept_id, assessment_id)
+--
+-- Name: units; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.units (
+    id character varying(36) NOT NULL,
+    course_id character varying(36) NOT NULL,
+    unit_number integer NOT NULL,
+    title character varying(255) NOT NULL,
+    description text,
+    order_index integer NOT NULL,
+    CONSTRAINT check_unit_number_positive CHECK ((unit_number >= 1))
 );
 
-CREATE INDEX IF NOT EXISTS idx_performance_concept ON performance(concept_id);
-CREATE INDEX IF NOT EXISTS idx_performance_assessment ON performance(assessment_id);
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: -
+--
 
--- 20. Method Effectiveness Table (Empirical Pedagogical Learning Gains)
-CREATE TABLE IF NOT EXISTS method_effectiveness (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    method_id UUID NOT NULL REFERENCES teaching_methods(id) ON DELETE CASCADE,
-    concept_type VARCHAR(50) NOT NULL,
-    baseline_score FLOAT DEFAULT 50.0,
-    post_score FLOAT DEFAULT 65.0,
-    observed_gain FLOAT DEFAULT 15.0,
-    sample_sessions_count INTEGER DEFAULT 5,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.users (
+    id character varying(36) NOT NULL,
+    email character varying(255) NOT NULL,
+    hashed_password character varying(255) NOT NULL,
+    full_name character varying(255) NOT NULL,
+    role character varying(50) NOT NULL,
+    is_active boolean,
+    created_at timestamp without time zone,
+    CONSTRAINT check_user_role CHECK (((role)::text = ANY ((ARRAY['teacher'::character varying, 'admin'::character varying])::text[])))
 );
 
-CREATE INDEX IF NOT EXISTS idx_method_eff_method ON method_effectiveness(method_id);
+--
+-- Name: assessments assessments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_pkey PRIMARY KEY (id);
+
+--
+-- Name: class_sessions class_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_sessions
+    ADD CONSTRAINT class_sessions_pkey PRIMARY KEY (id);
+
+--
+-- Name: concept_outcomes concept_outcomes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.concept_outcomes
+    ADD CONSTRAINT concept_outcomes_pkey PRIMARY KEY (concept_id, outcome_id);
+
+--
+-- Name: concepts concepts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.concepts
+    ADD CONSTRAINT concepts_pkey PRIMARY KEY (id);
+
+--
+-- Name: course_outcomes course_outcomes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_outcomes
+    ADD CONSTRAINT course_outcomes_pkey PRIMARY KEY (id);
+
+--
+-- Name: courses courses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_pkey PRIMARY KEY (id);
+
+--
+-- Name: lesson_plans lesson_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_plans
+    ADD CONSTRAINT lesson_plans_pkey PRIMARY KEY (id);
+
+--
+-- Name: lesson_plans lesson_plans_session_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_plans
+    ADD CONSTRAINT lesson_plans_session_id_key UNIQUE (session_id);
+
+--
+-- Name: method_effectiveness method_effectiveness_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.method_effectiveness
+    ADD CONSTRAINT method_effectiveness_pkey PRIMARY KEY (id);
+
+--
+-- Name: performance performance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance
+    ADD CONSTRAINT performance_pkey PRIMARY KEY (id);
+
+--
+-- Name: prerequisites prerequisites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prerequisites
+    ADD CONSTRAINT prerequisites_pkey PRIMARY KEY (concept_id, prerequisite_id);
+
+--
+-- Name: question_concepts question_concepts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_concepts
+    ADD CONSTRAINT question_concepts_pkey PRIMARY KEY (question_id, concept_id);
+
+--
+-- Name: questions questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.questions
+    ADD CONSTRAINT questions_pkey PRIMARY KEY (id);
+
+--
+-- Name: sections sections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sections
+    ADD CONSTRAINT sections_pkey PRIMARY KEY (id);
+
+--
+-- Name: teacher_constraints teacher_constraints_course_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teacher_constraints
+    ADD CONSTRAINT teacher_constraints_course_id_key UNIQUE (course_id);
+
+--
+-- Name: teacher_constraints teacher_constraints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teacher_constraints
+    ADD CONSTRAINT teacher_constraints_pkey PRIMARY KEY (id);
+
+--
+-- Name: teachers teachers_employee_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teachers
+    ADD CONSTRAINT teachers_employee_id_key UNIQUE (employee_id);
+
+--
+-- Name: teachers teachers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teachers
+    ADD CONSTRAINT teachers_pkey PRIMARY KEY (id);
+
+--
+-- Name: teachers teachers_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teachers
+    ADD CONSTRAINT teachers_user_id_key UNIQUE (user_id);
+
+--
+-- Name: teaching_methods teaching_methods_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teaching_methods
+    ADD CONSTRAINT teaching_methods_name_key UNIQUE (name);
+
+--
+-- Name: teaching_methods teaching_methods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teaching_methods
+    ADD CONSTRAINT teaching_methods_pkey PRIMARY KEY (id);
+
+--
+-- Name: teaching_sessions teaching_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teaching_sessions
+    ADD CONSTRAINT teaching_sessions_pkey PRIMARY KEY (id);
+
+--
+-- Name: teaching_sessions teaching_sessions_session_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teaching_sessions
+    ADD CONSTRAINT teaching_sessions_session_id_key UNIQUE (session_id);
+
+--
+-- Name: topics topics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.topics
+    ADD CONSTRAINT topics_pkey PRIMARY KEY (id);
+
+--
+-- Name: units units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.units
+    ADD CONSTRAINT units_pkey PRIMARY KEY (id);
+
+--
+-- Name: questions uq_assessment_question_num; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.questions
+    ADD CONSTRAINT uq_assessment_question_num UNIQUE (assessment_id, question_number);
+
+--
+-- Name: performance uq_concept_assessment_performance; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance
+    ADD CONSTRAINT uq_concept_assessment_performance UNIQUE (concept_id, assessment_id);
+
+--
+-- Name: course_outcomes uq_course_outcome_code; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_outcomes
+    ADD CONSTRAINT uq_course_outcome_code UNIQUE (course_id, code);
+
+--
+-- Name: sections uq_course_section_name; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sections
+    ADD CONSTRAINT uq_course_section_name UNIQUE (course_id, name);
+
+--
+-- Name: class_sessions uq_course_session_number; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_sessions
+    ADD CONSTRAINT uq_course_session_number UNIQUE (course_id, session_number);
+
+--
+-- Name: units uq_course_unit_number; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.units
+    ADD CONSTRAINT uq_course_unit_number UNIQUE (course_id, unit_number);
+
+--
+-- Name: courses uq_teacher_course_semester; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT uq_teacher_course_semester UNIQUE (teacher_id, code, semester);
+
+--
+-- Name: topics uq_unit_topic_order; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.topics
+    ADD CONSTRAINT uq_unit_topic_order UNIQUE (unit_id, order_index);
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+--
+-- Name: ix_assessments_course_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_assessments_course_id ON public.assessments USING btree (course_id);
+
+--
+-- Name: ix_assessments_scheduled_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_assessments_scheduled_date ON public.assessments USING btree (scheduled_date);
+
+--
+-- Name: ix_class_sessions_course_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_class_sessions_course_id ON public.class_sessions USING btree (course_id);
+
+--
+-- Name: ix_concepts_topic_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_concepts_topic_id ON public.concepts USING btree (topic_id);
+
+--
+-- Name: ix_course_outcomes_course_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_course_outcomes_course_id ON public.course_outcomes USING btree (course_id);
+
+--
+-- Name: ix_courses_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_courses_code ON public.courses USING btree (code);
+
+--
+-- Name: ix_courses_teacher_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_courses_teacher_id ON public.courses USING btree (teacher_id);
+
+--
+-- Name: ix_lesson_plans_topic_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_lesson_plans_topic_id ON public.lesson_plans USING btree (topic_id);
+
+--
+-- Name: ix_method_effectiveness_method_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_method_effectiveness_method_id ON public.method_effectiveness USING btree (method_id);
+
+--
+-- Name: ix_performance_assessment_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_performance_assessment_id ON public.performance USING btree (assessment_id);
+
+--
+-- Name: ix_performance_concept_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_performance_concept_id ON public.performance USING btree (concept_id);
+
+--
+-- Name: ix_questions_assessment_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_questions_assessment_id ON public.questions USING btree (assessment_id);
+
+--
+-- Name: ix_sections_course_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_sections_course_id ON public.sections USING btree (course_id);
+
+--
+-- Name: ix_topics_unit_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_topics_unit_id ON public.topics USING btree (unit_id);
+
+--
+-- Name: ix_units_course_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_units_course_id ON public.units USING btree (course_id);
+
+--
+-- Name: ix_users_email; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ix_users_email ON public.users USING btree (email);
+
+--
+-- Name: assessments assessments_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+--
+-- Name: class_sessions class_sessions_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_sessions
+    ADD CONSTRAINT class_sessions_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+--
+-- Name: class_sessions class_sessions_current_topic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.class_sessions
+    ADD CONSTRAINT class_sessions_current_topic_id_fkey FOREIGN KEY (current_topic_id) REFERENCES public.topics(id) ON DELETE SET NULL;
+
+--
+-- Name: concept_outcomes concept_outcomes_concept_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.concept_outcomes
+    ADD CONSTRAINT concept_outcomes_concept_id_fkey FOREIGN KEY (concept_id) REFERENCES public.concepts(id) ON DELETE CASCADE;
+
+--
+-- Name: concept_outcomes concept_outcomes_outcome_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.concept_outcomes
+    ADD CONSTRAINT concept_outcomes_outcome_id_fkey FOREIGN KEY (outcome_id) REFERENCES public.course_outcomes(id) ON DELETE CASCADE;
+
+--
+-- Name: concepts concepts_topic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.concepts
+    ADD CONSTRAINT concepts_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id) ON DELETE CASCADE;
+
+--
+-- Name: course_outcomes course_outcomes_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_outcomes
+    ADD CONSTRAINT course_outcomes_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+--
+-- Name: courses courses_teacher_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.teachers(id) ON DELETE CASCADE;
+
+--
+-- Name: lesson_plans lesson_plans_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_plans
+    ADD CONSTRAINT lesson_plans_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.class_sessions(id) ON DELETE CASCADE;
+
+--
+-- Name: lesson_plans lesson_plans_topic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lesson_plans
+    ADD CONSTRAINT lesson_plans_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id) ON DELETE CASCADE;
+
+--
+-- Name: method_effectiveness method_effectiveness_method_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.method_effectiveness
+    ADD CONSTRAINT method_effectiveness_method_id_fkey FOREIGN KEY (method_id) REFERENCES public.teaching_methods(id) ON DELETE CASCADE;
+
+--
+-- Name: performance performance_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance
+    ADD CONSTRAINT performance_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+--
+-- Name: performance performance_concept_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.performance
+    ADD CONSTRAINT performance_concept_id_fkey FOREIGN KEY (concept_id) REFERENCES public.concepts(id) ON DELETE CASCADE;
+
+--
+-- Name: prerequisites prerequisites_concept_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prerequisites
+    ADD CONSTRAINT prerequisites_concept_id_fkey FOREIGN KEY (concept_id) REFERENCES public.concepts(id) ON DELETE CASCADE;
+
+--
+-- Name: prerequisites prerequisites_prerequisite_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prerequisites
+    ADD CONSTRAINT prerequisites_prerequisite_id_fkey FOREIGN KEY (prerequisite_id) REFERENCES public.concepts(id) ON DELETE CASCADE;
+
+--
+-- Name: question_concepts question_concepts_concept_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_concepts
+    ADD CONSTRAINT question_concepts_concept_id_fkey FOREIGN KEY (concept_id) REFERENCES public.concepts(id) ON DELETE CASCADE;
+
+--
+-- Name: question_concepts question_concepts_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_concepts
+    ADD CONSTRAINT question_concepts_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE CASCADE;
+
+--
+-- Name: questions questions_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.questions
+    ADD CONSTRAINT questions_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+--
+-- Name: sections sections_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sections
+    ADD CONSTRAINT sections_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+--
+-- Name: teacher_constraints teacher_constraints_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teacher_constraints
+    ADD CONSTRAINT teacher_constraints_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+--
+-- Name: teachers teachers_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teachers
+    ADD CONSTRAINT teachers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+--
+-- Name: teaching_sessions teaching_sessions_method_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teaching_sessions
+    ADD CONSTRAINT teaching_sessions_method_id_fkey FOREIGN KEY (method_id) REFERENCES public.teaching_methods(id) ON DELETE SET NULL;
+
+--
+-- Name: teaching_sessions teaching_sessions_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teaching_sessions
+    ADD CONSTRAINT teaching_sessions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.class_sessions(id) ON DELETE CASCADE;
+
+--
+-- Name: topics topics_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.topics
+    ADD CONSTRAINT topics_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id) ON DELETE CASCADE;
+
+--
+-- Name: units units_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.units
+    ADD CONSTRAINT units_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+--
+-- PostgreSQL database dump complete
+--
+
+

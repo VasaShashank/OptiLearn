@@ -22,9 +22,14 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
+from app.database.config import settings
 from app.database.connection import Base
 from app.models import entities  # noqa: F401
 target_metadata = Base.metadata
+
+# Migrate the same database the app uses (DATABASE_URL), not a hardcoded URL.
+# ConfigParser treats '%' as interpolation, so escape it.
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
@@ -49,7 +54,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata, compare_type=True
         )
 
         with context.begin_transaction():

@@ -120,34 +120,43 @@ OptiTeach/
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- (Optional) PostgreSQL 15+ and MongoDB 6+
+- PostgreSQL 15+ and MongoDB 6+ (recommended — views, triggers, stored procedures and
+  row-level security only exist on PostgreSQL). Without them the API falls back to
+  SQLite + in-memory MongoMock so it still starts with zero setup.
 
 ### Backend Setup
 
+All commands run from the **repository root**.
+
 ```bash
-cd backend
+# 1. Virtual environment + dependencies
+python -m venv .venv
+.venv\Scripts\activate            # Windows  (source .venv/bin/activate on macOS/Linux)
+pip install -r backend/requirements.txt
 
-# Install dependencies
-pip install -r requirements.txt
+# 2. Configuration (optional — defaults match a local PostgreSQL with user/password postgres)
+copy backend\.env.example backend\.env
 
-# Seed the database with sample data
+# 3. Create the database and apply the schema (PostgreSQL)
+createdb -U postgres optiteach
+alembic -c database/migrations/alembic.ini upgrade head
+
+# 4. Seed the sample CS302 course
 python -m database.seed.seed_data
 
-# Start the API server
+# 5. Start the API server
+cd backend
 uvicorn app.main:app --reload --port 8000
 ```
 
 The API will be available at `http://localhost:8000` with interactive docs at `/docs`.
+Demo login: `faculty@optiteach.edu` / `admin123`.
 
 ### Frontend Setup
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the development server
 npm run dev
 ```
 
@@ -156,8 +165,8 @@ The frontend will be available at `http://localhost:3000`.
 ### Running Tests
 
 ```bash
-# From project root
-set PYTHONPATH=backend
+# From the repository root. Tests use their own throwaway SQLite DB + MongoMock,
+# so they never touch your development database.
 python -m pytest backend/tests -v
 ```
 
