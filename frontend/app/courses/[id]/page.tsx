@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import CurriculumGraphView from "@/components/curriculum-graph-view";
+import AssessmentResults from "@/components/assessment-results";
 import type {
   Course, CurriculumGraph, CourseOptimization, CourseAnalytics,
   AssessmentItem, GraphNode,
@@ -49,6 +50,18 @@ export default function CourseDetailPage() {
     }
     load();
   }, [courseId]);
+
+  // New results change weakness flags, priorities and alerts: reload what depends on them
+  const refreshAfterResults = async () => {
+    const [assess, g, a] = await Promise.all([
+      coursesAPI.listAssessments(courseId).catch(() => assessments),
+      coursesAPI.getGraph(courseId).catch(() => graph),
+      coursesAPI.getAnalytics(courseId).catch(() => analytics),
+    ]);
+    setAssessments(assess);
+    setGraph(g);
+    setAnalytics(a);
+  };
 
   if (loading) return <LoadingSkeleton />;
   if (!course) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Course not found</div>;
@@ -94,7 +107,14 @@ export default function CourseDetailPage() {
         {activeTab === "overview" && <OverviewTab course={course} analytics={analytics} graph={graph} />}
         {activeTab === "curriculum" && <CurriculumTab graph={graph} courseId={courseId} />}
         {activeTab === "optimization" && <OptimizationTab optimization={optimization} />}
-        {activeTab === "assessments" && <AssessmentsTab assessments={assessments} />}
+        {activeTab === "assessments" && (
+          <AssessmentResults
+            courseId={courseId}
+            assessments={assessments}
+            concepts={graph?.nodes ?? []}
+            onRecorded={refreshAfterResults}
+          />
+        )}
         {activeTab === "analytics" && <AnalyticsTab analytics={analytics} />}
       </div>
     </div>
@@ -260,48 +280,6 @@ function OptimizationTab({ optimization }: { optimization: CourseOptimization | 
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-}
-
-function AssessmentsTab({ assessments }: { assessments: AssessmentItem[] }) {
-  if (assessments.length === 0) return <EmptyState message="No assessments recorded yet." />;
-
-  return (
-    <div>
-      <div style={{ display: "grid", gap: 16 }}>
-        {assessments.map((a) => (
-          <div key={a.id} className="card" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div>
-                <h4 style={{ fontSize: "0.9375rem", fontWeight: 600 }}>{a.title}</h4>
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <span className="badge badge-neutral">{a.assessment_type}</span>
-                  <span className={`badge ${a.status === "completed" ? "badge-success" : "badge-warning"}`}>{a.status}</span>
-                  <span className="badge badge-neutral">{a.max_marks} marks</span>
-                </div>
-              </div>
-              <div style={{ textAlign: "right", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                {a.questions_count} questions
-              </div>
-            </div>
-            {a.performances && a.performances.length > 0 && (
-              <div style={{ borderTop: "1px solid var(--border-default)", paddingTop: 12 }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>
-                  Concept Performance
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {a.performances.map((p) => (
-                    <div key={p.concept_id} className={`badge ${p.weakness_flag ? "badge-danger" : "badge-success"}`}>
-                      {p.concept_name}: {p.average_score}%
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
       </div>
     </div>
   );

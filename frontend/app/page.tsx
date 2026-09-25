@@ -20,8 +20,11 @@ import {
 } from "lucide-react";
 import { coursesAPI, healthAPI } from "@/lib/api";
 import type { Course, CourseAnalytics, AlertItem } from "@/lib/types";
+import { useSession } from "@/lib/auth";
+import NextClassCard from "@/components/next-class-card";
 
 export default function DashboardHome() {
+  const { user } = useSession();
   const [activeCourseId, setActiveCourseId] = useState<string>("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [analytics, setAnalytics] = useState<CourseAnalytics | null>(null);
@@ -118,6 +121,10 @@ export default function DashboardHome() {
           </span>
         </div>
       </div>
+
+      {activeCourseId && (
+        <NextClassCard key={activeCourseId} courseId={activeCourseId} firstName={(user?.full_name || "").replace(/^(Prof|Dr|Mr|Ms|Mrs)\.?\s+/i, "").split(" ")[0] || "there"} />
+      )}
 
       {/* Stats Grid - Aggregate across all courses */}
       <div

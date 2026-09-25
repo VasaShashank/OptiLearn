@@ -13,6 +13,7 @@ import {
   ChevronRight,
   GraduationCap,
   LogOut,
+  CalendarDays,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/upload", label: "Syllabus Upload", icon: Upload },
   { href: "/optimization", label: "Optimization", icon: Zap },
   { href: "/lesson-plans", label: "Lesson Plans", icon: FileText },
+  { href: "/calendar", label: "Teaching Calendar", icon: CalendarDays },
   { href: "/dbms", label: "DBMS Insights", icon: Database },
 ];
 

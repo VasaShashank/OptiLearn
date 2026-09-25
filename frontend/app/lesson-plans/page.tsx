@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { coursesAPI, exportsAPI } from "@/lib/api";
 import type { Course, LessonPlan, PeriodPhase } from "@/lib/types";
+import PlanReview from "@/components/plan-review";
 
 export default function LessonPlansPage() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -22,13 +23,25 @@ export default function LessonPlansPage() {
       try {
         const c = await coursesAPI.list();
         setCourses(c);
-        if (c.length > 0) {
-          setSelectedCourseId(c[0].id);
-          const p = await coursesAPI.listLessonPlans(c[0].id);
-          setPlans(p);
-          if (p.length > 0) {
-            setSelectedPlan(p[0]);
-            setSelectedSessionNumber(p[0].session_number || 1);
+        const params = new URLSearchParams(window.location.search);
+        const course = c.find((x) => x.id === params.get("course")) || c[0];
+        const wantedSession = Number(params.get("session")) || null;
+        if (course) {
+          setSelectedCourseId(course.id);
+          const p = await coursesAPI.listLessonPlans(course.id);
+          if (wantedSession) {
+            // Fetch (or generate) the requested period's plan
+            const [target] = await coursesAPI.listLessonPlans(course.id, wantedSession);
+            const merged = target ? [...p.filter((x) => x.id !== target.id), target].sort((a, b) => a.session_number - b.session_number) : p;
+            setPlans(merged);
+            setSelectedPlan(target || merged[0] || null);
+            setSelectedSessionNumber(wantedSession);
+          } else {
+            setPlans(p);
+            if (p.length > 0) {
+              setSelectedPlan(p[0]);
+              setSelectedSessionNumber(p[0].session_number || 1);
+            }
           }
         }
       } catch { /* ignore */ }
@@ -205,7 +218,7 @@ export default function LessonPlansPage() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Period {plan.session_number}</span>
-                  <span className={`badge ${plan.status === "approved" ? "badge-success" : plan.status === "draft" ? "badge-warning" : "badge-neutral"}`}>
+                  <span className={`badge ${statusBadge(plan.status)}`}>
                     {plan.status}
                   </span>
                 </div>
@@ -223,7 +236,7 @@ export default function LessonPlansPage() {
                   <div>
                     <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                       <span className="badge badge-info">Period {selectedPlan.session_number}</span>
-                      <span className={`badge ${selectedPlan.status === "approved" ? "badge-success" : "badge-warning"}`}>
+                      <span className={`badge ${statusBadge(selectedPlan.status)}`}>
                         {selectedPlan.status}
                       </span>
                       {selectedPlan.teacher_overridden && <span className="badge badge-purple">Teacher Modified</span>}
@@ -242,6 +255,15 @@ export default function LessonPlansPage() {
                     </button>
                   </div>
                 </div>
+
+                <PlanReview
+                  courseId={selectedCourseId}
+                  plan={selectedPlan}
+                  onUpdated={(updated) => {
+                    setSelectedPlan(updated);
+                    setPlans((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+                  }}
+                />
 
                 {/* Phases */}
                 <div style={{ marginBottom: 20 }}>
@@ -279,6 +301,10 @@ export default function LessonPlansPage() {
       )}
     </div>
   );
+}
+
+function statusBadge(status: string): string {
+  return { approved: "badge-success", completed: "badge-info", draft: "badge-warning", rejected: "badge-danger", modified: "badge-purple" }[status] || "badge-neutral";
 }
 
 function ContentSection({ title, icon, items, color }: { title: string; icon: React.ReactNode; items: string[]; color: string }) {
