@@ -153,3 +153,65 @@ def test_console_leaves_no_state_behind(pg_app):
     with pg_app.connect() as conn:  # same pool: role and settings must be reset
         assert conn.execute(text("SELECT current_user")).scalar() == "optiteach_app"
         assert conn.execute(text("SELECT current_setting('app.teacher_id', true)")).scalar() in (None, "")
+
+
+# ------------------------------------------------------------------ Phase 4: concurrency on PostgreSQL
+
+def test_concurrent_session_logs_one_wins(pg_app):
+    """Two requests record the same class at the same moment: FOR UPDATE makes one wait,
+    and it then sees the session completed -> exactly one success, one conflict."""
+    import threading
+    from app.schemas.schemas import SessionLogIn
+    from app.services.errors import ConflictError
+    from app.services.session_service import session_service
+
+    with pg_app.connect() as conn:
+        course_id = conn.execute(text("SELECT id FROM courses WHERE code = 'CS302'")).scalar()
+        number = conn.execute(text(
+            "SELECT max(session_number) FROM class_sessions WHERE course_id = :c AND status = 'scheduled'"
+        ), {"c": course_id}).scalar()
+
+    barrier, outcomes = threading.Barrier(2), []
+
+    def attempt():
+        with Session(bind=pg_app) as session:
+            barrier.wait()
+            try:
+                session_service.log_session(session, course_id, number, SessionLogIn(actual_minutes=50))
+                outcomes.append("ok")
+            except ConflictError:
+                outcomes.append("conflict")
+
+    threads = [threading.Thread(target=attempt) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=20)
+    assert sorted(outcomes) == ["conflict", "ok"]
+
+    with pg_app.connect() as conn:
+        assert conn.execute(text("""
+            SELECT count(*) FROM teaching_sessions ts JOIN class_sessions cs ON cs.id = ts.session_id
+            WHERE cs.course_id = :c AND cs.session_number = :n
+        """), {"c": course_id, "n": number}).scalar() == 1
+
+
+def test_transaction_lab_scenarios(pg_app):
+    from app.services.transaction_lab_service import INITIAL_BALANCES, transaction_lab_service as lab
+
+    atomic = lab.run(pg_app, "atomicity")
+    assert atomic["final_balances"] == INITIAL_BALANCES
+    assert any(not s["ok"] and "check_non_negative_balance" in s["result"] for s in atomic["timeline"])
+
+    nrr = {r["isolation_level"]: r for r in lab.run(pg_app, "non_repeatable_read")["runs"]}
+    assert nrr["READ COMMITTED"]["repeatable"] is False
+    assert nrr["REPEATABLE READ"]["repeatable"] is True
+
+    lost = lab.run(pg_app, "lost_update")["runs"]
+    assert lost[0]["actual"] != lost[0]["expected"]  # anomaly reproduced
+    assert "could not serialize" in " ".join(str(s["result"]) for s in lost[1]["timeline"])
+    assert all(r["actual"] == r["expected"] for r in lost[1:])
+
+    deadlock = lab.run(pg_app, "deadlock")
+    assert sorted(deadlock["outcome"].values()) == ["aborted", "committed"]
+    assert any("deadlock detected" in str(s["result"]) for s in deadlock["timeline"])

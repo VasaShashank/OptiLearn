@@ -7,14 +7,15 @@ from app.models.entities import Course, Teacher, Unit, Topic, Concept, CourseOut
 from app.schemas.schemas import (
     CourseCreate, CourseOut, ConfirmCurriculumRequest, CurriculumGraphResponse,
     CourseOptimizationResponse, NextClassOptimizationResponse,
-    LessonPlanCreate, LessonPlanOut, AssessmentCreate, AssessmentOut,
-    RecordAssessmentResultsRequest, CourseAnalyticsResponse
+    LessonPlanCreate, LessonPlanOut, LessonPlanUpdate, AssessmentCreate, AssessmentOut,
+    RecordAssessmentResultsRequest, CourseAnalyticsResponse, SessionLogIn
 )
 from app.nlp.deterministic import nlp_provider
 from app.services.curriculum_service import curriculum_service
 from app.services.analytics_service import analytics_service
 from app.services.lesson_plan_service import lesson_plan_service
 from app.services.assessment_service import assessment_service
+from app.services.session_service import session_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
 
@@ -221,7 +222,8 @@ def run_course_optimization(course_id: str, db: Session = Depends(get_db), _: Co
 
 @router.get("/{course_id}/optimization", response_model=CourseOptimizationResponse)
 def get_course_optimization(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
-    return time_allocator.optimize_course_time(db, course_id)
+    # A GET must not change data: compute the allocation without persisting it
+    return time_allocator.optimize_course_time(db, course_id, persist=False)
 
 @router.post("/{course_id}/optimize-next-class", response_model=NextClassOptimizationResponse)
 def optimize_next_class(course_id: str, session_number: Optional[int] = None, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
@@ -255,6 +257,31 @@ def list_course_lesson_plans(
     return lesson_plan_service.list_plans(
         db, course_id, session_number=session_number, unit_id=unit_id, topic_id=topic_id, status=status
     )
+
+@router.patch("/{course_id}/lesson-plans/{session_number}", response_model=LessonPlanOut)
+def review_lesson_plan(
+    course_id: str,
+    session_number: int,
+    payload: LessonPlanUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: Course = Depends(get_accessible_course),
+):
+    """Accept / edit / reject a recommended plan. Stale expected_version -> 409."""
+    return lesson_plan_service.update_plan(db, course_id, session_number, payload, current_user.id)
+
+# -------------------------------------------------------------
+# Class Sessions (timetable + post-class record)
+# -------------------------------------------------------------
+@router.get("/{course_id}/sessions")
+def list_sessions(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
+    return session_service.list_sessions(db, course_id)
+
+@router.post("/{course_id}/sessions/{session_number}/log")
+def log_session(course_id: str, session_number: int, payload: SessionLogIn,
+                db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
+    """Record a taught class. A second record for the same session -> 409."""
+    return session_service.log_session(db, course_id, session_number, payload)
 
 # -------------------------------------------------------------
 # Assessments & Continuous Feedback

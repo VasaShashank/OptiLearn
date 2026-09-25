@@ -333,13 +333,19 @@ class LessonPlan(Base):
     mongo_doc_id = Column(String(100), nullable=True) # Pointer to MongoDB rich document
     ai_confidence = Column(Float, default=0.90)
     teacher_overridden = Column(Boolean, default=False)
+    # Optimistic concurrency control: every UPDATE is issued as
+    # "... WHERE id = :id AND version = :seen" and bumps the version, so a save based on
+    # a stale read matches zero rows and is rejected instead of overwriting.
+    version = Column(Integer, nullable=False, default=1, server_default=text("1"))
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     __table_args__ = (
         CheckConstraint("status IN ('draft', 'approved', 'rejected', 'modified', 'completed')", name="check_lesson_plan_status"),
         CheckConstraint("ai_confidence >= 0.0 AND ai_confidence <= 1.0", name="check_ai_confidence_range"),
+        CheckConstraint("version >= 1", name="check_lesson_plan_version_positive"),
     )
+    __mapper_args__ = {"version_id_col": version}
 
     session = relationship("ClassSession", back_populates="lesson_plan")
     topic = relationship("Topic", back_populates="lesson_plans")
@@ -471,4 +477,20 @@ class AuditLog(Base):
     __table_args__ = (
         CheckConstraint("operation IN ('INSERT', 'UPDATE', 'DELETE')", name="check_audit_operation"),
         Index("ix_audit_log_table_row", "table_name", "row_id", "changed_at"),
+    )
+
+
+class TxnLabAccount(Base):
+    """
+    Scratch rows for the Transaction Lab demos (atomicity, isolation levels, lost updates,
+    deadlocks). Kept apart from course data so demonstrations never touch real records.
+    """
+    __tablename__ = "txn_lab_accounts"
+
+    id = Column(String(20), primary_key=True)
+    label = Column(String(50), nullable=False)
+    balance = Column(Integer, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("balance >= 0", name="check_non_negative_balance"),
     )

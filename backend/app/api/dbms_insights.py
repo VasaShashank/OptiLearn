@@ -8,6 +8,7 @@ from app.models.entities import Course, Teacher, User
 from app.schemas.schemas import TableSchemaInfo, QueryDemoResult
 from app.services.dbms_insights_service import dbms_insights_service
 from app.services.sql_console_service import run_console_query
+from app.services.transaction_lab_service import transaction_lab_service
 from app.auth.security import get_current_user, get_accessible_course
 
 router = APIRouter(prefix="/dbms", tags=["DBMS Insights & Academic Showcase"], dependencies=[Depends(get_current_user)])
@@ -47,3 +48,14 @@ class ConsoleRequest(BaseModel):
 def run_sql_console(payload: ConsoleRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Ad-hoc read-only SQL, executed as optiteach_readonly under row-level security."""
     return jsonable_encoder(run_console_query(db, payload.sql, current_user))
+
+
+@router.get("/transaction-lab")
+def list_transaction_scenarios():
+    return transaction_lab_service.list_scenarios()
+
+
+@router.post("/transaction-lab/{scenario}")
+def run_transaction_scenario(scenario: str, db: Session = Depends(get_db)):
+    """Runs interleaved transactions on the txn_lab_accounts scratch table and returns the timeline."""
+    return jsonable_encoder(transaction_lab_service.run(db.bind, scenario))

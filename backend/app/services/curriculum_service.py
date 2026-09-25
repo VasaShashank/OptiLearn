@@ -13,7 +13,9 @@ class CurriculumService:
     """
 
     def confirm_and_persist(self, db: Session, course_id: str, payload: ConfirmCurriculumRequest) -> Dict[str, Any]:
-        course = db.query(Course).filter(Course.id == course_id).first()
+        # Row lock: a second confirm for the same course waits here instead of
+        # interleaving its delete-and-rebuild of units/topics with ours
+        course = db.query(Course).filter(Course.id == course_id).with_for_update().first()
         if not course:
             raise ValueError(f"Course {course_id} not found")
 

@@ -13,8 +13,16 @@ class TimeAllocator:
     Total Instructional Time + Revision Budget + Assessment Budget <= Available Teaching Time
     """
 
-    def optimize_course_time(self, db: Session, course_id: str) -> CourseOptimizationResponse:
-        course = db.query(Course).filter(Course.id == course_id).first()
+    def optimize_course_time(self, db: Session, course_id: str, persist: bool = True) -> CourseOptimizationResponse:
+        """
+        persist=True writes the new allocation. The course row is locked FOR UPDATE first,
+        so two concurrent re-optimizations of one course run one after the other instead
+        of interleaving their topic updates. persist=False (GET) computes without writing.
+        """
+        query = db.query(Course).filter(Course.id == course_id)
+        if persist:
+            query = query.with_for_update()
+        course = query.first()
         if not course:
             raise ValueError(f"Course {course_id} not found")
 
@@ -105,12 +113,15 @@ class TimeAllocator:
                 allocated_sum -= period_duration
 
         # Save allocated minutes and priority scores back to PostgreSQL in transaction
-        for item in allocated_allocations:
-            t = item["topic"]
-            t.allocated_minutes = item["allocated_minutes"]
-            t.priority_score = item["priority_score"]
-        db.commit()
-        refresh_dashboard_snapshot(db)
+        if persist:
+            for item in allocated_allocations:
+                t = item["topic"]
+                t.allocated_minutes = item["allocated_minutes"]
+                t.priority_score = item["priority_score"]
+            db.commit()
+            refresh_dashboard_snapshot(db)
+        else:
+            db.rollback()  # release the read snapshot; nothing was written
 
         unallocated_buffer = total_avail_min - (allocated_sum + revision_budget + assessment_budget)
 

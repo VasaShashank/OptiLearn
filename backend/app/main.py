@@ -5,11 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 from app.database.config import settings, DEV_SECRET_KEY
 from app.database.connection import get_db_info, logger
+from app.services.errors import ConflictError
 from app.api.auth import router as auth_router
 from app.api.courses import router as courses_router
 from app.api.syllabus import router as syllabus_router
 from app.api.dbms_insights import router as dbms_router
 from app.api.exports import router as exports_router
+from app.api.teaching_methods import router as teaching_methods_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +40,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.exception_handler(ConflictError)
+async def conflict_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=409, content={"detail": str(exc), **exc.details})
+
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
     """Services raise ValueError for bad references; surface them as 404/400, not 500."""
@@ -62,6 +68,7 @@ app.include_router(courses_router, prefix=settings.API_PREFIX)
 app.include_router(syllabus_router, prefix=settings.API_PREFIX)
 app.include_router(dbms_router, prefix=settings.API_PREFIX)
 app.include_router(exports_router, prefix=settings.API_PREFIX)
+app.include_router(teaching_methods_router, prefix=settings.API_PREFIX)
 
 @app.get("/")
 def root():

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
 
 # -------------------------------------------------------------
@@ -225,7 +225,30 @@ class LessonPlanOut(BaseModel):
     active_exercises: List[str]
     misconceptions: List[str]
     assessment_questions: List[str]
+    version: int = 1
     created_at: Optional[datetime] = None
+
+class SessionLogIn(BaseModel):
+    """What the teacher records after a class (Teach -> Record)."""
+    method_id: Optional[str] = None
+    actual_minutes: int = Field(gt=0, le=300)
+    student_engagement_rating: int = Field(default=4, ge=1, le=5)
+    completion_rate: float = Field(default=1.0, ge=0.0, le=1.0)
+    teacher_notes: Optional[str] = Field(default=None, max_length=2000)
+    topic_completed: bool = False
+
+class LessonPlanUpdate(BaseModel):
+    """Teacher review of a recommended plan (human-in-the-loop). expected_version is the
+    version the client last read; a mismatch means someone else saved in between -> 409."""
+    expected_version: int = Field(ge=1)
+    status: Optional[Literal["approved", "rejected", "modified"]] = None
+    phases: Optional[List[PeriodPhase]] = None
+    learning_objectives: Optional[List[str]] = None
+    worked_examples: Optional[List[str]] = None
+    active_exercises: Optional[List[str]] = None
+    misconceptions: Optional[List[str]] = None
+    assessment_questions: Optional[List[str]] = None
+    change_note: Optional[str] = Field(default=None, max_length=500)
 
 # -------------------------------------------------------------
 # Assessment & Performance Schemas

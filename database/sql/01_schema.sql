@@ -404,8 +404,10 @@ CREATE TABLE public.lesson_plans (
     teacher_overridden boolean,
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
+    version integer DEFAULT 1 NOT NULL,
     CONSTRAINT check_ai_confidence_range CHECK (((ai_confidence >= (0.0)::double precision) AND (ai_confidence <= (1.0)::double precision))),
-    CONSTRAINT check_lesson_plan_status CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'approved'::character varying, 'rejected'::character varying, 'modified'::character varying, 'completed'::character varying])::text[])))
+    CONSTRAINT check_lesson_plan_status CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'approved'::character varying, 'rejected'::character varying, 'modified'::character varying, 'completed'::character varying])::text[]))),
+    CONSTRAINT check_lesson_plan_version_positive CHECK ((version >= 1))
 );
 
 --
@@ -724,6 +726,17 @@ CREATE TABLE public.teaching_methods (
 );
 
 --
+-- Name: txn_lab_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.txn_lab_accounts (
+    id character varying(20) NOT NULL,
+    label character varying(50) NOT NULL,
+    balance integer NOT NULL,
+    CONSTRAINT check_non_negative_balance CHECK ((balance >= 0))
+);
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -946,6 +959,13 @@ ALTER TABLE ONLY public.teaching_sessions
 
 ALTER TABLE ONLY public.topics
     ADD CONSTRAINT topics_pkey PRIMARY KEY (id);
+
+--
+-- Name: txn_lab_accounts txn_lab_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.txn_lab_accounts
+    ADD CONSTRAINT txn_lab_accounts_pkey PRIMARY KEY (id);
 
 --
 -- Name: units units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1976,6 +1996,12 @@ GRANT SELECT ON TABLE public.teachers TO optiteach_readonly;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.teaching_methods TO optiteach_app;
 GRANT SELECT ON TABLE public.teaching_methods TO optiteach_readonly;
+
+--
+-- Name: TABLE txn_lab_accounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.txn_lab_accounts TO optiteach_app;
 
 --
 -- Name: TABLE users; Type: ACL; Schema: public; Owner: -
