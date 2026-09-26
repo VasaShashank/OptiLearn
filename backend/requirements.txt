@@ -1,6 +1,6 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
-sqlalchemy>=2.0
+sqlalchemy>=2.0,<2.1  # 2.1 makes psycopg 3 the default driver for postgresql://; the code targets psycopg2
 psycopg2-binary>=2.9
 alembic>=1.13
 pydantic>=2.6
