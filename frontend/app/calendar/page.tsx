@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, ClipboardCheck, Download, FileText, Presentation } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Download, FileText, Presentation } from "lucide-react";
 import { coursesAPI, exportsAPI } from "@/lib/api";
 import type { ClassSessionItem, Course } from "@/lib/types";
 import SessionLogModal from "@/components/session-log-modal";
@@ -62,28 +62,24 @@ export default function CalendarPage() {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+      <header className="page-header">
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 8 }}>
-            <CalendarDays size={24} style={{ color: "var(--accent-blue)" }} /> Teaching Calendar
-          </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
-            Every period of the course: what it covers, whether its plan is reviewed, and what was actually taught.
-          </p>
+          <h1>Calendar</h1>
+          <p>Every period of the course: what it covers, whether its plan is reviewed, and what was actually taught.</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {courses.length > 0 && (
             <select className="select" aria-label="Course" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
-              {courses.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.code}: {c.title}</option>)}
             </select>
           )}
           {courseId && (
             <button type="button" className="btn btn-secondary" onClick={() => exportsAPI.downloadCalendar(courseId).catch(() => {})}>
-              <Download size={14} /> iCal
+              <Download size={14} /> Add to my calendar app
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {Object.entries(STATUS_STYLE).filter(([k]) => counts[k]).map(([k, v]) => (
@@ -98,7 +94,7 @@ export default function CalendarPage() {
             {groups.map((g, gi) => (
               <div key={gi}>
                 <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>
-                  {g.unit ? `Unit ${g.unit}` : "Unassigned"} · {g.items[0].topic_title || "No topic"}{g.items.length > 1 && g.items[g.items.length - 1].topic_title !== g.items[0].topic_title ? " …" : ""}
+                  {g.unit ? `Unit ${g.unit}` : "No unit"}: {g.items[0].topic_title || "No topic"}{g.items.length > 1 && g.items[g.items.length - 1].topic_title !== g.items[0].topic_title ? " …" : ""}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
                   {g.items.map((s) => {
@@ -118,7 +114,7 @@ export default function CalendarPage() {
                           {s.topic_title || "—"}
                         </div>
                         {s.lesson_plan_status && (
-                          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>plan: {s.lesson_plan_status}</div>
+                          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>Plan {PLAN_LABEL[s.lesson_plan_status] || s.lesson_plan_status}</div>
                         )}
                       </button>
                     );
@@ -135,11 +131,11 @@ export default function CalendarPage() {
                 <span className={`badge ${(STATUS_STYLE[selected.status] || STATUS_STYLE.scheduled).badge}`}>{(STATUS_STYLE[selected.status] || STATUS_STYLE.scheduled).label}</span>
               </div>
               <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", margin: "6px 0 14px" }}>
-                {selected.topic_title || "No topic assigned"}{selected.unit_number ? ` · Unit ${selected.unit_number}` : ""}
+                {selected.unit_number ? `Unit ${selected.unit_number}: ` : ""}{selected.topic_title || "No topic assigned"}
               </p>
               <Row label="Length" value={`${selected.duration_minutes} min`} />
               <Row label="Date" value={selected.scheduled_date ? new Date(selected.scheduled_date).toLocaleDateString() : "Not dated"} />
-              <Row label="Lesson plan" value={selected.lesson_plan_status ? `${selected.lesson_plan_status} (v${selected.lesson_plan_version})` : "Not prepared"} />
+              <Row label="Lesson plan" value={selected.lesson_plan_status ? `${PLAN_LABEL[selected.lesson_plan_status] || selected.lesson_plan_status}, version ${selected.lesson_plan_version}` : "Not prepared"} />
 
               {selected.logged && (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border-default)" }}>
@@ -194,3 +190,11 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+const PLAN_LABEL: Record<string, string> = {
+  draft: "needs review",
+  modified: "edited",
+  approved: "approved",
+  rejected: "rejected",
+  completed: "taught",
+};

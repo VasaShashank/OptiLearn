@@ -77,7 +77,7 @@ export default function ConsoleTab() {
       {result && (
         <div className="glass-card animate-fade-in" style={{ overflow: "hidden" }}>
           <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border-default)", display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span className="badge badge-success">{result.row_count} rows{result.truncated ? " (truncated)" : ""}</span>
+            <span className="badge badge-success">{result.row_count} {result.row_count === 1 ? "row" : "rows"}{result.truncated ? " (truncated)" : ""}</span>
             <span className="badge badge-info">{result.execution_time_ms} ms</span>
             <span className="badge badge-purple">as {result.executed_as}</span>
             <span className="badge badge-neutral">{result.scope}</span>

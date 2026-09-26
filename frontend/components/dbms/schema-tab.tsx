@@ -28,7 +28,7 @@ export default function SchemaTab({ schema }: { schema: TableSchemaInfo[] }) {
               {open === table.table_name ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span style={{ fontSize: "0.9rem", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{table.table_name}</span>
               <span className="badge badge-neutral" style={{ marginLeft: "auto", fontSize: "0.8rem" }}>{table.columns.length} cols</span>
-              <span className="badge badge-info" style={{ fontSize: "0.8rem" }}>{table.row_count} rows</span>
+              <span className="badge badge-info" style={{ fontSize: "0.8rem" }}>{table.row_count} {table.row_count === 1 ? "row" : "rows"}</span>
             </button>
             {open === table.table_name && (
               <div style={{ padding: "0 16px 16px" }}>

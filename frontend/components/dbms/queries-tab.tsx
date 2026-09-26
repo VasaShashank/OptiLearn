@@ -96,7 +96,7 @@ export default function QueriesTab({ queries, courseId, dialect }: { queries: Qu
               <div>
                 <h3 style={{ fontSize: "0.9375rem", fontWeight: 700 }}>{result.title}</h3>
                 <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <span className="badge badge-success">{result.row_count} rows</span>
+                  <span className="badge badge-success">{result.row_count} {result.row_count === 1 ? "row" : "rows"}</span>
                   <span className="badge badge-info"><Clock size={10} /> {result.execution_time_ms} ms</span>
                 </div>
               </div>
