@@ -69,6 +69,7 @@ class CourseOut(BaseModel):
     units_count: int = 0
     topics_count: int = 0
     concepts_count: int = 0
+    my_role: str = "owner"  # owner / co_teacher / viewer / admin
     created_at: Optional[datetime] = None
 
 # -------------------------------------------------------------

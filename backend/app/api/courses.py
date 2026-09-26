@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.database.connection import get_db
-from app.models.entities import Course, Teacher, Unit, Topic, Concept, CourseOutcome, Section, TeacherConstraint, Assessment, User
+from app.models.entities import Course, Teacher, Unit, Topic, Concept, CourseOutcome, Section, TeacherConstraint, Assessment, User, CourseMember
 from app.schemas.schemas import (
     CourseCreate, CourseOut, ConfirmCurriculumRequest, CurriculumGraphResponse,
     CourseOptimizationResponse, NextClassOptimizationResponse,
@@ -20,7 +21,7 @@ from app.services.artifact_service import artifact_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
 
-from app.auth.security import get_current_user, get_current_teacher, get_accessible_course
+from app.auth.security import get_current_user, get_current_teacher, get_accessible_course, course_role
 
 # Every route requires a valid bearer token; /{course_id} routes additionally resolve the
 # course through get_accessible_course (owner or admin, otherwise 404).
@@ -31,9 +32,15 @@ ALLOWED_SYLLABUS_SUFFIXES = (".pdf", ".txt", ".md")
 
 @router.get("", response_model=List[CourseOut])
 def list_courses(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Courses the user owns, then courses shared with them (co-teacher or viewer)."""
     query = db.query(Course)
     if current_user.role != "admin":
-        query = query.join(Teacher).filter(Teacher.user_id == current_user.id)
+        shared = (
+            db.query(CourseMember.course_id).join(Teacher, CourseMember.teacher_id == Teacher.id)
+            .filter(Teacher.user_id == current_user.id)
+        )
+        owned = db.query(Course.id).join(Teacher).filter(Teacher.user_id == current_user.id)
+        query = query.filter(or_(Course.id.in_(owned), Course.id.in_(shared)))
     courses = query.order_by(Course.created_at).all()
     results = []
     for c in courses:
@@ -54,9 +61,11 @@ def list_courses(current_user: User = Depends(get_current_user), db: Session = D
             units_count=u_count,
             topics_count=t_count,
             concepts_count=c_count,
+            my_role=course_role(db, c, current_user),
             created_at=c.created_at
         ))
-    return results
+    order = {"owner": 0, "admin": 0, "co_teacher": 1, "viewer": 2}
+    return sorted(results, key=lambda r: order.get(r.my_role, 3))
 
 @router.post("", response_model=CourseOut)
 def create_course(
@@ -122,7 +131,8 @@ def create_course(
     )
 
 @router.get("/{course_id}", response_model=CourseOut)
-def get_course(c: Course = Depends(get_accessible_course)):
+def get_course(c: Course = Depends(get_accessible_course), current_user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
     u_count = len(c.units)
     t_count = sum(len(u.topics) for u in c.units)
     c_count = sum(sum(len(t.concepts) for t in u.topics) for u in c.units)
@@ -141,6 +151,7 @@ def get_course(c: Course = Depends(get_accessible_course)):
         units_count=u_count,
         topics_count=t_count,
         concepts_count=c_count,
+        my_role=course_role(db, c, current_user),
         created_at=c.created_at
     )
 

@@ -124,6 +124,7 @@ class Course(Base):
     teacher = relationship("Teacher", back_populates="courses")
     sections = relationship("Section", back_populates="course", cascade="all, delete-orphan")
     constraints = relationship("TeacherConstraint", back_populates="course", uselist=False, cascade="all, delete-orphan")
+    members = relationship("CourseMember", back_populates="course", cascade="all, delete-orphan")
     outcomes = relationship("CourseOutcome", back_populates="course", cascade="all, delete-orphan")
     units = relationship("Unit", back_populates="course", order_by="Unit.order_index", cascade="all, delete-orphan")
     class_sessions = relationship("ClassSession", back_populates="course", order_by="ClassSession.session_number", cascade="all, delete-orphan")
@@ -494,3 +495,25 @@ class TxnLabAccount(Base):
     __table_args__ = (
         CheckConstraint("balance >= 0", name="check_non_negative_balance"),
     )
+
+
+class CourseMember(Base):
+    """
+    Co-teaching (M:N teachers <-> courses with a role). The owner stays courses.teacher_id;
+    members are the other faculty: co_teacher can change the course, viewer can only read.
+    PostgreSQL additionally rejects adding the owner as a member (trg_course_member_not_owner).
+    """
+    __tablename__ = "course_members"
+
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True)
+    teacher_id = Column(String(36), ForeignKey("teachers.id", ondelete="CASCADE"), primary_key=True)
+    role = Column(String(20), nullable=False)
+    added_at = Column(DateTime, nullable=False, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('co_teacher', 'viewer')", name="check_course_member_role"),
+        Index("ix_course_members_teacher", "teacher_id"),
+    )
+
+    course = relationship("Course", back_populates="members")
+    teacher = relationship("Teacher")

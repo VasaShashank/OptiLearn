@@ -29,6 +29,11 @@ erDiagram
         varchar name
         integer difficulty
     }
+    course_members {
+        varchar course_id PK,FK
+        varchar teacher_id PK,FK
+        varchar role
+    }
     course_outcomes {
         varchar id PK
         varchar course_id FK
@@ -128,12 +133,14 @@ erDiagram
     course_outcomes ||--o{ concept_outcomes : outcome_id
     courses ||--o{ assessments : course_id
     courses ||--o{ class_sessions : course_id
+    courses ||--o{ course_members : course_id
     courses ||--o{ course_outcomes : course_id
     courses ||--o{ sections : course_id
     courses ||--o{ units : course_id
     courses ||--o| teacher_constraints : course_id
     questions ||--o{ question_concepts : question_id
     teacher_constraints ||--o{ teacher_preferred_methods : constraint_id
+    teachers ||--o{ course_members : teacher_id
     teachers ||--o{ courses : teacher_id
     teaching_methods ||--o{ method_effectiveness : method_id
     teaching_methods ||--o{ teacher_preferred_methods : method_id

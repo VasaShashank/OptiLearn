@@ -50,6 +50,35 @@ BEGIN
 END $$;
 
 --
+-- Name: fn_console_course_ids(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.fn_console_course_ids() RETURNS SETOF character varying
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+            SELECT id FROM courses WHERE teacher_id = current_setting('app.teacher_id', true)
+            UNION
+            SELECT course_id FROM course_members WHERE teacher_id = current_setting('app.teacher_id', true)
+        $$;
+
+--
+-- Name: fn_course_member_not_owner(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.fn_course_member_not_owner() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM courses WHERE id = NEW.course_id AND teacher_id = NEW.teacher_id) THEN
+                RAISE EXCEPTION 'The course owner cannot also be added as a member'
+                    USING ERRCODE = 'check_violation';
+            END IF;
+            RETURN NEW;
+        END $$;
+
+--
 -- Name: fn_performance_weakness(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -351,6 +380,18 @@ CREATE TABLE public.concepts (
     CONSTRAINT check_concept_type CHECK (((concept_type)::text = ANY ((ARRAY['conceptual'::character varying, 'procedural'::character varying, 'problem_solving'::character varying, 'practical'::character varying, 'analytical'::character varying, 'revision'::character varying])::text[]))),
     CONSTRAINT check_difficulty_range CHECK (((difficulty >= 1) AND (difficulty <= 5))),
     CONSTRAINT check_importance_range CHECK (((importance >= 1) AND (importance <= 5)))
+);
+
+--
+-- Name: course_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.course_members (
+    course_id character varying(36) NOT NULL,
+    teacher_id character varying(36) NOT NULL,
+    role character varying(20) NOT NULL,
+    added_at timestamp without time zone NOT NULL,
+    CONSTRAINT check_course_member_role CHECK (((role)::text = ANY ((ARRAY['co_teacher'::character varying, 'viewer'::character varying])::text[])))
 );
 
 --
@@ -814,6 +855,13 @@ ALTER TABLE ONLY public.concepts
     ADD CONSTRAINT concepts_pkey PRIMARY KEY (id);
 
 --
+-- Name: course_members course_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_members
+    ADD CONSTRAINT course_members_pkey PRIMARY KEY (course_id, teacher_id);
+
+--
 -- Name: course_outcomes course_outcomes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1093,6 +1141,12 @@ CREATE INDEX ix_concept_outcomes_outcome ON public.concept_outcomes USING btree 
 CREATE INDEX ix_concepts_topic_id ON public.concepts USING btree (topic_id);
 
 --
+-- Name: ix_course_members_teacher; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_course_members_teacher ON public.course_members USING btree (teacher_id);
+
+--
 -- Name: ix_course_outcomes_course_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1213,6 +1267,18 @@ CREATE TRIGGER trg_class_sessions_audit AFTER INSERT OR DELETE OR UPDATE ON publ
 CREATE TRIGGER trg_concepts_audit AFTER INSERT OR DELETE OR UPDATE ON public.concepts FOR EACH ROW EXECUTE FUNCTION public.fn_audit_row_change();
 
 --
+-- Name: course_members trg_course_member_not_owner; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_course_member_not_owner BEFORE INSERT OR UPDATE ON public.course_members FOR EACH ROW EXECUTE FUNCTION public.fn_course_member_not_owner();
+
+--
+-- Name: course_members trg_course_members_audit; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_course_members_audit AFTER INSERT OR DELETE OR UPDATE ON public.course_members FOR EACH ROW EXECUTE FUNCTION public.fn_audit_row_change();
+
+--
 -- Name: courses trg_courses_audit; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1331,6 +1397,20 @@ ALTER TABLE ONLY public.concept_outcomes
 
 ALTER TABLE ONLY public.concepts
     ADD CONSTRAINT concepts_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id) ON DELETE CASCADE;
+
+--
+-- Name: course_members course_members_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_members
+    ADD CONSTRAINT course_members_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+--
+-- Name: course_members course_members_teacher_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_members
+    ADD CONSTRAINT course_members_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.teachers(id) ON DELETE CASCADE;
 
 --
 -- Name: course_outcomes course_outcomes_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -1546,6 +1626,12 @@ CREATE POLICY console_read ON public.concepts FOR SELECT TO optiteach_readonly U
    FROM public.topics)));
 
 --
+-- Name: course_members console_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY console_read ON public.course_members FOR SELECT TO optiteach_readonly USING (((current_setting('app.is_admin'::text, true) = 'true'::text) OR ((course_id)::text IN ( SELECT public.fn_console_course_ids() AS fn_console_course_ids))));
+
+--
 -- Name: course_outcomes console_read; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -1556,7 +1642,7 @@ CREATE POLICY console_read ON public.course_outcomes FOR SELECT TO optiteach_rea
 -- Name: courses console_read; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY console_read ON public.courses FOR SELECT TO optiteach_readonly USING (((current_setting('app.is_admin'::text, true) = 'true'::text) OR ((teacher_id)::text = current_setting('app.teacher_id'::text, true))));
+CREATE POLICY console_read ON public.courses FOR SELECT TO optiteach_readonly USING (((current_setting('app.is_admin'::text, true) = 'true'::text) OR ((id)::text IN ( SELECT public.fn_console_course_ids() AS fn_console_course_ids))));
 
 --
 -- Name: lesson_plans console_read; Type: POLICY; Schema: public; Owner: -
@@ -1647,6 +1733,12 @@ CREATE POLICY console_read ON public.units FOR SELECT TO optiteach_readonly USIN
 
 CREATE POLICY console_read ON public.users FOR SELECT TO optiteach_readonly USING (((current_setting('app.is_admin'::text, true) = 'true'::text) OR ((id)::text IN ( SELECT teachers.user_id
    FROM public.teachers))));
+
+--
+-- Name: course_members; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.course_members ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: course_outcomes; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1777,6 +1869,13 @@ GRANT ALL ON FUNCTION pg_catalog.set_config(text, text, boolean) TO optiteach_ap
 REVOKE ALL ON FUNCTION public.fn_audit_row_change() FROM PUBLIC;
 
 --
+-- Name: FUNCTION fn_console_course_ids(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.fn_console_course_ids() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.fn_console_course_ids() TO optiteach_readonly;
+
+--
 -- Name: FUNCTION fn_performance_weakness(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -1864,6 +1963,13 @@ GRANT SELECT ON TABLE public.concept_outcomes TO optiteach_readonly;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.concepts TO optiteach_app;
 GRANT SELECT ON TABLE public.concepts TO optiteach_readonly;
+
+--
+-- Name: TABLE course_members; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.course_members TO optiteach_app;
+GRANT SELECT ON TABLE public.course_members TO optiteach_readonly;
 
 --
 -- Name: TABLE course_outcomes; Type: ACL; Schema: public; Owner: -

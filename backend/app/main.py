@@ -14,6 +14,7 @@ from app.api.dbms_insights import router as dbms_router
 from app.api.exports import router as exports_router
 from app.api.teaching_methods import router as teaching_methods_router
 from app.api.curriculum import router as curriculum_router
+from app.api.members import router as members_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -73,6 +74,7 @@ app.include_router(dbms_router, prefix=settings.API_PREFIX)
 app.include_router(exports_router, prefix=settings.API_PREFIX)
 app.include_router(teaching_methods_router, prefix=settings.API_PREFIX)
 app.include_router(curriculum_router, prefix=settings.API_PREFIX)
+app.include_router(members_router, prefix=settings.API_PREFIX)
 
 @app.get("/")
 def root():

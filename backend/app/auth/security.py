@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.database.config import settings
 from app.database.connection import get_db
-from app.models.entities import Course, User, Teacher
+from app.models.entities import Course, CourseMember, User, Teacher
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_PREFIX}/auth/login")
 
@@ -161,20 +161,52 @@ def get_current_teacher(current_user: User = Depends(get_current_user), db: Sess
     return teacher
 
 
+def course_role(db: Session, course: Course, user: User) -> Optional[str]:
+    """owner / admin / co_teacher / viewer, or None when the user has no access."""
+    if user.role == "admin":
+        return "admin"
+    if course.teacher and course.teacher.user_id == user.id:
+        return "owner"
+    membership = (
+        db.query(CourseMember).join(Teacher, CourseMember.teacher_id == Teacher.id)
+        .filter(CourseMember.course_id == course.id, Teacher.user_id == user.id)
+        .first()
+    )
+    return membership.role if membership else None
+
+
 def get_accessible_course(
     course_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    request: Request = None,
 ) -> Course:
     """
-    Course-level access control: admins reach every course, teachers only their own.
+    Course-level access control. Admins reach every course; owners and co-teachers can
+    read and change it; viewers can only read (any non-GET request is refused with 403).
     A course the caller may not see is reported as 404, not 403, so course IDs of
     other teachers cannot be probed.
     """
     course = db.query(Course).filter(Course.id == course_id).first()
-    if course and (current_user.role == "admin" or (course.teacher and course.teacher.user_id == current_user.id)):
-        return course
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+    role = course_role(db, course, current_user) if course else None
+    if role is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+    if role == "viewer" and request is not None and request.method != "GET":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can view this course but not change it. Ask the course owner for co-teacher access.")
+    return course
+
+
+def get_owned_course(
+    course_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Course:
+    """Owner (or admin) only: used for managing who else has access."""
+    course = get_accessible_course(course_id, current_user, db)
+    if course_role(db, course, current_user) not in ("owner", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the course owner can change who has access")
+    return course
 
 
 def client_key(request: Request, email: str) -> str:

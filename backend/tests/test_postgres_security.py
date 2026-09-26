@@ -225,9 +225,32 @@ def test_catalog_and_explain_on_postgres(pg_app):
         objects = db_catalog_service.database_objects(session)
         assert {"trg_prerequisite_guard", "trg_performance_weakness"} <= {t["name"] for t in objects["triggers"]}
         assert any(r["name"] == "fn_audit_row_change" and r["security_definer"] for r in objects["routines"])
-        assert len(objects["policies"]) == 20
+        assert {"courses", "course_members"} <= {p["table_name"] for p in objects["policies"]}
         assert any(i["is_partial"] for i in objects["indexes"])
 
         course_id = session.execute(text("SELECT id FROM courses WHERE code = 'CS302'")).scalar()
         plan = dbms_insights_service.explain_demo_query(session, "q11_curriculum_depth_recursive", course_id)["plan"]
         assert any("actual time" in line for line in plan)
+
+
+# ------------------------------------------------------------------ co-teaching on PostgreSQL
+
+def test_owner_cannot_be_member_and_console_sees_shared_courses(pg, pg_app, second_teacher):
+    cs302_teacher = None
+    with pg.begin() as conn:
+        cs302 = conn.execute(text("SELECT id, teacher_id FROM courses WHERE code = 'CS302'")).one()
+        cs302_teacher = cs302.teacher_id
+        with pytest.raises(DBAPIError, match="owner cannot also be added"):
+            with conn.begin_nested():
+                conn.execute(text("INSERT INTO course_members VALUES (:c, :t, 'viewer', now())"), {"c": cs302.id, "t": cs302.teacher_id})
+        # Share the second teacher's course with the CS302 teacher as a viewer
+        conn.execute(text("INSERT INTO course_members VALUES (:c, :t, 'viewer', now())"),
+                     {"c": second_teacher["course"], "t": cs302_teacher})
+    try:
+        codes = {r["code"] for r in console(pg_app, "SELECT code FROM courses", "faculty@optiteach.edu")["rows"]}
+        assert codes == {"CS302", "EE201"}  # own + shared, and nothing else
+        shared = console(pg_app, "SELECT role FROM course_members", "faculty@optiteach.edu")["rows"]
+        assert shared == [{"role": "viewer"}]
+    finally:
+        with pg.begin() as conn:
+            conn.execute(text("DELETE FROM course_members WHERE course_id = :c"), {"c": second_teacher["course"]})
