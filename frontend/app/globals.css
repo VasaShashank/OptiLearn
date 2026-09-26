@@ -624,3 +624,9 @@ button.card:hover { border-color: var(--rule-strong); }
 .resource-list li { display: flex; gap: 8px; align-items: flex-start; }
 .resource-list a { display: inline-flex; gap: 4px; align-items: center; font-weight: 600; }
 .resource-list summary { cursor: pointer; font-weight: 600; }
+
+/* Lesson material */
+.material-panel { margin-top: 16px; border-top: var(--border-w) solid var(--rule); padding-top: 12px; }
+.material-panel > summary { cursor: pointer; font-weight: 700; margin-bottom: 10px; }
+.material-form { display: grid; grid-template-columns: 200px 1fr; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: var(--border-w) dashed var(--rule); }
+@media (max-width: 700px) { .material-form { grid-template-columns: 1fr; } }

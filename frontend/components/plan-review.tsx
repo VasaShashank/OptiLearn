@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, GitCompare, History, Pencil, RotateCcw, Save, X } from "lucide-react";
 import { APIError, coursesAPI } from "@/lib/api";
 import type { LessonPlan, LessonPlanDiff, LessonPlanVersion, PeriodPhase } from "@/lib/types";
+import MaterialEditor from "@/components/material-editor";
 
 /**
  * Human-in-the-loop review of a recommended lesson plan: approve, reject or edit.
@@ -142,6 +143,15 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
           )}
         </div>
       )}
+
+      <details className="material-panel" open={(plan.resources || []).length > 0}>
+        <summary>Material for this class ({(plan.resources || []).length})</summary>
+        <MaterialEditor
+          resources={plan.resources || []}
+          busy={busy}
+          onSave={(next, changeNote) => save({ expected_version: plan.version, resources: next, change_note: changeNote })}
+        />
+      </details>
 
       {history && (
         <div style={{ marginTop: 14 }}>
