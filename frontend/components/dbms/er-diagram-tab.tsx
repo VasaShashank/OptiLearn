@@ -50,10 +50,10 @@ export default function ERDiagramTab() {
         subtitle="Generated from the database's own foreign keys every time this tab opens, so it always matches the deployed schema. ||--o{ is one-to-many; ||--o| is one-to-one (a UNIQUE foreign key)."
         action={meta && (
           <div style={{ display: "flex", gap: 6 }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => setFit(!fit)}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: "0.85rem" }} onClick={() => setFit(!fit)}>
               {fit ? "Actual size" : "Fit to width"}
             </button>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => setShowSource(!showSource)}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: "0.85rem" }} onClick={() => setShowSource(!showSource)}>
               {showSource ? "Hide" : "Show"} Mermaid source
             </button>
           </div>

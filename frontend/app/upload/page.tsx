@@ -157,12 +157,12 @@ export default function UploadPage() {
   };
 
   const bloomColors: Record<string, string> = {
-    Remember: "#94a3b8",
-    Understand: "#60a5fa",
-    Apply: "#34d399",
-    Analyze: "#fbbf24",
+    Remember: "var(--pencil)",
+    Understand: "var(--ink)",
+    Apply: "var(--tick)",
+    Analyze: "var(--caution)",
     Evaluate: "#f97316",
-    Create: "#f43f5e",
+    Create: "var(--redpen)",
   };
 
   return (
@@ -171,7 +171,7 @@ export default function UploadPage() {
         <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
           Syllabus Upload & Intelligent Extraction
         </h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
           Upload syllabus files or paste raw text to extract multi-level curriculum trees, outcomes, and prerequisite DAGs
         </p>
       </div>
@@ -182,8 +182,8 @@ export default function UploadPage() {
           style={{
             padding: "16px 20px",
             marginBottom: 24,
-            background: "rgba(244,63,94,0.08)",
-            border: "1px solid rgba(244,63,94,0.35)",
+            background: "var(--redpen-wash)",
+            border: "1px solid var(--redpen)",
             borderRadius: "var(--radius-md)",
             display: "flex",
             alignItems: "flex-start",
@@ -195,10 +195,10 @@ export default function UploadPage() {
             <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: "var(--accent-rose)" }}>
               Extraction Failed (No Fallback Injected)
             </div>
-            <p style={{ fontSize: "0.8125rem", color: "var(--text-primary)", marginTop: 4, lineHeight: 1.5 }}>
+            <p style={{ fontSize: "0.9rem", color: "var(--text-primary)", marginTop: 4, lineHeight: 1.5 }}>
               {errorMessage}
             </p>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8 }}>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 8 }}>
               💡 <strong>Required Syllabus Structure:</strong> Please ensure the document includes clear unit or module headers (e.g. <code>UNIT 1: Database Architecture</code> or <code>MODULE 1: Introduction</code>) followed by topics and sub-topics.
             </div>
           </div>
@@ -237,14 +237,14 @@ export default function UploadPage() {
             />
             <Upload size={40} style={{ color: "var(--brand-start)", margin: "0 auto 16px" }} />
             <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 6 }}>Drop Syllabus File</h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
               PDF, TXT, or DOCX documents
             </p>
           </div>
 
           {/* Text Input */}
           <div className="card" style={{ padding: 24, display: "flex", flexDirection: "column" }}>
-            <h3 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 12 }}>Or Paste Syllabus Text</h3>
+            <h3 style={{ fontSize: "0.93rem", fontWeight: 600, marginBottom: 12 }}>Or Paste Syllabus Text</h3>
             <textarea
               className="input"
               style={{
@@ -252,7 +252,7 @@ export default function UploadPage() {
                 minHeight: 180,
                 resize: "vertical",
                 fontFamily: "monospace",
-                fontSize: "0.8125rem",
+                fontSize: "0.9rem",
               }}
               placeholder={`Example:\nSubject Name: Artificial Intelligence and Machine Learning\nCourse Code: CS402\n\nUNIT 1: Introduction to AI & State Space Search\nFoundations of AI, Agents and Environments, BFS, DFS, Heuristic Search, A* Algorithm\n\nUNIT 2: Machine Learning Foundations\nRegression, Classification, Decision Trees, SVM, Neural Networks`}
               value={rawText}
@@ -297,8 +297,8 @@ export default function UploadPage() {
               style={{
                 padding: "20px 24px",
                 marginBottom: 24,
-                background: "rgba(16, 185, 129, 0.12)",
-                border: "1px solid rgba(16, 185, 129, 0.35)",
+                background: "var(--tick-wash)",
+                border: "1px solid var(--tick)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -310,7 +310,7 @@ export default function UploadPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent-emerald)", fontWeight: 700, fontSize: "1.0625rem" }}>
                   <Check size={20} /> Course Curriculum Successfully Persisted!
                 </div>
-                <div style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+                <div style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
                   <strong>{confirmedCourse.code}</strong> — {confirmedCourse.title} is now fully active with optimization and analytics.
                 </div>
               </div>
@@ -398,10 +398,10 @@ export default function UploadPage() {
                   style={{ marginTop: 3 }}
                 />
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text-primary)" }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.93rem", color: "var(--text-primary)" }}>
                     ✨ Create as a New Course Subject
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 2 }}>
                     Adds a new distinct subject to your teacher dashboard (e.g. AIML, OS, Networks)
                   </div>
                 </div>
@@ -425,10 +425,10 @@ export default function UploadPage() {
                   style={{ marginTop: 3 }}
                 />
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text-primary)" }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.93rem", color: "var(--text-primary)" }}>
                     🔄 Update / Overwrite Existing Course
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 2 }}>
                     Replaces units and outcomes for an existing course
                   </div>
                   {targetMode === "existing" && (
@@ -439,7 +439,7 @@ export default function UploadPage() {
                       style={{
                         marginTop: 8,
                         padding: "6px 10px",
-                        fontSize: "0.8125rem",
+                        fontSize: "0.9rem",
                         width: "100%",
                       }}
                     >
@@ -457,7 +457,7 @@ export default function UploadPage() {
             {/* Editable Subject Details */}
             <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: 14 }}>
               <div>
-                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
                   Course Title / Subject Name
                 </label>
                 <input
@@ -471,7 +471,7 @@ export default function UploadPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
                   Course Code
                 </label>
                 <input
@@ -485,7 +485,7 @@ export default function UploadPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
                   Semester
                 </label>
                 <input
@@ -499,7 +499,7 @@ export default function UploadPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
                   Total Classes (Periods)
                 </label>
                 <input
@@ -534,15 +534,15 @@ export default function UploadPage() {
               style={{
                 padding: 14,
                 marginBottom: 20,
-                background: "rgba(59,130,246,0.04)",
-                borderColor: "rgba(59,130,246,0.15)",
+                background: "var(--ink-wash)",
+                borderColor: "var(--ink-wash)",
               }}
             >
               {curriculum.extraction_notes.map((note, i) => (
                 <div
                   key={i}
                   style={{
-                    fontSize: "0.8125rem",
+                    fontSize: "0.9rem",
                     color: "var(--accent-blue)",
                     display: "flex",
                     alignItems: "center",
@@ -560,11 +560,9 @@ export default function UploadPage() {
             <div className="card" style={{ padding: 20, marginBottom: 20 }}>
               <h3
                 style={{
-                  fontSize: "0.875rem",
+                  fontSize: "0.93rem",
                   fontWeight: 600,
                   color: "var(--text-muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
                   marginBottom: 14,
                 }}
               >
@@ -593,14 +591,14 @@ export default function UploadPage() {
                       className="input"
                       value={o.description}
                       onChange={(e) => updateOutcome(i, e.target.value)}
-                      style={{ flex: 1, fontSize: "0.8125rem", padding: "4px 8px" }}
+                      style={{ flex: 1, fontSize: "0.9rem", padding: "4px 8px" }}
                     />
                     <span
                       className="badge"
                       style={{
-                        background: `${bloomColors[o.bloom_level] || "#94a3b8"}20`,
-                        color: bloomColors[o.bloom_level] || "#94a3b8",
-                        border: `1px solid ${bloomColors[o.bloom_level] || "#94a3b8"}40`,
+                        background: `${bloomColors[o.bloom_level] || "var(--pencil)"}20`,
+                        color: bloomColors[o.bloom_level] || "var(--pencil)",
+                        border: `1px solid ${bloomColors[o.bloom_level] || "var(--pencil)"}40`,
                         minWidth: 80,
                         justifyContent: "center",
                       }}
@@ -617,11 +615,9 @@ export default function UploadPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <h3
               style={{
-                fontSize: "0.875rem",
+                fontSize: "0.93rem",
                 fontWeight: 600,
                 color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
                 marginBottom: 4,
               }}
             >
@@ -655,8 +651,8 @@ export default function UploadPage() {
                       <div key={tIdx} style={{ marginTop: 14 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                           <FileText size={14} style={{ color: "var(--accent-blue)" }} />
-                          <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{topic.title}</span>
-                          <span className="badge badge-neutral" style={{ fontSize: "0.625rem" }}>
+                          <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{topic.title}</span>
+                          <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
                             {topic.estimated_minutes}m
                           </span>
                         </div>
@@ -674,15 +670,15 @@ export default function UploadPage() {
                               }}
                             >
                               <Lightbulb size={12} style={{ color: "var(--accent-amber)", flexShrink: 0 }} />
-                              <span style={{ fontSize: "0.75rem", flex: 1 }}>{concept.name}</span>
-                              <span className="badge badge-neutral" style={{ fontSize: "0.5625rem" }}>
+                              <span style={{ fontSize: "0.85rem", flex: 1 }}>{concept.name}</span>
+                              <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
                                 Diff: {concept.difficulty}/5
                               </span>
-                              <span className="badge badge-neutral" style={{ fontSize: "0.5625rem" }}>
+                              <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
                                 {concept.concept_type}
                               </span>
                               {concept.prerequisites.length > 0 && (
-                                <span className="badge badge-purple" style={{ fontSize: "0.5625rem" }}>
+                                <span className="badge badge-purple" style={{ fontSize: "0.8rem" }}>
                                   ↑ {concept.prerequisites.join(", ")}
                                 </span>
                               )}

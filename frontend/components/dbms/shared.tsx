@@ -37,7 +37,7 @@ export function ResultTable({ columns, rows, maxHeight = 420 }: {
   maxHeight?: number;
 }) {
   if (rows.length === 0) {
-    return <div style={{ padding: 28, textAlign: "center", color: "var(--text-muted)", fontSize: "0.8125rem" }}>No rows returned</div>;
+    return <div style={{ padding: 28, textAlign: "center", color: "var(--text-muted)", fontSize: "0.9rem" }}>No rows returned</div>;
   }
   return (
     <div style={{ overflow: "auto", maxHeight }}>
@@ -49,7 +49,7 @@ export function ResultTable({ columns, rows, maxHeight = 420 }: {
           {rows.map((row, i) => (
             <tr key={i}>
               {columns.map((c) => (
-                <td key={c} style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", whiteSpace: "pre-wrap", maxWidth: 420 }}>
+                <td key={c} style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", whiteSpace: "pre-wrap", maxWidth: 420 }}>
                   {formatCell(row[c])}
                 </td>
               ))}
@@ -78,7 +78,7 @@ export function SectionTitle({ icon, title, subtitle, action }: {
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
       <div>
         <h2 style={{ fontSize: "1rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>{icon}{title}</h2>
-        {subtitle && <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 4, maxWidth: 820 }}>{subtitle}</p>}
+        {subtitle && <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginTop: 4, maxWidth: 820 }}>{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -87,9 +87,9 @@ export function SectionTitle({ icon, title, subtitle, action }: {
 
 export function ErrorNote({ message }: { message: string }) {
   return (
-    <div role="alert" className="card" style={{ padding: 14, display: "flex", gap: 10, alignItems: "flex-start", borderColor: "rgba(244,63,94,0.3)" }}>
-      <AlertCircle size={16} style={{ color: "#fb7185", flexShrink: 0, marginTop: 2 }} />
-      <span style={{ fontSize: "0.8125rem", color: "#fda4af", fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap" }}>{message}</span>
+    <div role="alert" className="card" style={{ padding: 14, display: "flex", gap: 10, alignItems: "flex-start", borderColor: "var(--redpen)" }}>
+      <AlertCircle size={16} style={{ color: "var(--redpen)", flexShrink: 0, marginTop: 2 }} />
+      <span style={{ fontSize: "0.9rem", color: "var(--redpen)", fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap" }}>{message}</span>
     </div>
   );
 }
@@ -98,14 +98,14 @@ export function Loading({ label }: { label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40, gap: 12 }}>
       <div className="spinner" />
-      <span style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>{label}</span>
+      <span style={{ color: "var(--text-secondary)", fontSize: "0.93rem" }}>{label}</span>
     </div>
   );
 }
 
 export function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.04em", marginBottom: 8 }}>
+    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>
       {children}
     </div>
   );

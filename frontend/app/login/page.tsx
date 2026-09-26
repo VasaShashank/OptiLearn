@@ -51,7 +51,7 @@ function LoginForm() {
           </div>
           <div>
             <div className="gradient-text" style={{ fontSize: "1.25rem", fontWeight: 700 }}>OptiTeach</div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Sign in to plan your teaching</div>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Sign in to plan your teaching</div>
           </div>
         </div>
 
@@ -77,7 +77,7 @@ function LoginForm() {
           </Field>
 
           {error && (
-            <div role="alert" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: "0.8125rem", color: "#fb7185" }}>
+            <div role="alert" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: "0.9rem", color: "var(--redpen)" }}>
               <AlertCircle size={16} /> {error}
             </div>
           )}
@@ -90,15 +90,15 @@ function LoginForm() {
 
         {mode === "login" && (
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border-default)" }}>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 8 }}>
               Demo accounts
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {DEMO_ACCOUNTS.map((a) => (
-                <button key={a.email} type="button" className="btn btn-ghost" style={{ justifyContent: "space-between", fontSize: "0.8125rem" }}
+                <button key={a.email} type="button" className="btn btn-ghost" style={{ justifyContent: "space-between", fontSize: "0.9rem" }}
                   onClick={() => setForm({ ...form, email: a.email, password: a.password })}>
                   <span>{a.label}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "0.75rem" }}>{a.email}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "0.85rem" }}>{a.email}</span>
                 </button>
               ))}
             </div>
@@ -111,7 +111,7 @@ function LoginForm() {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: "0.9rem", color: "var(--text-secondary)" }}>
       {label}
       {children}
     </label>

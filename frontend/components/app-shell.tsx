@@ -38,16 +38,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar />
-      <main
-        style={{
-          flex: 1,
-          minWidth: 0, // flex items default to min-width:auto; wide content (ER diagram, tables) must scroll, not widen the page
-          marginLeft: "var(--sidebar-width)",
-          minHeight: "100vh",
-          transition: "margin-left var(--transition-base)",
-        }}
-      >
-        <div style={{ padding: "32px 40px", maxWidth: 1400, margin: "0 auto" }}>{children}</div>
+      <main className="app-main">
+        <div className="app-main__inner">{children}</div>
       </main>
     </>
   );

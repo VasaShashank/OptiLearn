@@ -1,37 +1,35 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Atkinson_Hyperlegible_Next, Atkinson_Hyperlegible_Mono } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/app-shell";
+import { THEME_BOOTSTRAP } from "@/lib/theme";
 
-const inter = Inter({
-  variable: "--font-inter",
+// Atkinson Hyperlegible was designed for maximum character distinction: it stays readable
+// on a classroom projector and for low-vision readers.
+const atkinson = Atkinson_Hyperlegible_Next({
+  variable: "--font-atkinson",
   subsets: ["latin"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const atkinsonMono = Atkinson_Hyperlegible_Mono({
+  variable: "--font-atkinson-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "OptiTeach — Intelligent Course Teaching & Optimization Platform",
-  description:
-    "A DBMS-centric intelligent course teaching and optimization platform with curriculum graph analytics, constrained time allocation, and adaptive class planning.",
-  keywords: ["DBMS", "teaching optimization", "curriculum", "lesson plan", "normalization"],
+  title: "OptiTeach",
+  description: "Plan what to teach next, prepare each class, and see how it went.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${geistMono.variable} dark`}>
-      <body
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          background: "var(--bg-primary)",
-          color: "var(--text-primary)",
-        }}
-      >
+    <html lang="en" data-theme="light" className={`${atkinson.variable} ${atkinsonMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+      </head>
+      <body style={{ minHeight: "100vh", display: "flex" }}>
         <AppShell>{children}</AppShell>
       </body>
     </html>

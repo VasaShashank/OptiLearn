@@ -58,7 +58,7 @@ export default function SessionLogModal({ courseId, sessionNumber, topicTitle, p
             <h2 id="log-title" style={{ fontSize: "1.0625rem", fontWeight: 700, display: "flex", gap: 8, alignItems: "center" }}>
               <ClipboardCheck size={18} style={{ color: "var(--accent-emerald)" }} /> Record period {sessionNumber}
             </h2>
-            {topicTitle && <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 4 }}>{topicTitle}</p>}
+            {topicTitle && <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginTop: 4 }}>{topicTitle}</p>}
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="btn btn-ghost" style={{ padding: 6 }}><X size={16} /></button>
         </div>
@@ -94,11 +94,11 @@ export default function SessionLogModal({ courseId, sessionNumber, topicTitle, p
             <textarea className="input" rows={3} maxLength={2000} value={form.teacher_notes}
               onChange={(e) => setForm({ ...form, teacher_notes: e.target.value })} style={{ resize: "vertical" }} />
           </Field>
-          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: "0.8125rem" }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: "0.9rem" }}>
             <input type="checkbox" checked={form.topic_completed} onChange={(e) => setForm({ ...form, topic_completed: e.target.checked })} />
             This finishes the topic
           </label>
-          {error && <div role="alert" style={{ color: "#fb7185", fontSize: "0.8125rem" }}>{error}</div>}
+          {error && <div role="alert" style={{ color: "var(--redpen)", fontSize: "0.9rem" }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : "Record class"}</button>
@@ -111,7 +111,7 @@ export default function SessionLogModal({ courseId, sessionNumber, topicTitle, p
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: "0.9rem", color: "var(--text-secondary)" }}>
       {label}
       {children}
     </label>

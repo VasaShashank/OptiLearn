@@ -123,7 +123,7 @@ export default function LessonPlansPage() {
             <FileText size={24} style={{ display: "inline", verticalAlign: "middle", marginRight: 8, color: "var(--accent-blue)" }} />
             Lesson Plans
           </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
             AI-generated pedagogical plans with polyglot persistence
           </p>
         </div>
@@ -136,7 +136,7 @@ export default function LessonPlansPage() {
                 className="input-select"
                 style={{
                   padding: "8px 14px",
-                  fontSize: "0.8125rem",
+                  fontSize: "0.9rem",
                   borderRadius: "var(--radius-md)",
                   background: "var(--bg-input)",
                   color: "var(--text-primary)",
@@ -158,7 +158,7 @@ export default function LessonPlansPage() {
                 className="input-select"
                 style={{
                   padding: "8px 14px",
-                  fontSize: "0.8125rem",
+                  fontSize: "0.9rem",
                   borderRadius: "var(--radius-md)",
                   background: "var(--bg-input)",
                   color: "var(--text-primary)",
@@ -179,7 +179,7 @@ export default function LessonPlansPage() {
                 onClick={() => exportsAPI.downloadCalendar(selectedCourseId).catch(() => {})}
                 className="btn btn-secondary"
                 title="Download iCalendar file for Google Calendar / Outlook"
-                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem" }}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.9rem" }}
               >
                 <Calendar size={15} /> Export iCal
               </button>
@@ -213,17 +213,17 @@ export default function LessonPlansPage() {
                   padding: 14,
                   cursor: "pointer",
                   borderColor: selectedPlan?.id === plan.id ? "var(--brand-start)" : "var(--border-default)",
-                  background: selectedPlan?.id === plan.id ? "rgba(99,102,241,0.06)" : "var(--bg-card)",
+                  background: selectedPlan?.id === plan.id ? "var(--ink-wash)" : "var(--bg-card)",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Period {plan.session_number}</span>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Period {plan.session_number}</span>
                   <span className={`badge ${statusBadge(plan.status)}`}>
                     {plan.status}
                   </span>
                 </div>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{plan.topic_title}</div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>{plan.title}</div>
+                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{plan.topic_title}</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>{plan.title}</div>
               </div>
             ))}
           </div>
@@ -242,14 +242,14 @@ export default function LessonPlansPage() {
                       {selectedPlan.teacher_overridden && <span className="badge badge-purple">Teacher Modified</span>}
                     </div>
                     <h2 style={{ fontSize: "1.125rem", fontWeight: 700 }}>{selectedPlan.title}</h2>
-                    <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>{selectedPlan.topic_title}</p>
+                    <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: 4 }}>{selectedPlan.topic_title}</p>
                   </div>
                   <div>
                     <button
                       type="button"
                       onClick={() => exportsAPI.openPrintableLessonPlan(selectedPlan.session_id).catch(() => {})}
                       className="btn btn-secondary"
-                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem" }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.9rem" }}
                     >
                       <Printer size={15} /> Print / Save PDF
                     </button>
@@ -267,21 +267,21 @@ export default function LessonPlansPage() {
 
                 {/* Phases */}
                 <div style={{ marginBottom: 20 }}>
-                  <h3 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 }}>
+                  <h3 style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 12 }}>
                     <Clock size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />
                     Period Phases
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {selectedPlan.phases.map((phase: PeriodPhase, i: number) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: "var(--radius-md)", background: "var(--bg-secondary)" }}>
-                        <div style={{ width: 40, height: 40, borderRadius: "var(--radius-sm)", background: "linear-gradient(135deg, var(--brand-start)20, transparent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700, color: "var(--brand-start)", flexShrink: 0 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: "var(--radius-sm)", background: "linear-gradient(135deg, var(--brand-start)20, transparent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: 700, color: "var(--brand-start)", flexShrink: 0 }}>
                           {phase.duration_minutes}m
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{phase.phase_name}</div>
-                          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>{phase.activity_description}</div>
+                          <div style={{ fontSize: "0.9rem", fontWeight: 600 }}>{phase.phase_name}</div>
+                          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{phase.activity_description}</div>
                         </div>
-                        <span className="badge badge-neutral" style={{ fontSize: "0.625rem" }}>{phase.method_name}</span>
+                        <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>{phase.method_name}</span>
                       </div>
                     ))}
                   </div>
@@ -311,12 +311,12 @@ function ContentSection({ title, icon, items, color }: { title: string; icon: Re
   if (items.length === 0) return null;
   return (
     <div className="card" style={{ padding: 16 }}>
-      <h4 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+      <h4 style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ color }}>{icon}</span> {title}
       </h4>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.map((item, i) => (
-          <div key={i} style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.5, paddingLeft: 12, borderLeft: `2px solid ${color}30` }}>
+          <div key={i} style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: 1.5, paddingLeft: 12, borderLeft: `2px solid ${color}30` }}>
             {item}
           </div>
         ))}

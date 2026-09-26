@@ -2,20 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ClipboardCheck, Clock, RefreshCw, Sparkles, Wand2 } from "lucide-react";
+import { ClipboardCheck, FileText } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import type { ClassSessionItem, NextClassPlan } from "@/lib/types";
 import SessionLogModal from "@/components/session-log-modal";
+import PeriodStrip from "@/components/period-strip";
 
 /**
- * "Next Class": the teacher's first view of the day (master plan §18/§33). Finds the
- * next scheduled period, asks the class optimizer what to teach, whether revision is
- * needed and how, and offers the two actions around it: prepare, then record.
+ * The next scheduled period: what to teach, the planned period drawn to scale, why the
+ * plan looks the way it does, and the actions around it (prepare, then record).
  */
-export default function NextClassCard({ courseId, firstName }: { courseId: string; firstName: string }) {
+export default function NextClassCard({ courseId, onRecorded }: { courseId: string; onRecorded?: () => void }) {
   const [session, setSession] = useState<ClassSessionItem | null>(null);
   const [plan, setPlan] = useState<NextClassPlan | null>(null);
-  const [remaining, setRemaining] = useState(0);
   const [logging, setLogging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,9 +23,7 @@ export default function NextClassCard({ courseId, firstName }: { courseId: strin
     setLoading(true);
     try {
       const sessions = await coursesAPI.listSessions(courseId);
-      const upcoming = sessions.filter((s) => s.status === "scheduled");
-      const next = upcoming[0] || null;
-      setRemaining(upcoming.length);
+      const next = sessions.find((s) => s.status === "scheduled") || null;
       setSession(next);
       setPlan(next ? await coursesAPI.optimizeNextClass(courseId, next.session_number) : null);
     } catch {
@@ -37,69 +34,54 @@ export default function NextClassCard({ courseId, firstName }: { courseId: strin
 
   useEffect(() => { load(); }, [load]);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
-  if (loading) return <div className="skeleton" style={{ height: 260, borderRadius: "var(--radius-lg)", marginBottom: 28 }} />;
+  if (loading) return <div className="skeleton" style={{ height: 250 }} />;
 
   if (!session || !plan) {
     return (
-      <div className="glass-card" style={{ padding: 24, marginBottom: 28 }}>
-        <h2 style={{ fontSize: "1.125rem", fontWeight: 700 }}>{greeting}, {firstName}.</h2>
-        <p style={{ color: "var(--text-secondary)", marginTop: 6, fontSize: "0.875rem" }}>
-          {notice || "No scheduled periods remain for this course."}
-        </p>
-      </div>
+      <section className="card" style={{ padding: 24 }}>
+        <h2 style={{ fontSize: "1.25rem" }}>{notice || "Every period of this course has been taught."}</h2>
+        <p style={{ color: "var(--pencil)", marginTop: 6 }}>Review how it went on the calendar.</p>
+      </section>
     );
   }
 
   return (
-    <div className="glass-card animate-fade-in-up" style={{ padding: 24, marginBottom: 28, borderColor: "rgba(99,102,241,0.3)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
-        <div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>
-            Next class · Period {session.session_number} · {remaining} periods left
+    <section className="card" style={{ padding: 24, borderColor: "var(--rule-strong)" }} aria-labelledby="next-class-title">
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="badge badge-now">Next</span>
+            <span style={{ color: "var(--pencil)", fontWeight: 600 }}>Period {session.session_number}</span>
           </div>
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: 6 }}>
-            {greeting}, {firstName}. Next up: <span className="gradient-text">{plan.topic_title}</span>
+          <h2 id="next-class-title" style={{ fontSize: "1.6rem", fontWeight: 700, marginTop: 8, maxWidth: "36ch" }}>
+            {plan.topic_title}
           </h2>
-          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            <span className="badge badge-info"><Clock size={10} /> {plan.period_duration} min</span>
+          <p style={{ color: "var(--pencil)", marginTop: 4 }}>
+            {plan.period_duration} minutes
             {plan.revision_needed
-              ? <span className="badge badge-warning"><RefreshCw size={10} /> Revise {plan.revision_concept} · {plan.revision_minutes} min</span>
-              : <span className="badge badge-success">No revision needed</span>}
-            {plan.recommended_methods.slice(0, 2).map((m) => <span key={m} className="badge badge-purple">{m}</span>)}
-          </div>
+              ? `, starting with ${plan.revision_minutes} minutes of revision on ${plan.revision_concept}`
+              : ", no revision needed first"}
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-          <Link href={`/lesson-plans?course=${courseId}&session=${session.session_number}`} className="btn btn-primary" style={{ textDecoration: "none" }}>
-            <Wand2 size={15} /> Prepare my class
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link href={`/lesson-plans?course=${courseId}&session=${session.session_number}`} className="btn btn-primary">
+            <FileText size={16} /> Prepare lesson plan
           </Link>
           <button type="button" className="btn btn-secondary" onClick={() => setLogging(true)}>
-            <ClipboardCheck size={15} /> Record this class
+            <ClipboardCheck size={16} /> Record this class
           </button>
         </div>
       </div>
 
-      {/* Period timeline: widths proportional to minutes */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 14 }} aria-label="Period plan">
-        {plan.phases.map((p, i) => (
-          <div key={i} title={`${p.phase_name}: ${p.activity_description}`}
-            style={{ flex: p.duration_minutes, minWidth: 0, padding: "10px 12px", borderRadius: "var(--radius-md)",
-              background: /revision|recap/i.test(p.phase_name) ? "rgba(245,158,11,0.12)" : "rgba(99,102,241,0.1)",
-              border: "1px solid var(--border-default)" }}>
-            <div style={{ fontSize: "0.9375rem", fontWeight: 700 }}>{p.duration_minutes}m</div>
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.phase_name}</div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.method_name}</div>
-          </div>
-        ))}
+      <div style={{ marginTop: 20 }}>
+        <PeriodStrip phases={plan.phases} label={`Plan for period ${session.session_number}`} />
       </div>
 
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-        <Sparkles size={15} style={{ color: "var(--accent-purple)", flexShrink: 0, marginTop: 3 }} />
-        <span><strong style={{ color: "var(--text-primary)" }}>Why: </strong>{plan.revision_reason || plan.why_explanation}</span>
-      </div>
-      {notice && <div role="status" style={{ marginTop: 10, fontSize: "0.8125rem", color: "#34d399" }}>{notice}</div>}
+      <p style={{ marginTop: 16, maxWidth: "75ch", lineHeight: 1.6 }}>
+        <strong>Why this plan: </strong>
+        <span style={{ color: "var(--pencil)" }}>{plan.revision_reason || plan.why_explanation}</span>
+      </p>
+      {notice && <p role="status" style={{ marginTop: 10, color: "var(--tick)", fontWeight: 600 }}>{notice}</p>}
 
       {logging && (
         <SessionLogModal
@@ -110,11 +92,12 @@ export default function NextClassCard({ courseId, firstName }: { courseId: strin
           onClose={() => setLogging(false)}
           onLogged={(r) => {
             setLogging(false);
-            setNotice(`Period ${r.session_number} recorded${r.topic_status ? ` · ${r.topic_title} is now ${r.topic_status.replace("_", " ")}` : ""}. Tomorrow's recommendation has been updated.`);
+            setNotice(`Recorded period ${r.session_number}. The next class below is already updated.`);
             load();
+            onRecorded?.();
           }}
         />
       )}
-    </div>
+    </section>
   );
 }

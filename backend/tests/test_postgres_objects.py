@@ -58,7 +58,7 @@ def test_preferred_methods_are_ranked_rows(conn):
             conn.execute(text("""
                 INSERT INTO teacher_preferred_methods (constraint_id, method_id, rank)
                 SELECT tc.id, tm.id, 1 FROM teacher_constraints tc, teaching_methods tm
-                WHERE tc.course_id = :c AND tm.name = 'Case Study & Schema Review'
+                WHERE tc.course_id = :c AND tm.name = 'Case study'
             """), {"c": course_id(conn)})
 
 

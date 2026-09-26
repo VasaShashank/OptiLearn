@@ -83,7 +83,7 @@ export default function CourseDetailPage() {
           <span className="badge badge-neutral">{course.semester}</span>
         </div>
         <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>{course.title}</h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
           {course.teacher_name || "Faculty"} · {course.total_classes} periods × {course.period_duration}m = {course.total_available_minutes}m total
         </p>
       </div>
@@ -139,7 +139,7 @@ function OverviewTab({ course, analytics, graph }: { course: Course; analytics: 
           <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: 8 }}>
             No Curriculum Attached Yet
           </h3>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: 20, maxWidth: 480, margin: "0 auto 20px" }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginBottom: 20, maxWidth: 480, margin: "0 auto 20px" }}>
             Upload a syllabus copy to generate the full curriculum tree, topic allocations, and optimization. No synthetic data will be injected.
           </p>
           <Link href={`/upload?courseId=${course.id}`} className="btn btn-primary">
@@ -149,7 +149,7 @@ function OverviewTab({ course, analytics, graph }: { course: Course; analytics: 
       )}
 
       <div className="card" style={{ padding: 24 }}>
-        <h3 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 16 }}>
+        <h3 style={{ fontSize: "0.93rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 16 }}>
           Course Summary
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -164,14 +164,14 @@ function OverviewTab({ course, analytics, graph }: { course: Course; analytics: 
 
       {analytics && (
         <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 16 }}>
+          <h3 style={{ fontSize: "0.93rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 16 }}>
             Progress
           </h3>
           <div style={{ textAlign: "center", padding: "16px 0" }}>
             <div style={{ fontSize: "2.5rem", fontWeight: 800, background: "linear-gradient(135deg, var(--brand-start), var(--accent-emerald))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               {analytics.progress_percentage}%
             </div>
-            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 4 }}>
+            <div style={{ fontSize: "0.9rem", color: "var(--text-muted)", marginTop: 4 }}>
               {analytics.completed_sessions} of {analytics.total_sessions} sessions completed
             </div>
           </div>
@@ -183,7 +183,7 @@ function OverviewTab({ course, analytics, graph }: { course: Course; analytics: 
 
       {graph && graph.bottlenecks.length > 0 && (
         <div className="card" style={{ padding: 24, gridColumn: "1 / -1" }}>
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--accent-rose)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          <h3 style={{ fontSize: "0.93rem", fontWeight: 600, color: "var(--accent-rose)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
             <AlertTriangle size={16} /> Prerequisite Bottlenecks
           </h3>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -204,7 +204,7 @@ function CurriculumTab({ graph, courseId }: { graph: CurriculumGraph | null; cou
     <div className="card" style={{ padding: 48, textAlign: "center" }}>
       <GitBranch size={40} style={{ color: "var(--text-muted)", margin: "0 auto 12px" }} />
       <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 8 }}>No Curriculum Data</h3>
-      <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: 20 }}>
+      <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginBottom: 20 }}>
         Upload and confirm a syllabus to generate the curriculum graph with prerequisite DAGs.
       </p>
       <Link href={`/upload?courseId=${courseId}`} className="btn btn-primary">
@@ -237,7 +237,7 @@ function OptimizationTab({ optimization }: { optimization: CourseOptimization | 
         <span className={`badge ${optimization.time_pressure_status === "healthy" ? "badge-success" : optimization.time_pressure_status === "balanced" ? "badge-warning" : "badge-danger"}`}>
           {optimization.time_pressure_status.replace("_", " ")}
         </span>
-        <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+        <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>
           Time Pressure: {optimization.formula_explanation?.invariant}
         </span>
       </div>
@@ -272,7 +272,7 @@ function OptimizationTab({ optimization }: { optimization: CourseOptimization | 
                 <td>
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                     {alloc.reason_codes.slice(0, 2).map((r) => (
-                      <span key={r} className="badge badge-neutral" style={{ fontSize: "0.5625rem" }}>{r}</span>
+                      <span key={r} className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>{r}</span>
                     ))}
                   </div>
                 </td>
@@ -293,15 +293,15 @@ function AnalyticsTab({ analytics }: { analytics: CourseAnalytics | null }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
         <div className="card stat-glow-emerald" style={{ padding: 20, textAlign: "center" }}>
           <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--accent-emerald)" }}>{analytics.progress_percentage}%</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Course Progress</div>
+          <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Course Progress</div>
         </div>
         <div className="card stat-glow-blue" style={{ padding: 20, textAlign: "center" }}>
           <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--accent-blue)" }}>{analytics.actual_minutes_taught}m</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Minutes Taught</div>
+          <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Minutes Taught</div>
         </div>
         <div className="card stat-glow-amber" style={{ padding: 20, textAlign: "center" }}>
           <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--accent-amber)" }}>{analytics.remaining_minutes}m</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Remaining</div>
+          <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Remaining</div>
         </div>
       </div>
 
@@ -309,7 +309,7 @@ function AnalyticsTab({ analytics }: { analytics: CourseAnalytics | null }) {
       {analytics.teaching_method_effectiveness.length > 0 && (
         <div className="card" style={{ overflow: "hidden", marginBottom: 24 }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-default)" }}>
-            <h3 style={{ fontSize: "0.875rem", fontWeight: 600 }}>Teaching Method Effectiveness</h3>
+            <h3 style={{ fontSize: "0.93rem", fontWeight: 600 }}>Teaching Method Effectiveness</h3>
           </div>
           <table className="data-table">
             <thead>
@@ -341,15 +341,15 @@ function AnalyticsTab({ analytics }: { analytics: CourseAnalytics | null }) {
       {/* Alerts */}
       {analytics.alerts.length > 0 && (
         <div className="card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 12 }}>Intelligent Alerts</h3>
+          <h3 style={{ fontSize: "0.93rem", fontWeight: 600, marginBottom: 12 }}>Intelligent Alerts</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {analytics.alerts.map((alert) => (
-              <div key={alert.id} style={{ padding: 12, borderRadius: "var(--radius-md)", background: alert.severity === "danger" ? "rgba(244,63,94,0.06)" : alert.severity === "warning" ? "rgba(245,158,11,0.06)" : alert.severity === "success" ? "rgba(16,185,129,0.06)" : "rgba(59,130,246,0.06)", border: "1px solid var(--border-default)" }}>
+              <div key={alert.id} style={{ padding: 12, borderRadius: "var(--radius-md)", background: alert.severity === "danger" ? "var(--redpen-wash)" : alert.severity === "warning" ? "var(--caution-wash)" : alert.severity === "success" ? "var(--tick-wash)" : "var(--ink-wash)", border: "1px solid var(--border-default)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  {alert.severity === "danger" ? <AlertTriangle size={14} style={{ color: "#fb7185" }} /> : alert.severity === "warning" ? <AlertTriangle size={14} style={{ color: "#fbbf24" }} /> : <CheckCircle2 size={14} style={{ color: "#34d399" }} />}
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{alert.title}</span>
+                  {alert.severity === "danger" ? <AlertTriangle size={14} style={{ color: "var(--redpen)" }} /> : alert.severity === "warning" ? <AlertTriangle size={14} style={{ color: "var(--caution)" }} /> : <CheckCircle2 size={14} style={{ color: "var(--tick)" }} />}
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{alert.title}</span>
                 </div>
-                <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: 0 }}>{alert.message}</p>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>{alert.message}</p>
               </div>
             ))}
           </div>
@@ -363,7 +363,7 @@ function BudgetCard({ label, value, color }: { label: string; value: string; col
   return (
     <div className="card" style={{ padding: 16, textAlign: "center" }}>
       <div style={{ fontSize: "1.375rem", fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4 }}>{label}</div>
+      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -373,7 +373,7 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <div style={{ color: "var(--text-muted)" }}>{icon}</div>
       <div>
-        <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>{label}</div>
+        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{label}</div>
         <div style={{ fontSize: "0.9375rem", fontWeight: 600 }}>{value}</div>
       </div>
     </div>

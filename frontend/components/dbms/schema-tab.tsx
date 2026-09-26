@@ -26,17 +26,17 @@ export default function SchemaTab({ schema }: { schema: TableSchemaInfo[] }) {
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", width: "100%", background: "none", border: "none", color: "inherit", cursor: "pointer", textAlign: "left" }}
             >
               {open === table.table_name ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <span style={{ fontSize: "0.8125rem", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{table.table_name}</span>
-              <span className="badge badge-neutral" style={{ marginLeft: "auto", fontSize: "0.5625rem" }}>{table.columns.length} cols</span>
-              <span className="badge badge-info" style={{ fontSize: "0.5625rem" }}>{table.row_count} rows</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{table.table_name}</span>
+              <span className="badge badge-neutral" style={{ marginLeft: "auto", fontSize: "0.8rem" }}>{table.columns.length} cols</span>
+              <span className="badge badge-info" style={{ fontSize: "0.8rem" }}>{table.row_count} rows</span>
             </button>
             {open === table.table_name && (
               <div style={{ padding: "0 16px 16px" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 8 }}>{table.description}</div>
-                <div style={{ padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "rgba(99,102,241,0.06)", fontSize: "0.6875rem", color: "var(--accent-blue)", marginBottom: 10 }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 8 }}>{table.description}</div>
+                <div style={{ padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "var(--ink-wash)", fontSize: "0.8rem", color: "var(--accent-blue)", marginBottom: 10 }}>
                   {table.normal_form}
                 </div>
-                <table className="data-table" style={{ fontSize: "0.75rem" }}>
+                <table className="data-table" style={{ fontSize: "0.85rem" }}>
                   <thead>
                     <tr><th>Column</th><th>Type</th><th>References</th><th>Null</th></tr>
                   </thead>
@@ -48,9 +48,9 @@ export default function SchemaTab({ schema }: { schema: TableSchemaInfo[] }) {
                           {col.foreign_key && <Link2 size={10} style={{ display: "inline", marginRight: 4 }} aria-label="foreign key" />}
                           {col.name}
                         </td>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--text-muted)" }}>{col.type}</td>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.625rem", color: "var(--accent-cyan)" }}>{col.foreign_key || "–"}</td>
-                        <td style={{ fontSize: "0.6875rem" }}>{col.nullable ? "yes" : "no"}</td>
+                        <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-muted)" }}>{col.type}</td>
+                        <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--accent-cyan)" }}>{col.foreign_key || "–"}</td>
+                        <td style={{ fontSize: "0.8rem" }}>{col.nullable ? "yes" : "no"}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -121,13 +121,21 @@ def seed_database():
         print("Seeding Teaching Methods Catalog & Effectiveness Records...")
         # 4. Teaching Methods
         methods_data = [
-            ("Interactive Lecture & Structural Modeling", "conceptual", "Visual architecture mapping and instructor explanation.", 0.35),
-            ("Worked Examples & Decomposition", "problem_solving", "Step-by-step problem dissection and solution synthesis on board.", 0.35),
-            ("Guided Practice & Formative Exit Check", "active_learning", "Student paired exercises with real-time instructor feedback.", 0.20),
-            ("Hands-on Live Demonstration", "practical", "Live terminal queries and query plan inspection.", 0.30),
-            ("Recap & Prerequisite Revision", "revision", "Diagnostic error correction and prerequisite concept reinforcement.", 0.20),
-            ("Case Study & Schema Review", "analytical", "Dissecting production database schemas and normal form trade-offs.", 0.25)
+            ("Lecture with diagrams", "conceptual", "Explain the idea with diagrams on the board.", 0.35),
+            ("Worked examples", "problem_solving", "Solve problems step by step in front of the class.", 0.35),
+            ("Guided practice", "active_learning", "Students work in pairs while you walk around and help.", 0.20),
+            ("Live demonstration", "practical", "Run real queries or tools on the projector.", 0.30),
+            ("Recap and revision", "revision", "Revisit a weak earlier concept and fix common mistakes.", 0.20),
+            ("Case study", "analytical", "Study a real example and discuss the trade-offs.", 0.25)
         ]
+        # Earlier seeds used longer method names; rename those rows instead of duplicating them
+        legacy_names = {'Lecture with diagrams': 'Interactive Lecture & Structural Modeling', 'Worked examples': 'Worked Examples & Decomposition', 'Guided practice': 'Guided Practice & Formative Exit Check', 'Live demonstration': 'Hands-on Live Demonstration', 'Recap and revision': 'Recap & Prerequisite Revision', 'Case study': 'Case Study & Schema Review'}
+        for new_name, old_name in legacy_names.items():
+            old_row = db.query(TeachingMethod).filter(TeachingMethod.name == old_name).first()
+            if old_row and not db.query(TeachingMethod).filter(TeachingMethod.name == new_name).first():
+                old_row.name = new_name
+        db.flush()
+
         method_entities = {}
         for m_name, cat, desc, ratio in methods_data:
             existing_m = db.query(TeachingMethod).filter(TeachingMethod.name == m_name).first()
@@ -139,19 +147,19 @@ def seed_database():
 
         # Teacher's ranked method preferences (normalized association table)
         db.flush()
-        for rank, m_name in enumerate(["Worked Examples & Decomposition", "Guided Practice & Formative Exit Check"], start=1):
+        for rank, m_name in enumerate(["Worked examples", "Guided practice"], start=1):
             db.execute(teacher_preferred_methods.insert().values(
                 constraint_id=constraint.id, method_id=method_entities[m_name].id, rank=rank
             ))
 
         # Method Effectiveness
         eff_records = [
-            (method_entities["Worked Examples & Decomposition"].id, "problem_solving", 50.0, 68.0, 18.0, 12),
-            (method_entities["Guided Practice & Formative Exit Check"].id, "problem_solving", 52.0, 67.5, 15.5, 10),
-            (method_entities["Recap & Prerequisite Revision"].id, "revision", 48.0, 64.0, 16.0, 8),
-            (method_entities["Interactive Lecture & Structural Modeling"].id, "conceptual", 55.0, 66.0, 11.0, 14),
-            (method_entities["Hands-on Live Demonstration"].id, "practical", 54.0, 71.0, 17.0, 9),
-            (method_entities["Case Study & Schema Review"].id, "analytical", 58.0, 70.0, 12.0, 6)
+            (method_entities["Worked examples"].id, "problem_solving", 50.0, 68.0, 18.0, 12),
+            (method_entities["Guided practice"].id, "problem_solving", 52.0, 67.5, 15.5, 10),
+            (method_entities["Recap and revision"].id, "revision", 48.0, 64.0, 16.0, 8),
+            (method_entities["Lecture with diagrams"].id, "conceptual", 55.0, 66.0, 11.0, 14),
+            (method_entities["Live demonstration"].id, "practical", 54.0, 71.0, 17.0, 9),
+            (method_entities["Case study"].id, "analytical", 58.0, 70.0, 12.0, 6)
         ]
         # Methods outlive the course, so clear their evidence rows to keep re-seeding idempotent
         db.query(MethodEffectiveness).filter(
@@ -352,7 +360,7 @@ def seed_database():
             # Record TeachingSession
             ts = TeachingSession(
                 session_id=sess.id,
-                method_id=method_entities["Worked Examples & Decomposition"].id if "Problem" in top.title else method_entities["Interactive Lecture & Structural Modeling"].id,
+                method_id=method_entities["Worked examples"].id if "Problem" in top.title else method_entities["Lecture with diagrams"].id,
                 actual_minutes=55,
                 teacher_notes=f"Completed standard syllabus coverage of {top.title}. Cohort participation was high.",
                 student_engagement_rating=4,

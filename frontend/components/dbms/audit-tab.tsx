@@ -54,7 +54,7 @@ export default function AuditTab({ courseId, dialect, isAdmin }: { courseId: str
           action={dialect === "postgresql" && <button type="button" className="btn btn-ghost" onClick={loadAudit}><RefreshCw size={14} /> Refresh</button>}
         />
         {dialect !== "postgresql" ? (
-          <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>The audit trail is maintained by PostgreSQL triggers; the API is currently on {dialect}.</p>
+          <p style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>The audit trail is maintained by PostgreSQL triggers; the API is currently on {dialect}.</p>
         ) : audit ? (
           <div className="card" style={{ overflow: "hidden" }}><ResultTable columns={audit.columns} rows={audit.rows} maxHeight={360} /></div>
         ) : <Loading label="Loading audit rows…" />}
@@ -87,11 +87,11 @@ export default function AuditTab({ courseId, dialect, isAdmin }: { courseId: str
             </div>
             {issues.length > 0 && (
               <table className="data-table">
-                <tbody>{issues.map((i, n) => <tr key={n}><td style={{ width: 200 }}>{i.kind}</td><td style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>{i.detail}</td></tr>)}</tbody>
+                <tbody>{issues.map((i, n) => <tr key={n}><td style={{ width: 200 }}>{i.kind}</td><td style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>{i.detail}</td></tr>)}</tbody>
               </table>
             )}
             {repairResult && (
-              <div style={{ marginTop: 12, fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              <div style={{ marginTop: 12, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                 Repair: {Object.entries(repairResult).map(([k, v]) => `${k.replaceAll("_", " ")}: ${v}`).join(" · ")}
               </div>
             )}

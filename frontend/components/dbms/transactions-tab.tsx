@@ -40,7 +40,7 @@ export default function TransactionsTab() {
           <button key={s.id} type="button" className="card" onClick={() => run(s.id)} disabled={running !== null}
             style={{ padding: 14, textAlign: "left", color: "inherit", cursor: "pointer", borderColor: result?.scenario === s.id ? "var(--brand-start)" : undefined }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{s.title}</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{s.title}</span>
               <Play size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
             </div>
           </button>
@@ -55,7 +55,7 @@ export default function TransactionsTab() {
           {result.runs?.map((r, i) => (
             <div key={i} className="glass-card" style={{ padding: 16 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-                <span style={{ fontWeight: 700, fontSize: "0.875rem" }}>{r.isolation_level || r.strategy}</span>
+                <span style={{ fontWeight: 700, fontSize: "0.93rem" }}>{r.isolation_level || r.strategy}</span>
                 {r.repeatable !== undefined && (
                   <span className={`badge ${r.repeatable ? "badge-success" : "badge-warning"}`}>
                     reads: {r.first_read} → {r.second_read} ({r.repeatable ? "repeatable" : "changed"})
@@ -70,8 +70,8 @@ export default function TransactionsTab() {
               <Timeline steps={r.timeline} />
             </div>
           ))}
-          <div className="card" style={{ padding: 16, borderColor: "rgba(99,102,241,0.3)" }}>
-            <div style={{ fontSize: "0.8125rem", lineHeight: 1.6 }}>{result.conclusion}</div>
+          <div className="card" style={{ padding: 16, borderColor: "var(--ink)" }}>
+            <div style={{ fontSize: "0.9rem", lineHeight: 1.6 }}>{result.conclusion}</div>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               {Object.entries(result.final_balances).map(([id, bal]) => (
                 <span key={id} className="badge badge-neutral" style={{ fontFamily: "var(--font-mono)" }}>{id} = {bal}</span>
@@ -91,7 +91,7 @@ function Timeline({ steps }: { steps: LabStep[] }) {
   const lanes = Array.from(new Set(steps.map((s) => s.txn)));
   return (
     <div className="card" style={{ overflow: "auto" }}>
-      <table className="data-table" style={{ fontSize: "0.75rem" }}>
+      <table className="data-table" style={{ fontSize: "0.85rem" }}>
         <thead>
           <tr>
             <th style={{ width: 40 }}>#</th>
@@ -107,12 +107,12 @@ function Timeline({ steps }: { steps: LabStep[] }) {
                   {s.txn === l && (
                     <div>
                       <div style={{ display: "flex", gap: 6, alignItems: "flex-start", fontFamily: "var(--font-mono)" }}>
-                        {s.ok ? <CheckCircle2 size={12} style={{ color: "#34d399", flexShrink: 0, marginTop: 2 }} />
-                          : <XCircle size={12} style={{ color: "#fb7185", flexShrink: 0, marginTop: 2 }} />}
+                        {s.ok ? <CheckCircle2 size={12} style={{ color: "var(--tick)", flexShrink: 0, marginTop: 2 }} />
+                          : <XCircle size={12} style={{ color: "var(--redpen)", flexShrink: 0, marginTop: 2 }} />}
                         <span>{s.sql}</span>
                       </div>
                       {s.result !== null && s.result !== undefined && (
-                        <div style={{ marginLeft: 18, marginTop: 2, color: s.ok ? "var(--text-secondary)" : "#fda4af" }}>→ {String(s.result)}</div>
+                        <div style={{ marginLeft: 18, marginTop: 2, color: s.ok ? "var(--text-secondary)" : "var(--redpen)" }}>→ {String(s.result)}</div>
                       )}
                     </div>
                   )}

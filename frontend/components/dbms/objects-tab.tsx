@@ -47,7 +47,7 @@ export default function ObjectsTab() {
           </button>
         ))}
       </div>
-      <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: 16 }}>{current.blurb}</p>
+      <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: 16 }}>{current.blurb}</p>
 
       {section === "roles" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
@@ -61,7 +61,7 @@ export default function ObjectsTab() {
                 <span className={`badge ${r.can_login ? "badge-info" : "badge-neutral"}`}>{r.can_login ? "LOGIN" : "NOLOGIN"}</span>
                 <span className={`badge ${r.bypass_rls ? "badge-warning" : "badge-success"}`}>{r.bypass_rls ? "BYPASSRLS" : "subject to RLS"}</span>
               </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                 {r.table_privileges} on {r.tables_granted} tables/views
               </div>
             </div>
@@ -76,8 +76,8 @@ export default function ObjectsTab() {
             <tbody>
               {objects.indexes.map((ix) => (
                 <tr key={ix.name}>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>{ix.name}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>{ix.table_name}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>{ix.name}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>{ix.table_name}</td>
                   <td>
                     {ix.is_primary ? <span className="badge badge-warning">primary</span>
                       : ix.is_unique ? <span className="badge badge-info">unique</span>
@@ -85,7 +85,7 @@ export default function ObjectsTab() {
                     {ix.is_partial && <span className="badge badge-purple" style={{ marginLeft: 4 }}>partial</span>}
                   </td>
                   <td style={{ fontFamily: "var(--font-mono)" }}>{ix.scans}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--text-secondary)" }}>{ix.definition}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>{ix.definition}</td>
                 </tr>
               ))}
             </tbody>
@@ -128,10 +128,10 @@ function ObjectCard({ title, subtitle, badges, open, onToggle, sql }: {
     <div className="card" style={{ overflow: "hidden" }}>
       <button type="button" onClick={onToggle} aria-expanded={open}
         style={{ width: "100%", display: "flex", gap: 10, alignItems: "center", padding: "12px 16px", background: "none", border: "none", color: "inherit", cursor: "pointer", textAlign: "left" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", fontWeight: 600 }}>{title}</span>
-        {subtitle && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{subtitle}</span>}
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", fontWeight: 600 }}>{title}</span>
+        {subtitle && <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{subtitle}</span>}
         <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-          {badges.map((b) => <span key={b} className={`badge ${b === "SECURITY DEFINER" ? "badge-warning" : "badge-neutral"}`} style={{ fontSize: "0.5625rem" }}>{b}</span>)}
+          {badges.map((b) => <span key={b} className={`badge ${b === "SECURITY DEFINER" ? "badge-warning" : "badge-neutral"}`} style={{ fontSize: "0.8rem" }}>{b}</span>)}
         </span>
       </button>
       {open && <div style={{ padding: "0 16px 16px" }}><SQLBlock sql={sql} maxHeight={420} /></div>}

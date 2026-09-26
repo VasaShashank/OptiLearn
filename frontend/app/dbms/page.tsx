@@ -73,12 +73,12 @@ export default function DBMSInsightsPage() {
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 8 }}>
             <Database size={24} style={{ color: "var(--accent-cyan)" }} /> DBMS Showcase
           </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
             Schema, normalization, SQL, server-side objects, security, transactions and the document store, all live.
           </p>
         </div>
         {courses.length > 0 && (
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", color: "var(--text-secondary)" }}>
             Course
             <select className="select" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
               {courses.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}
@@ -97,7 +97,7 @@ export default function DBMSInsightsPage() {
       )}
 
       {!isPostgres && (
-        <div className="card" style={{ padding: 12, marginBottom: 16, fontSize: "0.8125rem", color: "#fbbf24" }}>
+        <div className="card" style={{ padding: 12, marginBottom: 16, fontSize: "0.9rem", color: "var(--caution)" }}>
           The API is running on the {dialect} fallback. Views, triggers, roles, row-level security and the Transaction Lab need PostgreSQL.
         </div>
       )}
@@ -130,8 +130,8 @@ function StatusCard({ label, value, ok, icon }: { label: string; value: string; 
     <div className="card" style={{ padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <span style={{ color: ok ? "var(--accent-emerald)" : "var(--text-muted)" }}>{icon}</span>
-        <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>{label}</span>
-        <span aria-label={ok ? "connected" : "disconnected"} style={{ width: 7, height: 7, borderRadius: "50%", background: ok ? "#34d399" : "#fb7185", marginLeft: "auto" }} />
+        <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600 }}>{label}</span>
+        <span aria-label={ok ? "connected" : "disconnected"} style={{ width: 7, height: 7, borderRadius: "50%", background: ok ? "var(--tick)" : "var(--redpen)", marginLeft: "auto" }} />
       </div>
       <div style={{ fontSize: "0.9375rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>{value}</div>
     </div>

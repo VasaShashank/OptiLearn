@@ -85,7 +85,7 @@ export default function OptimizationPage() {
             <Zap size={24} style={{ display: "inline", verticalAlign: "middle", marginRight: 8, color: "var(--accent-amber)" }} />
             Optimization Engine
           </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
             Constrained time allocation & adaptive class planning
           </p>
         </div>
@@ -97,7 +97,7 @@ export default function OptimizationPage() {
               className="input-select"
               style={{
                 padding: "8px 14px",
-                fontSize: "0.8125rem",
+                fontSize: "0.9rem",
                 borderRadius: "var(--radius-md)",
                 background: "var(--bg-input)",
                 color: "var(--text-primary)",
@@ -138,25 +138,25 @@ export default function OptimizationPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span className={`badge ${pc?.badge}`}>{pc?.label}</span>
-                <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>Time Pressure Status</span>
+                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>Time Pressure Status</span>
               </div>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                 {optimization.formula_explanation?.model}
               </span>
             </div>
             {/* Stacked bar */}
             <div style={{ display: "flex", height: 28, borderRadius: "var(--radius-full)", overflow: "hidden", background: "var(--bg-secondary)" }}>
-              <div style={{ width: `${(optimization.total_allocated_minutes / optimization.total_available_minutes) * 100}%`, background: "linear-gradient(90deg, var(--brand-start), var(--brand-mid))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.625rem", fontWeight: 600, color: "white" }} data-tooltip="Instructional">
+              <div style={{ width: `${(optimization.total_allocated_minutes / optimization.total_available_minutes) * 100}%`, background: "linear-gradient(90deg, var(--brand-start), var(--brand-mid))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 600, color: "white" }} data-tooltip="Instructional">
                 {Math.round((optimization.total_allocated_minutes / optimization.total_available_minutes) * 100)}%
               </div>
-              <div style={{ width: `${(optimization.revision_budget_minutes / optimization.total_available_minutes) * 100}%`, background: "var(--accent-amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.625rem", fontWeight: 600, color: "var(--text-inverse)" }}>
+              <div style={{ width: `${(optimization.revision_budget_minutes / optimization.total_available_minutes) * 100}%`, background: "var(--accent-amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-inverse)" }}>
                 Rev
               </div>
-              <div style={{ width: `${(optimization.assessment_budget_minutes / optimization.total_available_minutes) * 100}%`, background: "var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.625rem", fontWeight: 600, color: "var(--text-inverse)" }}>
+              <div style={{ width: `${(optimization.assessment_budget_minutes / optimization.total_available_minutes) * 100}%`, background: "var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-inverse)" }}>
                 Assess
               </div>
             </div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 8, fontFamily: "var(--font-mono)" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 8, fontFamily: "var(--font-mono)" }}>
               {optimization.formula_explanation?.invariant}
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function OptimizationPage() {
           <div className="card animate-fade-in-up stagger-3" style={{ overflow: "hidden", marginBottom: 32 }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-default)", display: "flex", alignItems: "center", gap: 8 }}>
               <Layers size={16} style={{ color: "var(--accent-purple)" }} />
-              <h3 style={{ fontSize: "0.875rem", fontWeight: 600 }}>Topic Time Allocations</h3>
+              <h3 style={{ fontSize: "0.93rem", fontWeight: 600 }}>Topic Time Allocations</h3>
               <span className="badge badge-neutral" style={{ marginLeft: "auto" }}>{optimization.topic_allocations.length} topics</span>
             </div>
             <table className="data-table">
@@ -196,17 +196,17 @@ export default function OptimizationPage() {
                         <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--bg-secondary)", overflow: "hidden" }}>
                           <div style={{ width: `${a.priority_score * 100}%`, height: "100%", background: a.priority_score > 0.6 ? "var(--accent-amber)" : "var(--accent-blue)", borderRadius: 2 }} />
                         </div>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>{a.priority_score.toFixed(3)}</span>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>{a.priority_score.toFixed(3)}</span>
                       </div>
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                         {a.key_concepts.slice(0, 2).map((c) => (
-                          <span key={c} className="badge badge-neutral" style={{ fontSize: "0.5625rem", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>{c}</span>
+                          <span key={c} className="badge badge-neutral" style={{ fontSize: "0.8rem", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>{c}</span>
                         ))}
                       </div>
                     </td>
-                    <td style={{ fontSize: "0.75rem", color: "var(--text-secondary)", maxWidth: 200 }}>{a.explanation}</td>
+                    <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)", maxWidth: 200 }}>{a.explanation}</td>
                   </tr>
                 ))}
               </tbody>
@@ -234,41 +234,41 @@ export default function OptimizationPage() {
                 <h3 style={{ fontSize: "1.0625rem", fontWeight: 700 }}>{nextClass.topic_title}</h3>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Predicted Gain</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Predicted Gain</div>
                 <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--accent-emerald)" }}>+{nextClass.learning_gain_prediction}%</div>
               </div>
             </div>
 
             {nextClass.revision_needed && nextClass.revision_concept && (
-              <div style={{ padding: 12, borderRadius: "var(--radius-md)", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)", marginBottom: 16 }}>
+              <div style={{ padding: 12, borderRadius: "var(--radius-md)", background: "var(--caution-wash)", border: "1px solid var(--caution-wash)", marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <AlertTriangle size={14} style={{ color: "#fbbf24" }} />
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#fbbf24" }}>Prerequisite Revision: {nextClass.revision_concept}</span>
+                  <AlertTriangle size={14} style={{ color: "var(--caution)" }} />
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--caution)" }}>Prerequisite Revision: {nextClass.revision_concept}</span>
                 </div>
-                <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: 0 }}>{nextClass.revision_reason}</p>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>{nextClass.revision_reason}</p>
               </div>
             )}
 
             {/* Why Explanation */}
-            <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16, padding: 12, borderRadius: "var(--radius-md)", background: "var(--bg-secondary)", borderLeft: "3px solid var(--brand-start)" }}>
+            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16, padding: 12, borderRadius: "var(--radius-md)", background: "var(--bg-secondary)", borderLeft: "3px solid var(--brand-start)" }}>
               {nextClass.why_explanation}
             </p>
 
             {/* Phase Breakdown */}
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 12 }}>
               Period Phase Breakdown ({nextClass.total_phase_minutes}m total)
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {nextClass.phases.map((phase: PeriodPhase, i: number) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: "var(--radius-md)", background: "var(--bg-secondary)", border: "1px solid var(--border-default)" }}>
-                  <div style={{ width: 44, height: 44, borderRadius: "var(--radius-md)", background: `linear-gradient(135deg, ${i === 0 ? "var(--accent-amber)" : i === nextClass.phases.length - 1 ? "var(--accent-emerald)" : "var(--brand-start)"}30, transparent)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8125rem", fontWeight: 700, color: i === 0 ? "var(--accent-amber)" : i === nextClass.phases.length - 1 ? "var(--accent-emerald)" : "var(--brand-start)", flexShrink: 0 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "var(--radius-md)", background: `linear-gradient(135deg, ${i === 0 ? "var(--accent-amber)" : i === nextClass.phases.length - 1 ? "var(--accent-emerald)" : "var(--brand-start)"}30, transparent)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem", fontWeight: 700, color: i === 0 ? "var(--accent-amber)" : i === nextClass.phases.length - 1 ? "var(--accent-emerald)" : "var(--brand-start)", flexShrink: 0 }}>
                     {phase.duration_minutes}m
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{phase.phase_name}</div>
-                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{phase.activity_description}</div>
+                    <div style={{ fontSize: "0.9rem", fontWeight: 600 }}>{phase.phase_name}</div>
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 2 }}>{phase.activity_description}</div>
                   </div>
-                  <span className="badge badge-neutral" style={{ fontSize: "0.625rem" }}>{phase.method_name}</span>
+                  <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>{phase.method_name}</span>
                 </div>
               ))}
             </div>
@@ -276,7 +276,7 @@ export default function OptimizationPage() {
             {/* Methods & Concepts */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
               <div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>Recommended Methods</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>Recommended Methods</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {nextClass.recommended_methods.map((m) => (
                     <span key={m} className="badge badge-purple">{m}</span>
@@ -284,7 +284,7 @@ export default function OptimizationPage() {
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>Target Concepts</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>Target Concepts</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {nextClass.target_concepts.map((c) => (
                     <span key={c} className="badge badge-info">{c}</span>
@@ -304,9 +304,9 @@ function BudgetCard({ label, value, unit, icon, color }: { label: string; value:
     <div className="card" style={{ padding: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <div style={{ color }}>{icon}</div>
-        <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.04em" }}>{label}</span>
+        <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontSize: "1.375rem", fontWeight: 700, color }}>{value}<span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-muted)" }}>{unit}</span></div>
+      <div style={{ fontSize: "1.375rem", fontWeight: 700, color }}>{value}<span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-muted)" }}>{unit}</span></div>
     </div>
   );
 }

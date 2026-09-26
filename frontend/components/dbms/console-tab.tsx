@@ -45,7 +45,7 @@ export default function ConsoleTab() {
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
         {PRESETS.map((p) => (
           <button key={p.label} type="button" className={`btn ${p.attack ? "btn-danger" : "btn-ghost"}`}
-            style={{ fontSize: "0.75rem", padding: "4px 10px" }} onClick={() => { setSql(p.sql); setResult(null); setError(null); }}>
+            style={{ fontSize: "0.85rem", padding: "4px 10px" }} onClick={() => { setSql(p.sql); setResult(null); setError(null); }}>
             {p.attack && <ShieldAlert size={12} />} {p.label}
           </button>
         ))}
@@ -57,19 +57,19 @@ export default function ConsoleTab() {
         onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") run(); }}
         spellCheck={false}
         aria-label="SQL statement"
-        style={{ width: "100%", minHeight: 140, fontFamily: "var(--font-mono)", fontSize: "0.8125rem", resize: "vertical" }}
+        style={{ width: "100%", minHeight: 140, fontFamily: "var(--font-mono)", fontSize: "0.9rem", resize: "vertical" }}
       />
       <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "10px 0 16px" }}>
         <button type="button" className="btn btn-primary" onClick={run} disabled={busy || !sql.trim()}>
           <Play size={14} /> {busy ? "Running…" : "Run"}
         </button>
-        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Ctrl + Enter</span>
+        <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Ctrl + Enter</span>
       </div>
 
       {error && (
         <div>
           <ErrorNote message={error} />
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8 }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 8 }}>
             Refused. Errors starting with <code>ERROR:</code> come from PostgreSQL itself (privileges, read-only transaction, timeout); the others come from the API's single-statement allow-list.
           </p>
         </div>

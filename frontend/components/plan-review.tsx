@@ -85,23 +85,23 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
     setPhases(phases.map((p, n) => n === i ? { ...p, [field]: field === "duration_minutes" ? Number(value) : value } : p));
 
   return (
-    <div className="card" style={{ padding: 16, marginBottom: 20, borderColor: "rgba(99,102,241,0.25)" }}>
+    <div className="card" style={{ padding: 16, marginBottom: 20, borderColor: "var(--ink)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginRight: 4 }}>
+        <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginRight: 4 }}>
           Recommended plan · version {plan.version}
         </span>
         <button type="button" className="btn btn-secondary" disabled={busy || plan.status === "approved" || editing}
-          onClick={() => save({ expected_version: plan.version, status: "approved" })} style={{ fontSize: "0.8125rem" }}>
+          onClick={() => save({ expected_version: plan.version, status: "approved" })} style={{ fontSize: "0.9rem" }}>
           <Check size={14} /> Approve
         </button>
         <button type="button" className="btn btn-ghost" disabled={busy || plan.status === "rejected" || editing}
-          onClick={() => save({ expected_version: plan.version, status: "rejected", change_note: note || undefined })} style={{ fontSize: "0.8125rem" }}>
+          onClick={() => save({ expected_version: plan.version, status: "rejected", change_note: note || undefined })} style={{ fontSize: "0.9rem" }}>
           <X size={14} /> Reject
         </button>
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditing(!editing)} style={{ fontSize: "0.8125rem" }}>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditing(!editing)} style={{ fontSize: "0.9rem" }}>
           <Pencil size={14} /> {editing ? "Cancel edit" : "Edit phases"}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={showHistory} style={{ fontSize: "0.8125rem", marginLeft: "auto" }}>
+        <button type="button" className="btn btn-ghost" onClick={showHistory} style={{ fontSize: "0.9rem", marginLeft: "auto" }}>
           <History size={14} /> {history ? "Hide history" : "History"}
         </button>
       </div>
@@ -110,7 +110,7 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
         <div style={{ marginTop: 14 }}>
           {phases.map((p, i) => (
             <div key={i} style={{ display: "grid", gridTemplateColumns: "180px 80px 1fr", gap: 8, alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{p.phase_name}</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{p.phase_name}</span>
               <input className="input" type="number" min={1} aria-label={`${p.phase_name} minutes`}
                 value={p.duration_minutes} onChange={(e) => updatePhase(i, "duration_minutes", e.target.value)} />
               <input className="input" aria-label={`${p.phase_name} activity`}
@@ -133,10 +133,10 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
 
       {message && (
         <div role={message.tone === "error" ? "alert" : "status"}
-          style={{ marginTop: 12, fontSize: "0.8125rem", color: message.tone === "error" ? "#fb7185" : "#34d399", display: "flex", gap: 10, alignItems: "center" }}>
+          style={{ marginTop: 12, fontSize: "0.9rem", color: message.tone === "error" ? "var(--redpen)" : "var(--tick)", display: "flex", gap: 10, alignItems: "center" }}>
           {message.text}
           {conflict && (
-            <button type="button" className="btn btn-secondary" style={{ fontSize: "0.75rem", padding: "4px 10px" }} onClick={reload}>
+            <button type="button" className="btn btn-secondary" style={{ fontSize: "0.85rem", padding: "4px 10px" }} onClick={reload}>
               <RotateCcw size={12} /> Load latest
             </button>
           )}
@@ -145,18 +145,18 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
 
       {history && (
         <div style={{ marginTop: 14 }}>
-          <table className="data-table" style={{ fontSize: "0.75rem" }}>
+          <table className="data-table" style={{ fontSize: "0.85rem" }}>
             <thead><tr><th>Version</th><th>By</th><th>When</th><th>Note</th><th /></tr></thead>
             <tbody>
               {history.map((h, i) => (
                 <tr key={h.version}>
-                  <td style={{ fontFamily: "var(--font-mono)" }}>v{h.version}{h.is_current && <span className="badge badge-success" style={{ marginLeft: 6, fontSize: "0.5625rem" }}>current</span>}</td>
+                  <td style={{ fontFamily: "var(--font-mono)" }}>v{h.version}{h.is_current && <span className="badge badge-success" style={{ marginLeft: 6, fontSize: "0.8rem" }}>current</span>}</td>
                   <td>{h.edited_by}</td>
                   <td style={{ color: "var(--text-muted)" }}>{new Date(h.edited_at).toLocaleString()}</td>
                   <td>{h.change_note}</td>
                   <td>
                     {i < history.length - 1 && (
-                      <button type="button" className="btn btn-ghost" style={{ fontSize: "0.6875rem", padding: "2px 8px" }}
+                      <button type="button" className="btn btn-ghost" style={{ fontSize: "0.8rem", padding: "2px 8px" }}
                         onClick={() => compare(history[i + 1].version, h.version)}>
                         <GitCompare size={12} /> vs v{history[i + 1].version}
                       </button>
@@ -167,7 +167,7 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
             </tbody>
           </table>
           {diff && (
-            <div style={{ marginTop: 10, fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ marginTop: 10, fontSize: "0.85rem", display: "flex", flexDirection: "column", gap: 4 }}>
               <strong>v{diff.from_version} → v{diff.to_version}</strong>
               {diff.phases.length === 0 && Object.keys(diff.content).length === 0 && <span style={{ color: "var(--text-muted)" }}>No content changes (status only).</span>}
               {diff.phases.map((c) => (
@@ -175,7 +175,7 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
                   Phase {c.index} ({c.phase}) {c.change}
                   {c.fields && Object.entries(c.fields).map(([f, d]) => (
                     <div key={f} style={{ marginLeft: 12, fontFamily: "var(--font-mono)" }}>
-                      {f}: <span style={{ color: "#fb7185" }}>{String(d.from)}</span> → <span style={{ color: "#34d399" }}>{String(d.to)}</span>
+                      {f}: <span style={{ color: "var(--redpen)" }}>{String(d.from)}</span> → <span style={{ color: "var(--tick)" }}>{String(d.to)}</span>
                     </div>
                   ))}
                 </div>

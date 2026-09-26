@@ -355,7 +355,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
                 border: "none",
                 outline: "none",
                 color: "var(--text-primary)",
-                fontSize: "0.8125rem",
+                fontSize: "0.9rem",
                 width: "100%",
               }}
             />
@@ -376,7 +376,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
             className="input-select"
             style={{
               padding: "6px 12px",
-              fontSize: "0.8125rem",
+              fontSize: "0.9rem",
               borderRadius: "var(--radius-md)",
               background: "var(--bg-input)",
               color: "var(--text-primary)",
@@ -403,7 +403,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
                 alignItems: "center",
                 gap: 6,
                 padding: "6px 12px",
-                fontSize: "0.75rem",
+                fontSize: "0.85rem",
                 border: "1px solid rgba(239,68,68,0.4)",
               }}
             >
@@ -433,7 +433,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
                 gap: 6,
                 padding: "5px 10px",
                 borderRadius: "var(--radius-sm)",
-                fontSize: "0.75rem",
+                fontSize: "0.85rem",
                 border: "none",
                 cursor: "pointer",
                 background: layoutMode === "unit-flow" ? "var(--bg-elevated)" : "transparent",
@@ -452,7 +452,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
                 gap: 6,
                 padding: "5px 10px",
                 borderRadius: "var(--radius-sm)",
-                fontSize: "0.75rem",
+                fontSize: "0.85rem",
                 border: "none",
                 cursor: "pointer",
                 background: layoutMode === "topological" ? "var(--bg-elevated)" : "transparent",
@@ -471,7 +471,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
                 gap: 6,
                 padding: "5px 10px",
                 borderRadius: "var(--radius-sm)",
-                fontSize: "0.75rem",
+                fontSize: "0.85rem",
                 border: "none",
                 cursor: "pointer",
                 background: layoutMode === "grid" ? "var(--bg-elevated)" : "transparent",
@@ -568,10 +568,8 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
                     width: 290,
                     padding: "6px 14px",
                     color: "var(--text-muted)",
-                    fontSize: "0.75rem",
+                    fontSize: "0.85rem",
                     fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
@@ -931,7 +929,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
               border: "1px solid var(--border-subtle)",
               borderRadius: "var(--radius-full)",
               padding: "4px 14px",
-              fontSize: "0.6875rem",
+              fontSize: "0.8rem",
               color: "var(--text-muted)",
               backdropFilter: "blur(8px)",
               display: "flex",
@@ -970,7 +968,7 @@ export default function CurriculumGraphView({ graph }: CurriculumGraphViewProps)
           flexWrap: "wrap",
           gap: 12,
           padding: "8px 12px",
-          fontSize: "0.75rem",
+          fontSize: "0.85rem",
           color: "var(--text-muted)",
         }}
       >
@@ -1068,8 +1066,7 @@ function ConceptInspector({
               style={{
                 background: styling.border,
                 color: "#fff",
-                fontSize: "0.625rem",
-                textTransform: "uppercase",
+                fontSize: "0.8rem",
                 fontWeight: 700,
               }}
             >
@@ -1080,7 +1077,7 @@ function ConceptInspector({
               style={{
                 background: "rgba(255,255,255,0.08)",
                 color: styling.text,
-                fontSize: "0.625rem",
+                fontSize: "0.8rem",
               }}
             >
               {node.status}
@@ -1089,7 +1086,7 @@ function ConceptInspector({
           <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.3 }}>
             {node.name}
           </h4>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 2 }}>
             {node.topic_title}
           </p>
         </div>
@@ -1118,7 +1115,7 @@ function ConceptInspector({
               display: "flex",
               alignItems: "flex-start",
               gap: 8,
-              fontSize: "0.75rem",
+              fontSize: "0.85rem",
               color: "#fca5a5",
             }}
           >
@@ -1138,7 +1135,7 @@ function ConceptInspector({
               border: "1px solid var(--border-subtle)",
             }}
           >
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Difficulty</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Difficulty</div>
             <div style={{ fontSize: "1.125rem", fontWeight: 700, marginTop: 2 }}>{node.difficulty} / 5</div>
           </div>
           <div
@@ -1149,7 +1146,7 @@ function ConceptInspector({
               border: "1px solid var(--border-subtle)",
             }}
           >
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Importance</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Importance</div>
             <div style={{ fontSize: "1.125rem", fontWeight: 700, marginTop: 2 }}>{node.importance} / 5</div>
           </div>
           <div
@@ -1160,7 +1157,7 @@ function ConceptInspector({
               border: "1px solid var(--border-subtle)",
             }}
           >
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Avg Mastery</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Avg Mastery</div>
             <div
               style={{
                 fontSize: "1.125rem",
@@ -1180,19 +1177,19 @@ function ConceptInspector({
               border: "1px solid var(--border-subtle)",
             }}
           >
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Type</div>
-            <div style={{ fontSize: "0.875rem", fontWeight: 600, marginTop: 4, textTransform: "capitalize" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Type</div>
+            <div style={{ fontSize: "0.93rem", fontWeight: 600, marginTop: 4, textTransform: "capitalize" }}>
               {node.concept_type}
             </div>
           </div>
         </div>
 
         <div>
-          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+          <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>
             Direct Prerequisites ({directPrereqIds.length})
           </div>
           {directPrereqIds.length === 0 ? (
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontStyle: "italic" }}>
               None (Foundational concept)
             </div>
           ) : (
@@ -1215,11 +1212,11 @@ function ConceptInspector({
                       cursor: "pointer",
                       textAlign: "left",
                       color: "var(--text-primary)",
-                      fontSize: "0.75rem",
+                      fontSize: "0.85rem",
                     }}
                   >
                     <span>{pNode.name}</span>
-                    <span style={{ fontSize: "0.6875rem", color: "var(--brand-start)" }}>Unit {pNode.unit_number}</span>
+                    <span style={{ fontSize: "0.8rem", color: "var(--brand-start)" }}>Unit {pNode.unit_number}</span>
                   </button>
                 );
               })}
@@ -1228,11 +1225,11 @@ function ConceptInspector({
         </div>
 
         <div>
-          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+          <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>
             Downstream Dependents ({directDependentIds.length})
           </div>
           {directDependentIds.length === 0 ? (
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontStyle: "italic" }}>
               Terminal concept in curriculum
             </div>
           ) : (
@@ -1255,11 +1252,11 @@ function ConceptInspector({
                       cursor: "pointer",
                       textAlign: "left",
                       color: "var(--text-primary)",
-                      fontSize: "0.75rem",
+                      fontSize: "0.85rem",
                     }}
                   >
                     <span>{dNode.name}</span>
-                    <span style={{ fontSize: "0.6875rem", color: "#c084fc" }}>Unit {dNode.unit_number}</span>
+                    <span style={{ fontSize: "0.8rem", color: "#c084fc" }}>Unit {dNode.unit_number}</span>
                   </button>
                 );
               })}
@@ -1294,11 +1291,9 @@ function GridView({
           <div key={unit}>
             <h4
               style={{
-                fontSize: "0.8125rem",
+                fontSize: "0.9rem",
                 fontWeight: 700,
                 color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
                 marginBottom: 10,
                 display: "flex",
                 alignItems: "center",
@@ -1340,21 +1335,21 @@ function GridView({
                         marginBottom: 6,
                       }}
                     >
-                      <div style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{n.name}</div>
+                      <div style={{ fontSize: "0.9rem", fontWeight: 600 }}>{n.name}</div>
                       {isBottleneck && (
-                        <span className="badge badge-danger" style={{ fontSize: "0.625rem" }}>
+                        <span className="badge badge-danger" style={{ fontSize: "0.8rem" }}>
                           ⚠️ Bottleneck
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginBottom: 8 }}>
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 8 }}>
                       {n.topic_title}
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <span className="badge badge-neutral" style={{ fontSize: "0.625rem" }}>
+                      <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
                         Diff: {n.difficulty}/5
                       </span>
-                      <span className="badge badge-neutral" style={{ fontSize: "0.625rem" }}>
+                      <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
                         {n.concept_type}
                       </span>
                       {n.avg_score != null && (
@@ -1366,13 +1361,13 @@ function GridView({
                               ? "badge-warning"
                               : "badge-danger"
                           }`}
-                          style={{ fontSize: "0.625rem" }}
+                          style={{ fontSize: "0.8rem" }}
                         >
                           {n.avg_score}%
                         </span>
                       )}
                       {n.downstream_count > 0 && (
-                        <span className="badge badge-purple" style={{ fontSize: "0.625rem" }}>
+                        <span className="badge badge-purple" style={{ fontSize: "0.8rem" }}>
                           ↓{n.downstream_count} dependents
                         </span>
                       )}

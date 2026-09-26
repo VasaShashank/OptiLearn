@@ -63,19 +63,19 @@ export default function QueriesTab({ queries, courseId, dialect }: { queries: Qu
                 style={{
                   padding: 14, textAlign: "left", cursor: "pointer", color: "inherit", width: "100%",
                   borderColor: selected === q.id ? "var(--brand-start)" : undefined,
-                  background: selected === q.id ? "rgba(99,102,241,0.06)" : undefined,
+                  background: selected === q.id ? "var(--ink-wash)" : undefined,
                   opacity: unavailable ? 0.55 : 1,
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{q.title}</span>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{q.title}</span>
                   <Play size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                 </div>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-                  {q.sql_features.map((f) => <span key={f} className="badge badge-purple" style={{ fontSize: "0.5625rem" }}>{f}</span>)}
-                  {q.requires && <span className="badge badge-warning" style={{ fontSize: "0.5625rem" }}>{q.requires} only</span>}
+                  {q.sql_features.map((f) => <span key={f} className="badge badge-purple" style={{ fontSize: "0.8rem" }}>{f}</span>)}
+                  {q.requires && <span className="badge badge-warning" style={{ fontSize: "0.8rem" }}>{q.requires} only</span>}
                 </div>
-                <p style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 6 }}>{q.purpose}</p>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 6 }}>{q.purpose}</p>
               </button>
             );
           })}
@@ -84,7 +84,7 @@ export default function QueriesTab({ queries, courseId, dialect }: { queries: Qu
 
       <div style={{ minWidth: 0 }}>
         {!selected && (
-          <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+          <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: "0.93rem" }}>
             Pick a query to run it against the selected course. Every query is parameterized: the course ID is bound, never concatenated.
           </div>
         )}
@@ -101,7 +101,7 @@ export default function QueriesTab({ queries, courseId, dialect }: { queries: Qu
                 </div>
               </div>
               {dialect === "postgresql" && (
-                <button type="button" className="btn btn-secondary" onClick={explain} disabled={busy !== null} style={{ fontSize: "0.8125rem" }}>
+                <button type="button" className="btn btn-secondary" onClick={explain} disabled={busy !== null} style={{ fontSize: "0.9rem" }}>
                   <Gauge size={14} /> {busy === "explain" ? "Analyzing…" : "EXPLAIN ANALYZE"}
                 </button>
               )}
@@ -115,7 +115,7 @@ export default function QueriesTab({ queries, courseId, dialect }: { queries: Qu
                 <Label>Executed plan (actual times, buffers, index use)</Label>
                 <pre className="code-block" style={{ margin: 0, maxHeight: 320, overflow: "auto" }}>
                   {plan.map((line, i) => (
-                    <div key={i} style={{ color: /Index|Bitmap/.test(line) ? "#7ee787" : /Seq Scan/.test(line) ? "#ffa657" : undefined }}>{line}</div>
+                    <div key={i} style={{ color: /Index|Bitmap/.test(line) ? "var(--tick)" : /Seq Scan/.test(line) ? "var(--caution)" : undefined }}>{line}</div>
                   ))}
                 </pre>
               </div>

@@ -31,7 +31,7 @@ class RevisionEngine:
                 "revision_needed": False,
                 "revision_minutes": 0,
                 "revision_concept": None,
-                "reason": "No strict prerequisite dependencies required for this introductory topic."
+                "reason": "This topic doesn't build on earlier ones, so the class can start straight away."
             }
 
         # Check performance for prerequisites
@@ -56,10 +56,9 @@ class RevisionEngine:
                 "revision_minutes": 10,
                 "revision_concept": primary_weak["name"],
                 "reason": (
-                    f"Prerequisite mastery bottleneck detected: '{primary_weak['name']}' "
-                    f"recorded an average cohort score of {primary_weak['avg_score']}% "
-                    f"(below the {threshold_score}% target threshold). "
-                    f"Identified issue: {primary_weak['common_errors']}."
+                    f"Students averaged {primary_weak['avg_score']:g}% on {primary_weak['name']}, below your "
+                    f"{threshold_score:g}% target, and today's topic builds on it."
+                    + (f" Common mistake: {primary_weak['common_errors'].rstrip('.')}." if primary_weak.get("common_errors") else "")
                 )
             }
 
@@ -67,7 +66,7 @@ class RevisionEngine:
             "revision_needed": False,
             "revision_minutes": 0,
             "revision_concept": None,
-            "reason": "Prerequisite concept performance is robust (cohort average >= threshold)."
+            "reason": "Students scored above your target on everything this topic builds on, so no revision is needed."
         }
 
 revision_engine = RevisionEngine()

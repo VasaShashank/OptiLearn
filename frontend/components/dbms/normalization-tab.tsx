@@ -9,7 +9,7 @@ const FIXES = [
     problem:
       "teacher_constraints.preferred_methods_json held a JSON array of method names. The value is not atomic, so the database could not enforce that each name is a real method, index it, or join on it — and renaming a method left stale names behind.",
     before: `teacher_constraints(id, course_id, ..., preferred_methods_json)
--- '["Worked Examples & Decomposition", "Recap & Prerequisite Revision"]'`,
+-- '["Worked examples", "Recap and revision"]'`,
     after: `teacher_preferred_methods(
     constraint_id  REFERENCES teacher_constraints(id) ON DELETE CASCADE,
     method_id      REFERENCES teaching_methods(id)    ON DELETE CASCADE,
@@ -98,7 +98,7 @@ export default function NormalizationTab() {
       {FIXES.map((fix) => (
         <div key={fix.title} className="glass-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: "0.9375rem", fontWeight: 700, marginBottom: 8 }}>{fix.title}</h3>
-          <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.6 }}>{fix.problem}</p>
+          <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.6 }}>{fix.problem}</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center", marginBottom: 14 }}>
             <div><Label>Before</Label><SQLBlock sql={fix.before} /></div>
             <ArrowRight size={18} style={{ color: "var(--text-muted)" }} />
@@ -118,8 +118,8 @@ export default function NormalizationTab() {
               {FDS.map((row) => (
                 <tr key={row.table}>
                   <td style={{ fontFamily: "var(--font-mono)", fontWeight: 600, verticalAlign: "top" }}>{row.table}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", verticalAlign: "top" }}>{row.keys.join("; ")}</td>
-                  <td style={{ fontSize: "0.75rem", verticalAlign: "top" }}>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", verticalAlign: "top" }}>{row.keys.join("; ")}</td>
+                  <td style={{ fontSize: "0.85rem", verticalAlign: "top" }}>
                     {row.fds.map((fd) => <div key={fd} style={{ fontFamily: "var(--font-mono)" }}>{fd}</div>)}
                     {row.note && <div style={{ color: "var(--text-muted)", marginTop: 6, fontFamily: "inherit" }}>{row.note}</div>}
                   </td>
@@ -129,7 +129,7 @@ export default function NormalizationTab() {
             </tbody>
           </table>
         </div>
-        <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8 }}>
+        <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 8 }}>
           A table is in BCNF when every non-trivial dependency X → Y has X as a superkey. Each table above has only key determinants
           (except the documented derived column), which also rules out partial (2NF) and transitive (3NF) dependencies.
         </p>
@@ -140,8 +140,8 @@ export default function NormalizationTab() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
           {DELIBERATE.map(([title, why]) => (
             <div key={title} className="card" style={{ padding: 16 }}>
-              <div style={{ fontSize: "0.8125rem", fontWeight: 600, fontFamily: "var(--font-mono)", marginBottom: 6 }}>{title}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>{why}</div>
+              <div style={{ fontSize: "0.9rem", fontWeight: 600, fontFamily: "var(--font-mono)", marginBottom: 6 }}>{title}</div>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>{why}</div>
             </div>
           ))}
         </div>

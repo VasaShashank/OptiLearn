@@ -79,9 +79,9 @@ export default function NoSQLTab({ courseId }: { courseId: string }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
           {COLLECTIONS.map((c) => (
             <div key={c.name} className="card" style={{ padding: 16 }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.8125rem", marginBottom: 6 }}>{c.name}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 8 }}>{c.why}</div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--accent-cyan)" }}>{c.guards}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.9rem", marginBottom: 6 }}>{c.name}</div>
+              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 8 }}>{c.why}</div>
+              <div style={{ fontSize: "0.8rem", color: "var(--accent-cyan)" }}>{c.guards}</div>
             </div>
           ))}
         </div>
@@ -94,10 +94,10 @@ export default function NoSQLTab({ courseId }: { courseId: string }) {
             {aggs.map((a) => (
               <button key={a.id} type="button" className="card" onClick={() => runAgg(a.id)}
                 style={{ padding: 12, textAlign: "left", color: "inherit", cursor: "pointer", borderColor: result?.id === a.id ? "var(--brand-start)" : undefined }}>
-                <div style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{a.title}</div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", margin: "4px 0 6px" }}>{a.purpose}</div>
+                <div style={{ fontSize: "0.9rem", fontWeight: 600 }}>{a.title}</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", margin: "4px 0 6px" }}>{a.purpose}</div>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  {a.stages.map((s, i) => <span key={i} className="badge badge-neutral" style={{ fontSize: "0.5625rem", fontFamily: "var(--font-mono)" }}>{s}</span>)}
+                  {a.stages.map((s, i) => <span key={i} className="badge badge-neutral" style={{ fontSize: "0.8rem", fontFamily: "var(--font-mono)" }}>{s}</span>)}
                 </div>
               </button>
             ))}
@@ -135,7 +135,7 @@ export default function NoSQLTab({ courseId }: { courseId: string }) {
                   <td>{v.reason}</td>
                   <td>{v.stats.concepts}</td>
                   <td>{v.stats.edges}</td>
-                  <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{new Date(v.created_at).toLocaleString()}</td>
+                  <td style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{new Date(v.created_at).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -153,9 +153,9 @@ export default function NoSQLTab({ courseId }: { courseId: string }) {
             <button type="button" className="btn btn-secondary" onClick={compare}><GitCompare size={14} /> Compare</button>
           </div>
         )}
-        {versions.length < 2 && <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Confirm the curriculum again to create a second version to compare.</p>}
+        {versions.length < 2 && <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Confirm the curriculum again to create a second version to compare.</p>}
         {diff && (
-          <div className="card animate-fade-in" style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, fontSize: "0.75rem" }}>
+          <div className="card animate-fade-in" style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, fontSize: "0.85rem" }}>
             <DiffList title="Concepts added" items={diff.concepts_added} tone="success" />
             <DiffList title="Concepts removed" items={diff.concepts_removed} tone="danger" />
             <DiffList title="Concepts changed" items={diff.concepts_changed.map((c) => `${c.concept}: ${Object.entries(c.changes).map(([f, d]) => `${f} ${String(d.from)}→${String(d.to)}`).join(", ")}`)} tone="warning" />

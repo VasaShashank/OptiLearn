@@ -98,7 +98,7 @@ export default function AssessmentResults({ courseId, assessments, concepts, onR
 
           {openId === a.id && (
             <div style={{ borderTop: "1px solid var(--border-default)", paddingTop: 14, marginTop: 14 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 110px 100px 2fr 36px", gap: 8, fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 110px 100px 2fr 36px", gap: 8, fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, marginBottom: 6 }}>
                 <span>Concept</span><span>Class avg %</span><span>Students</span><span>Common errors</span><span />
               </div>
               {rows.map((r, i) => (
@@ -126,8 +126,8 @@ export default function AssessmentResults({ courseId, assessments, concepts, onR
                 </button>
               </div>
               {message && (
-                <div role={message.tone === "error" ? "alert" : "status"} style={{ marginTop: 10, fontSize: "0.8125rem",
-                  color: message.tone === "ok" ? "#34d399" : message.tone === "warn" ? "#fbbf24" : "#fb7185" }}>
+                <div role={message.tone === "error" ? "alert" : "status"} style={{ marginTop: 10, fontSize: "0.9rem",
+                  color: message.tone === "ok" ? "var(--tick)" : message.tone === "warn" ? "var(--caution)" : "var(--redpen)" }}>
                   {message.text}
                 </div>
               )}

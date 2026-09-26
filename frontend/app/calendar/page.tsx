@@ -8,9 +8,9 @@ import type { ClassSessionItem, Course } from "@/lib/types";
 import SessionLogModal from "@/components/session-log-modal";
 
 const STATUS_STYLE: Record<string, { badge: string; tint: string; label: string }> = {
-  completed: { badge: "badge-success", tint: "rgba(16,185,129,0.08)", label: "Taught" },
-  scheduled: { badge: "badge-info", tint: "rgba(59,130,246,0.06)", label: "Scheduled" },
-  in_progress: { badge: "badge-warning", tint: "rgba(245,158,11,0.08)", label: "In progress" },
+  completed: { badge: "badge-success", tint: "var(--tick-wash)", label: "Taught" },
+  scheduled: { badge: "badge-info", tint: "var(--ink-wash)", label: "Scheduled" },
+  in_progress: { badge: "badge-warning", tint: "var(--caution-wash)", label: "In progress" },
   cancelled: { badge: "badge-neutral", tint: "transparent", label: "Cancelled" },
 };
 
@@ -67,7 +67,7 @@ export default function CalendarPage() {
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 8 }}>
             <CalendarDays size={24} style={{ color: "var(--accent-blue)" }} /> Teaching Calendar
           </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
             Every period of the course: what it covers, whether its plan is reviewed, and what was actually taught.
           </p>
         </div>
@@ -97,7 +97,7 @@ export default function CalendarPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             {groups.map((g, gi) => (
               <div key={gi}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.05em", marginBottom: 8 }}>
+                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>
                   {g.unit ? `Unit ${g.unit}` : "Unassigned"} · {g.items[0].topic_title || "No topic"}{g.items.length > 1 && g.items[g.items.length - 1].topic_title !== g.items[0].topic_title ? " …" : ""}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
@@ -108,17 +108,17 @@ export default function CalendarPage() {
                       <button key={s.id} type="button" onClick={() => setSelected(s)} className="card"
                         aria-pressed={isSelected}
                         style={{ padding: 10, textAlign: "left", color: "inherit", cursor: "pointer", background: st.tint,
-                          borderColor: isSelected ? "var(--brand-start)" : s.session_number === nextScheduled ? "rgba(99,102,241,0.5)" : undefined }}>
+                          borderColor: isSelected ? "var(--brand-start)" : s.session_number === nextScheduled ? "var(--ink)" : undefined }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: "0.8125rem", fontWeight: 700 }}>P{s.session_number}</span>
-                          {s.status === "completed" ? <CheckCircle2 size={13} style={{ color: "#34d399" }} aria-label="taught" />
-                            : s.session_number === nextScheduled ? <span className="badge badge-purple" style={{ fontSize: "0.5rem" }}>next</span> : null}
+                          <span style={{ fontSize: "0.9rem", fontWeight: 700 }}>P{s.session_number}</span>
+                          {s.status === "completed" ? <CheckCircle2 size={13} style={{ color: "var(--tick)" }} aria-label="taught" />
+                            : s.session_number === nextScheduled ? <span className="badge badge-purple" style={{ fontSize: "0.8rem" }}>next</span> : null}
                         </div>
-                        <div style={{ fontSize: "0.6875rem", color: "var(--text-secondary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {s.topic_title || "—"}
                         </div>
                         {s.lesson_plan_status && (
-                          <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginTop: 4 }}>plan: {s.lesson_plan_status}</div>
+                          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>plan: {s.lesson_plan_status}</div>
                         )}
                       </button>
                     );
@@ -134,7 +134,7 @@ export default function CalendarPage() {
                 <h2 style={{ fontSize: "1rem", fontWeight: 700 }}>Period {selected.session_number}</h2>
                 <span className={`badge ${(STATUS_STYLE[selected.status] || STATUS_STYLE.scheduled).badge}`}>{(STATUS_STYLE[selected.status] || STATUS_STYLE.scheduled).label}</span>
               </div>
-              <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", margin: "6px 0 14px" }}>
+              <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", margin: "6px 0 14px" }}>
                 {selected.topic_title || "No topic assigned"}{selected.unit_number ? ` · Unit ${selected.unit_number}` : ""}
               </p>
               <Row label="Length" value={`${selected.duration_minutes} min`} />
@@ -143,12 +143,12 @@ export default function CalendarPage() {
 
               {selected.logged && (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border-default)" }}>
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>What was taught</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>What was taught</div>
                   <Row label="Method" value={selected.logged.method_name || "—"} />
                   <Row label="Minutes" value={String(selected.logged.actual_minutes)} />
                   <Row label="Engagement" value={`${selected.logged.student_engagement_rating} / 5`} />
                   <Row label="Covered" value={`${Math.round(selected.logged.completion_rate * 100)}%`} />
-                  {selected.logged.teacher_notes && <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.5 }}>{selected.logged.teacher_notes}</p>}
+                  {selected.logged.teacher_notes && <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.5 }}>{selected.logged.teacher_notes}</p>}
                 </div>
               )}
 
@@ -183,7 +183,7 @@ export default function CalendarPage() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem", padding: "4px 0" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", padding: "4px 0" }}>
       <span style={{ color: "var(--text-muted)" }}>{label}</span>
       <span style={{ fontWeight: 500, textAlign: "right" }}>{value}</span>
     </div>
