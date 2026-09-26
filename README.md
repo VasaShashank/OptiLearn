@@ -109,6 +109,18 @@ OptiMaximus/
 
 ## 🚀 Getting Started
 
+### Quick start with Docker
+
+```bash
+docker compose up -d --build
+# open http://localhost:8080  (faculty@optiteach.edu / admin123)
+```
+
+This starts PostgreSQL 17, MongoDB 8, the API (migrations run automatically, the sample
+course is loaded only into an empty database), the web app, and Caddy as a single-origin
+reverse proxy. Put `POSTGRES_PASSWORD`, `APP_DB_PASSWORD` and `SECRET_KEY` in a `.env`
+file next to `docker-compose.yml` before sharing the server.
+
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+

@@ -75,3 +75,29 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run build
+
+  docker:
+    # Builds the images and exercises the whole stack through the reverse proxy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Smoke test through Caddy
+        run: |
+          curl -fsS http://localhost:8080/health | grep -q '"relational_dialect":"postgresql"'
+          TOKEN=$(curl -fsS -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+            -d '{"email":"faculty@optiteach.edu","password":"admin123"}' | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+          curl -fsS http://localhost:8080/api/courses -H "Authorization: Bearer $TOKEN" | grep -q CS302
+          curl -fsS http://localhost:8080/login | grep -q "<title>OptiTeach</title>"
+      - name: Restart keeps data (sample seed only runs on an empty database)
+        run: |
+          docker compose restart api
+          docker compose up -d --wait --wait-timeout 120
+          docker compose logs api | grep -q "skipping the sample seed"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

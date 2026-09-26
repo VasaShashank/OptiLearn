@@ -412,5 +412,17 @@ def seed_database():
     finally:
         db.close()
 
+def has_any_course() -> bool:
+    db = SessionLocal()
+    try:
+        return db.query(Course.id).first() is not None
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
-    seed_database()
+    # --if-empty: only seed a fresh database (container start-up must not wipe real data)
+    if "--if-empty" in sys.argv and has_any_course():
+        print("Database already has courses; skipping the sample seed.")
+    else:
+        seed_database()

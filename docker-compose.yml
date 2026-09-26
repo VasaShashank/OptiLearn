@@ -1,0 +1,68 @@
+# OptiTeach: PostgreSQL + MongoDB + API + web behind Caddy.
+#   docker compose up -d --build        then open http://localhost:8080
+# Override the defaults below with a .env file next to this one (never commit it).
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: optiteach
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d optiteach"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo:
+    image: mongo:8
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      # Migrations run as the owner; the API itself connects as the least-privilege role
+      MIGRATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/optiteach
+      DATABASE_URL: postgresql://optiteach_app:${APP_DB_PASSWORD:-optiteach_app_dev}@postgres:5432/optiteach
+      MONGODB_URL: mongodb://mongo:27017
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-a-dot-env-file}
+      SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
+  web:
+    build:
+      context: frontend
+      args:
+        NEXT_PUBLIC_API_URL: /api
+    depends_on:
+      api:
+        condition: service_healthy
+
+  proxy:
+    image: caddy:2
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - web
+      - api
+
+volumes:
+  pgdata:
+  mongodata:
