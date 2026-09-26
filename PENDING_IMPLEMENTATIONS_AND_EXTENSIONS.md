@@ -8,10 +8,10 @@
 ## 🧭 Executive Summary of Completed Architecture
 
 The following core modules are **fully implemented, tested, and verified**:
-- ✅ **Deterministic & Hybrid Extraction Engine**: Regex/NLP parser with confidence scoring and fallback synthesis (`ai/extractors/`).
-- ✅ **Normalized 3NF Relational Core + Alembic Migrations**: PostgreSQL / SQLite schema with foreign keys, check constraints, versioned Alembic migrations (`database/migrations/`).
+- ✅ **Deterministic & Hybrid Extraction Engine**: High-fidelity NLP parser with Unicode dash/whitespace normalization, multi-unit Roman/Arabic/word header recognition, strict unit boundary cutoff (cleanly isolating Unit V from trailing Course Outcomes, Reference Books, and CIE/SEE evaluation rubrics), wrapped-line joining, inline hour detachment, contextual title derivation, period-delimited sentence segmentation, Bloom's taxonomy mapping, and sequential prerequisite DAG construction (`app/nlp/deterministic.py`).
+- ✅ **Normalized 3NF Relational Core + Alembic Migrations**: PostgreSQL / SQLite schema with foreign keys, check constraints, generated computed columns (`total_available_minutes`), and versioned Alembic migrations (`database/migrations/`).
 - ✅ **Decoupled Architecture**: Repository layer (`CourseRepository`, `CurriculumRepository`, `AssessmentRepository`, `LessonPlanRepository`) and standalone utilities (`roman_numerals`, `graph_utils`, `datetime_helpers`, `math_formatting`).
-- ✅ **Operations Research Optimization Engine**: Exact Mixed-Integer Linear Programming solver (`scipy.optimize.milp`) adhering to discrete period integrality and cognitive threshold constraints.
+- ✅ **Operations Research Optimization Engine**: Exact Mixed-Integer Linear Programming solver (`scipy.optimize.milp`) adhering to discrete period integrality (standardized to 1 hour / 60-minute periods, e.g. 45 periods = 2700 minutes) and cognitive threshold constraints.
 - ✅ **Academic Calendar & Disruption Catch-Up Engine**: Timetable slot resolution (MWF/TTh), holiday exclusion mapping, and dynamic rescheduling acceleration when classes are lost.
 - ✅ **AI & Curriculum Intelligence**: Bloom's Taxonomy question generator (`question_generator.py`), pedagogy method advisor (`pedagogy_advisor.py`), and semantic prerequisite DAG validator (`prerequisite_graph.py`).
 - ✅ **Analytics & Drift Detection**: Real-time student performance drift tracking and curriculum pacing velocity deviation models.
@@ -50,6 +50,14 @@ The following core modules are **fully implemented, tested, and verified**:
   material (slides, video, link, dataset, code, formula), curriculum graph snapshots + diffs,
   aggregation pipelines, cross-store consistency check/repair.
 
+### Syllabus Extraction & Course Ingestion Engine
+- **Unicode & Roman Numeral Multi-Unit Extraction**: Resolved single-unit swallow issue by normalizing Unicode dashes (`\u2010`–`\u2015`, `\u2212`) and whitespace, supporting diverse formatting (`Unit-I`, `Unit – II`, `Unit –III`, `Unit. 1`, `Module IV`, `Chapter 5`, word numerals `One`..`Ten`).
+- **Contextual Unit Titling & Inline Hours Stripping**: Detaches inline period/hour notations (`09 Hrs`, `9 Hours`, `10L`) from headers; infers clean unit titles from foundational topic clauses when headers contain only numerals/hours.
+- **Sentence-Boundary & Comma Cluster Topic Chunking**: Breaks unit bodies at sentence terminators (`.`) and sub-clusters long concept lists into teachable topics with Bloom classification and DAG chaining.
+- **Duplicate Course Conflict Handling**: Explicit HTTP 409 handling around `db.flush()` and `db.commit()` on `(teacher_id, code, semester)` unique constraints.
+- **Zero-Config Database SQLite Schema Parity**: Automated parity for generated computed column `total_available_minutes` across SQLite and PostgreSQL fallback runs.
+- **Course & Subject Deletion (`DELETE /api/courses/{id}`)**: Full lifecycle course deletion restricted to owners/admins with cascading cleanup across relational entities (sections, units, topics, concepts, sessions, lesson plans) and MongoDB artifacts (`lesson_plan_documents`, `curriculum_graphs`, `nlp_extractions`). Includes confirmation modals on course listing and detail pages.
+
 ### Features from the original roadmap
 - **Live presenter mode**: full-screen class view with a per-step timer, extend-by-5-minutes,
   keyboard controls and a projector theme; unfinished topics carry over to the next period.
@@ -82,6 +90,9 @@ The following core modules are **fully implemented, tested, and verified**:
 | Live presenter mode with pacing timer | Done |
 | Docker and docker-compose | Done |
 | Multi-faculty co-teaching | Done |
+| Resilient multi-unit syllabus NLP parser (Unicode & Roman numerals) | Done |
+| Course uniqueness conflict handling (409) & schema parity | Done |
+| Subject / Course deletion with cascade & artifact cleanup | Done |
 | LMS integration (LTI 1.3) | Not started |
 
 ---

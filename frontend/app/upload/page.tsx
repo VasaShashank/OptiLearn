@@ -50,8 +50,8 @@ export default function UploadPage() {
   const [courseTitle, setCourseTitle] = useState("");
   const [courseCode, setCourseCode] = useState("");
   const [semester, setSemester] = useState("Fall 2026");
-  const [totalClasses, setTotalClasses] = useState(40);
-  const [periodDuration, setPeriodDuration] = useState(55);
+  const [totalClasses, setTotalClasses] = useState(45);
+  const [periodDuration, setPeriodDuration] = useState(60);
 
   useEffect(() => {
     const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
@@ -88,6 +88,12 @@ export default function UploadPage() {
       }
       if (result.course_code) {
         setCourseCode(result.course_code);
+      }
+      if (result.total_hours) {
+        setTotalClasses(result.total_hours);
+      }
+      if (result.period_duration) {
+        setPeriodDuration(result.period_duration);
       }
       setExpandedUnits(new Set(result.units.map((_, i) => i)));
     } catch (err) {
@@ -430,7 +436,7 @@ Normal forms: 1NF, 2NF, 3NF, BCNF`}
                   <input className="input" type="number" min={1} value={totalClasses} onChange={(e) => setTotalClasses(Number(e.target.value))} />
                 </label>
                 <label className="field" style={{ gridColumn: "span 2" }}>
-                  Minutes per period
+                  Minutes per period (1 hr = 60 min)
                   <input className="input" type="number" min={1} value={periodDuration} onChange={(e) => setPeriodDuration(Number(e.target.value))} />
                 </label>
               </div>

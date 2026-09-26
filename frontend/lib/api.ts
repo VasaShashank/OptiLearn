@@ -109,6 +109,16 @@ export const coursesAPI = {
     section_name?: string;
     student_count?: number;
   }) => fetchAPI<Course>("/courses", { method: "POST", ...json(data) }),
+  update: (id: string, data: {
+    title?: string;
+    code?: string;
+    semester?: string;
+    academic_year?: string;
+    total_classes?: number;
+    period_duration?: number;
+  }) => fetchAPI<Course>(`/courses/${id}`, { method: "PATCH", ...json(data) }),
+  delete: (id: string) =>
+    fetchAPI<{ status: string; message: string; course_id: string }>(`/courses/${id}`, { method: "DELETE" }),
   getGraph: (id: string) => fetchAPI<CurriculumGraph>(`/courses/${id}/graph`),
   listGraphVersions: (id: string) => fetchAPI<GraphVersion[]>(`/courses/${id}/graph/versions`),
   diffGraphVersions: (id: string, from: number, to: number) =>

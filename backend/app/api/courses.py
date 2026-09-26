@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 from app.database.connection import get_db
 from app.models.entities import Course, Teacher, Unit, Topic, Section, TeacherConstraint, Assessment, User, CourseMember
 from app.schemas.schemas import (
-    CourseCreate, CourseOut, ConfirmCurriculumRequest, CurriculumGraphResponse,
+    CourseCreate, CourseUpdate, CourseOut, ConfirmCurriculumRequest, CurriculumGraphResponse,
     CourseOptimizationResponse, NextClassOptimizationResponse,
     LessonPlanOut, LessonPlanUpdate, AssessmentCreate, AssessmentOut,
     RecordAssessmentResultsRequest, CourseAnalyticsResponse, SessionLogIn
@@ -21,7 +21,7 @@ from app.services.artifact_service import artifact_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
 
-from app.auth.security import get_current_user, get_current_teacher, get_accessible_course, course_role, limit_uploads
+from app.auth.security import get_current_user, get_current_teacher, get_accessible_course, get_owned_course, course_role, limit_uploads
 
 # Every route requires a valid bearer token; /{course_id} routes additionally resolve the
 # course through get_accessible_course (owner or admin, otherwise 404).
@@ -88,7 +88,14 @@ def create_course(
         end_date=payload.end_date
     )
     db.add(course)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"You already have a course with code '{payload.code}' in {payload.semester}. Please choose 'Add to an existing course' or change the code/semester."
+        ) from exc
 
     section = Section(
         course_id=course.id,
@@ -110,7 +117,10 @@ def create_course(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="You already have a course with this code in this semester") from exc
+        raise HTTPException(
+            status_code=409,
+            detail=f"You already have a course with code '{payload.code}' in {payload.semester}."
+        ) from exc
     db.refresh(course)
 
     return CourseOut(
@@ -153,6 +163,78 @@ def get_course(c: Course = Depends(get_accessible_course), current_user: User = 
         concepts_count=c_count,
         my_role=course_role(db, c, current_user),
         created_at=c.created_at
+    )
+
+@router.delete("/{course_id}")
+def delete_course(
+    course: Course = Depends(get_owned_course),
+    db: Session = Depends(get_db)
+):
+    """
+    Permanently delete a course/subject.
+    Restricted to the course owner or admin.
+    Cascades through related relational records (units, topics, concepts, sessions, etc.)
+    and deletes associated MongoDB documents, graphs, and artifacts.
+    """
+    course_id = course.id
+    code = course.code
+    title = course.title
+
+    # 1. Clean up associated MongoDB artifacts
+    artifact_service.delete_course_artifacts(course_id)
+
+    # 2. Delete the course in SQL (cascades to all children)
+    db.delete(course)
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Course '{code} - {title}' deleted successfully",
+        "course_id": course_id
+    }
+
+@router.patch("/{course_id}", response_model=CourseOut)
+def update_course(
+    course_id: str,
+    payload: CourseUpdate,
+    db: Session = Depends(get_db),
+    course: Course = Depends(get_owned_course)
+):
+    if payload.title is not None:
+        course.title = payload.title
+    if payload.code is not None:
+        course.code = payload.code
+    if payload.semester is not None:
+        course.semester = payload.semester
+    if payload.academic_year is not None:
+        course.academic_year = payload.academic_year
+    if payload.total_classes is not None:
+        course.total_classes = payload.total_classes
+    if payload.period_duration is not None:
+        course.period_duration = payload.period_duration
+
+    db.commit()
+    db.refresh(course)
+
+    u_count = len(course.units)
+    t_count = sum(len(u.topics) for u in course.units)
+    c_count = sum(sum(len(t.concepts) for t in u.topics) for u in course.units)
+    return CourseOut(
+        id=course.id,
+        code=course.code,
+        title=course.title,
+        semester=course.semester,
+        academic_year=course.academic_year,
+        total_classes=course.total_classes,
+        period_duration=course.period_duration,
+        total_available_minutes=course.total_available_minutes,
+        teacher_name=course.teacher.user.full_name if (course.teacher and course.teacher.user) else "Faculty",
+        section_name=course.sections[0].name if course.sections else "Default Section",
+        units_count=u_count,
+        topics_count=t_count,
+        concepts_count=c_count,
+        my_role="owner",
+        created_at=course.created_at
     )
 
 # -------------------------------------------------------------

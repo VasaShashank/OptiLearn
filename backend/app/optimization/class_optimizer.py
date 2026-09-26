@@ -81,7 +81,38 @@ class ClassOptimizer:
         method_b = recommended_methods[1] if len(recommended_methods) > 1 else "Worked examples"
         first_concept = target_topic.concepts[0].name if target_topic.concepts else target_topic.title
 
-        if period_duration == 55:
+        if period_duration == 60:
+            if needs_revision:
+                phases = [
+                    PeriodPhase(phase_name="Revision", duration_minutes=10, method_name="Recap and revision",
+                                activity_description=f"Quick check on {rev_concept}, then clear up the usual mistakes before moving on.",
+                                concept_ref=rev_concept),
+                    PeriodPhase(phase_name="Explain", duration_minutes=20, method_name="Lecture with diagrams",
+                                activity_description=f"Introduce the key ideas and definitions of {target_topic.title}.",
+                                concept_ref=first_concept),
+                    PeriodPhase(phase_name="Worked examples", duration_minutes=20, method_name="Worked examples",
+                                activity_description="Solve two problems step by step on the board, including one edge case.",
+                                concept_ref=target_topic.title),
+                    PeriodPhase(phase_name="Class activity", duration_minutes=10, method_name="Guided practice",
+                                activity_description="Students solve a problem in pairs; finish with a quick show of hands.",
+                                concept_ref=target_topic.title),
+                ]
+            else:
+                phases = [
+                    PeriodPhase(phase_name="Recap", duration_minutes=5, method_name="Recap and revision",
+                                activity_description="Link today's topic to what the class covered last time.",
+                                concept_ref=target_topic.title),
+                    PeriodPhase(phase_name="Explain", duration_minutes=25, method_name=method_a,
+                                activity_description=f"Work through the ideas behind {target_topic.title}.",
+                                concept_ref=first_concept),
+                    PeriodPhase(phase_name="Practice", duration_minutes=20, method_name=method_b,
+                                activity_description="Model a problem, then let students try the next one.",
+                                concept_ref=target_topic.title),
+                    PeriodPhase(phase_name="Quick check", duration_minutes=10, method_name="Short quiz",
+                                activity_description="Three quick questions to see what stuck.",
+                                concept_ref=target_topic.title),
+                ]
+        elif period_duration == 55:
             if needs_revision:
                 phases = [
                     PeriodPhase(phase_name="Revision", duration_minutes=10, method_name="Recap and revision",

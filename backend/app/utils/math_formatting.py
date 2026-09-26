@@ -4,7 +4,7 @@ Math & Formatting Utilities for Optimization and Analytics
 import math
 from typing import List, Union
 
-def snap_to_periods(raw_minutes: float, period_duration: int = 55, min_periods: int = 1) -> int:
+def snap_to_periods(raw_minutes: float, period_duration: int = 60, min_periods: int = 1) -> int:
     """
     Snap raw minutes to discrete multiples of class period duration.
     """

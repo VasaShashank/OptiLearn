@@ -33,7 +33,7 @@ class CurriculumILPSolver:
         self,
         topic_items: List[Dict[str, Any]],
         instructional_budget: int,
-        period_duration: int = 55,
+        period_duration: int = 60,
     ) -> Optional[List[int]]:
         """Returns integer period counts [x_1, ..., x_n], or None if infeasible."""
         n = len(topic_items)

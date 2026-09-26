@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, Trash2, AlertCircle } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import type { Course } from "@/lib/types";
 
@@ -12,6 +12,7 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<Course | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
 
   useEffect(() => {
     coursesAPI.list().then(setCourses).catch(() => setCourses([]));
@@ -49,15 +50,48 @@ export default function CoursesPage() {
                     {ROLE_NOTE[c.my_role] ? `. ${ROLE_NOTE[c.my_role]}` : ""}
                   </span>
                 </span>
-                <span className="course-row__status">
-                  {c.units_count === 0
-                    ? <span className="badge badge-warning">Needs a syllabus</span>
-                    : <span style={{ color: "var(--pencil)" }}>{c.topics_count} topics, {c.concepts_count} concepts</span>}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span className="course-row__status">
+                    {c.units_count === 0
+                      ? <span className="badge badge-warning">Needs a syllabus</span>
+                      : <span style={{ color: "var(--pencil)" }}>{c.topics_count} topics, {c.concepts_count} concepts</span>}
+                  </span>
+                  {(c.my_role === "owner" || c.my_role === "admin") && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{
+                        padding: "6px 8px",
+                        color: "var(--redpen)",
+                        borderRadius: "var(--radius-sm)",
+                        cursor: "pointer",
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCourseToDelete(c);
+                      }}
+                      title={`Delete ${c.code}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </Link>
             </li>
           ))}
         </ul>
+      )}
+
+      {courseToDelete && (
+        <DeleteCourseDialog
+          course={courseToDelete}
+          onClose={() => setCourseToDelete(null)}
+          onDeleted={() => {
+            setCourses((prev) => (prev ? prev.filter((item) => item.id !== courseToDelete.id) : []));
+            setCourseToDelete(null);
+          }}
+        />
       )}
 
       {creating && (
@@ -88,7 +122,7 @@ export default function CoursesPage() {
 function NewCourseDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (c: Course) => void }) {
   const [form, setForm] = useState({
     code: "", title: "", semester: "", academic_year: "2026-2027",
-    total_classes: 40, period_duration: 55, section_name: "Section A", student_count: 60,
+    total_classes: 45, period_duration: 60, section_name: "Section A", student_count: 60,
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -119,7 +153,7 @@ function NewCourseDialog({ onClose, onCreated }: { onClose: () => void; onCreate
           <label className="field" style={{ gridColumn: "span 2" }}>Semester<input className="input" required placeholder="Fall 2026" value={form.semester} onChange={set("semester")} /></label>
           <label className="field" style={{ gridColumn: "span 2" }}>Academic year<input className="input" value={form.academic_year} onChange={set("academic_year")} /></label>
           <label className="field" style={{ gridColumn: "span 2" }}>Periods in the semester<input className="input" type="number" min={1} value={form.total_classes} onChange={set("total_classes", true)} /></label>
-          <label className="field" style={{ gridColumn: "span 2" }}>Minutes per period<input className="input" type="number" min={1} value={form.period_duration} onChange={set("period_duration", true)} /></label>
+          <label className="field" style={{ gridColumn: "span 2" }}>Minutes per period (1 hr = 60 min)<input className="input" type="number" min={1} value={form.period_duration} onChange={set("period_duration", true)} /></label>
           <label className="field" style={{ gridColumn: "span 2" }}>Section<input className="input" value={form.section_name} onChange={set("section_name")} /></label>
           <label className="field" style={{ gridColumn: "span 2" }}>Students<input className="input" type="number" min={1} value={form.student_count} onChange={set("student_count", true)} /></label>
           <p style={{ gridColumn: "1 / -1", color: "var(--pencil)" }}>
@@ -135,3 +169,71 @@ function NewCourseDialog({ onClose, onCreated }: { onClose: () => void; onCreate
     </div>
   );
 }
+
+function DeleteCourseDialog({
+  course,
+  onClose,
+  onDeleted,
+}: {
+  course: Course;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await coursesAPI.delete(course.id);
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete course");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-course-title"
+        style={{ maxWidth: 460, width: "100%" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--redpen)", marginBottom: 12 }}>
+          <AlertCircle size={22} />
+          <h2 id="delete-course-title" style={{ fontSize: "1.25rem", margin: 0, color: "inherit" }}>
+            Delete {course.code}?
+          </h2>
+        </div>
+        <p style={{ color: "var(--pencil)", margin: "0 0 16px" }}>
+          Are you sure you want to permanently delete <strong>{course.title}</strong>? All associated units, topics, lesson plans, sessions, and analytics will be permanently removed. This action cannot be undone.
+        </p>
+        {error && (
+          <p role="alert" style={{ color: "var(--redpen)", fontWeight: 600, marginBottom: 16 }}>
+            {error}
+          </p>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn"
+            style={{ background: "var(--redpen)", color: "#ffffff", border: "none" }}
+            onClick={confirmDelete}
+            disabled={busy}
+          >
+            {busy ? "Deleting…" : "Yes, delete course"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

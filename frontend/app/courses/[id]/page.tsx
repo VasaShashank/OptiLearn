@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Upload } from "lucide-react";
+import { Upload, Trash2, AlertCircle } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import CurriculumGraphView from "@/components/curriculum-graph-view";
 import AssessmentResults from "@/components/assessment-results";
@@ -24,6 +24,7 @@ const fmt = (n: number) => Math.round(n).toLocaleString();
 
 export default function CourseDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const courseId = params.id as string;
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -32,6 +33,7 @@ export default function CourseDetailPage() {
   const [assessments, setAssessments] = useState<AssessmentItem[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -85,16 +87,43 @@ export default function CourseDetailPage() {
           <h1>{course.title}</h1>
           <p>
             {course.teacher_name ? `${course.teacher_name}. ` : ""}
-            {course.total_classes} periods of {course.period_duration} minutes, {fmt(course.total_available_minutes)} minutes in all.
+            {course.total_classes} periods of {course.period_duration === 60 ? "1 hour" : `${course.period_duration} minutes`}, {fmt(course.total_available_minutes)} minutes ({Math.round(course.total_available_minutes / 60)} hrs) in all.
           </p>
         </div>
-        {course.units_count > 0 && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href={`/optimization?course=${course.id}`} className="btn btn-secondary">Time plan</Link>
-            <Link href={`/lesson-plans?course=${course.id}`} className="btn btn-primary">Lesson plans</Link>
-          </div>
-        )}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {course.units_count > 0 && (
+            <>
+              <Link href={`/optimization?course=${course.id}`} className="btn btn-secondary">Time plan</Link>
+              <Link href={`/lesson-plans?course=${course.id}`} className="btn btn-primary">Lesson plans</Link>
+            </>
+          )}
+          {(course.my_role === "owner" || course.my_role === "admin") && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                color: "var(--redpen)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                cursor: "pointer",
+              }}
+              onClick={() => setDeleting(true)}
+              title="Delete this course"
+            >
+              <Trash2 size={16} /> Delete course
+            </button>
+          )}
+        </div>
       </header>
+
+      {deleting && (
+        <DeleteCourseDialog
+          course={course}
+          onClose={() => setDeleting(false)}
+          onDeleted={() => router.push("/courses")}
+        />
+      )}
 
       {!canEdit && (
         <p role="note" style={{ padding: "10px 14px", marginBottom: 16, background: "var(--caution-wash)", borderLeft: "4px solid var(--caution)", borderRadius: "var(--radius-sm)" }}>
@@ -300,3 +329,71 @@ const CONCEPT_KIND: Record<string, string> = {
   practical: "Hands-on practice",
   revision: "Revision",
 };
+
+function DeleteCourseDialog({
+  course,
+  onClose,
+  onDeleted,
+}: {
+  course: Course;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await coursesAPI.delete(course.id);
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete course");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-course-title"
+        style={{ maxWidth: 460, width: "100%" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--redpen)", marginBottom: 12 }}>
+          <AlertCircle size={22} />
+          <h2 id="delete-course-title" style={{ fontSize: "1.25rem", margin: 0, color: "inherit" }}>
+            Delete {course.code}?
+          </h2>
+        </div>
+        <p style={{ color: "var(--pencil)", margin: "0 0 16px" }}>
+          Are you sure you want to permanently delete <strong>{course.title}</strong>? All associated units, topics, lesson plans, sessions, and analytics will be permanently removed. This action cannot be undone.
+        </p>
+        {error && (
+          <p role="alert" style={{ color: "var(--redpen)", fontWeight: 600, marginBottom: 16 }}>
+            {error}
+          </p>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn"
+            style={{ background: "var(--redpen)", color: "#ffffff", border: "none" }}
+            onClick={confirmDelete}
+            disabled={busy}
+          >
+            {busy ? "Deleting…" : "Yes, delete course"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

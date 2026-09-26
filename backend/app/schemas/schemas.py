@@ -47,13 +47,21 @@ class CourseCreate(BaseModel):
     title: str
     semester: str
     academic_year: str = "2026-2027"
-    total_classes: int = 40
-    period_duration: int = 55
+    total_classes: int = 45
+    period_duration: int = 60
     section_name: str = "Section A"
     student_count: int = 60
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     constraints: Optional[CourseConstraintIn] = None
+
+class CourseUpdate(BaseModel):
+    title: Optional[str] = None
+    code: Optional[str] = None
+    semester: Optional[str] = None
+    academic_year: Optional[str] = None
+    total_classes: Optional[int] = None
+    period_duration: Optional[int] = None
 
 class CourseOut(BaseModel):
     id: str
@@ -94,7 +102,7 @@ class TopicDraft(BaseModel):
     id: Optional[str] = None
     title: str
     description: Optional[str] = None
-    estimated_minutes: int = 110
+    estimated_minutes: int = 120
     concepts: List[ConceptDraft] = []
 
 class UnitDraft(BaseModel):
@@ -114,6 +122,8 @@ class ExtractedCurriculum(BaseModel):
     course_code: str
     outcomes: List[OutcomeDraft] = []
     units: List[UnitDraft] = []
+    total_hours: Optional[int] = None
+    period_duration: int = 60
     confidence_score: float = 0.92
     extraction_notes: List[str] = []
 

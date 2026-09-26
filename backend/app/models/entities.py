@@ -104,8 +104,8 @@ class Course(Base):
     title = Column(String(255), nullable=False) # e.g. Database Management Systems
     semester = Column(String(50), nullable=False) # e.g. Fall 2026 / Sem 5
     academic_year = Column(String(20), default="2026-2027")
-    total_classes = Column(Integer, nullable=False) # e.g. 40
-    period_duration = Column(Integer, nullable=False, default=55) # minutes
+    total_classes = Column(Integer, nullable=False) # e.g. 45
+    period_duration = Column(Integer, nullable=False, default=60) # minutes (1 hour)
     # Derived attribute stored as a generated column: the DBMS computes it, so it can
     # never disagree with total_classes/period_duration (no update anomaly).
     total_available_minutes = Column(Integer, Computed("total_classes * period_duration", persisted=True))
@@ -223,7 +223,7 @@ class Topic(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     order_index = Column(Integer, nullable=False)
-    estimated_minutes = Column(Integer, default=110) # Base estimated time
+    estimated_minutes = Column(Integer, default=120) # Base estimated time (2 periods of 60 min)
     allocated_minutes = Column(Integer, default=0) # Calculated by optimizer
     priority_score = Column(Float, default=0.0) # Calculated by scoring formula
     status = Column(String(50), default="pending") # pending, in_progress, completed

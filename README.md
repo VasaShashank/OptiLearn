@@ -1,245 +1,303 @@
-# OptiTeach
+# OptiTeach: Intelligent Course-Planning & Curriculum Assistant
 
-Course planning for university teachers, built on PostgreSQL and MongoDB. A teacher imports a
-syllabus, checks what was read, and gets a time plan for the semester and a lesson plan for every
-period; after each class they record what was actually taught and how students did, and the next
-plans adapt.
+> **"DBMS is the core. AI and optimization are the intelligence. The dashboard is the product."**
 
-> *DBMS is the core. Optimization is the intelligence. The dashboard is the product.*
+OptiTeach is a course-planning and curriculum optimization assistant engineered for university faculty. A teacher faces a rigid syllabus and a finite calendar of class hours. OptiTeach helps them solve four fundamental instructional challenges:
+
+1. **What to teach next:** Determining optimal sequence and identifying bottleneck prerequisites.
+2. **How much time each topic deserves:** Allocating semester minutes mathematically using Operations Research (Mixed-Integer Linear Programming).
+3. **How to teach it:** Recommending pedagogical methods (lecture, worked examples, inquiry, group discussion) based on concept typology and empirical efficacy.
+4. **Whether to revise first:** Dynamically recommending prerequisite revision when student assessment scores fall below cognitive mastery thresholds.
+
+OptiTeach deliberately operates at the **course, topic, and concept level**, rather than acting as a student attendance tracker or administrative ERP.
 
 ---
 
-## What a teacher can do
+## 🧭 The Teacher's Journey: End-to-End Workflow
 
-| Screen | What it is for |
+The platform operates on a closed pedagogical feedback loop:  
+**Plan → Teach → Assess → Record → Analyze → Re-optimize**
+
+```
+   ┌─────────────────────────────────────────────────────────────┐
+   │ 1. Upload Syllabus (PDF/Text)                               │
+   │    └─► Deterministic NLP parses Units, Topics, COs, DAG     │
+   └──────────────────────────────┬──────────────────────────────┘
+                                  │
+                                  ▼
+   ┌─────────────────────────────────────────────────────────────┐
+   │ 2. Knowledge Graph & Bottleneck Analysis                    │
+   │    └─► Prerequisite DAG identifies high-risk concept blocks │
+   └──────────────────────────────┬──────────────────────────────┘
+                                  │
+                                  ▼
+   ┌─────────────────────────────────────────────────────────────┐
+   │ 3. Semester Time Optimization (Optimizer Level 1)           │
+   │    └─► SciPy MILP allocates minutes across 45 1-hr periods  │
+   └──────────────────────────────┬──────────────────────────────┘
+                                  │
+                                  ▼
+   ┌─────────────────────────────────────────────────────────────┐
+   │ 4. Period & Lesson Planning (Optimizer Level 2)             │
+   │    └─► Exact period phase division + Pedagogy Selection     │
+   └──────────────────────────────┬──────────────────────────────┘
+                                  │
+                                  ▼
+   ┌─────────────────────────────────────────────────────────────┐
+   │ 5. The "Next Class" Dashboard Card & Classroom Presenter    │
+   │    └─► Real-time revision alerts, topic briefings, timer    │
+   └──────────────────────────────┬──────────────────────────────┘
+                                  │
+                                  ▼
+   ┌─────────────────────────────────────────────────────────────┐
+   │ 6. Teach, Record Class & Log Assessment Scores              │
+   │    └─► Actual minutes taught, engagement, quiz results      │
+   └──────────────────────────────┬──────────────────────────────┘
+                                  │
+                                  ▼
+   ┌─────────────────────────────────────────────────────────────┐
+   │ 7. Dynamic Re-Optimization & Calendar Adaptation            │
+   │    └─► Weak concepts trigger auto-revision in future plans  │
+   └─────────────────────────────────────────────────────────────┘
+```
+
+### 1. Create a Course & Upload the Syllabus
+The teacher configures a course (e.g., *CS355 Advanced Algorithms*, 45 periods of 1 hour / 60 minutes) and uploads the syllabus as a PDF or raw text. The **deterministic NLP engine** (`app/nlp/deterministic.py`) extracts:
+- Course name, code, and total syllabus duration (e.g., `Total Hours : 45L` -> 45 periods).
+- Units and modules with clean titles and hour detachment.
+- Topics and atomic concepts with cognitive difficulty (1–5) and typology.
+- Course Outcomes (COs) mapped to **Bloom's Taxonomy** levels (*Remember*, *Understand*, *Apply*, *Analyze*, *Evaluate*, *Create*).
+- Initial prerequisite Directed Acyclic Graph (DAG) dependencies.
+- *Strict Rule: NLP proposes, teacher confirms.* The teacher reviews and adjusts the draft before committing to the database.
+
+### 2. The Curriculum Graph & Bottleneck Detection
+Concepts are assembled into an in-memory and database-backed **knowledge graph** (using NetworkX and recursive SQL CTEs). The system highlights **curriculum bottlenecks**: concepts that are heavily depended upon by subsequent units where student performance is lagging.
+
+### 3. Course-Level Time Allocation (Optimizer Level 1)
+The total semester duration (e.g., $45 \times 60 = 2700$ minutes) is partitioned using **Mixed-Integer Linear Programming (SciPy MILP)**:
+- Reserves 10% for revision and 8% for formal assessments.
+- Solves a discrete optimization problem balancing concept difficulty, importance weight, prerequisite depth, and real-time student mastery.
+- Flags time pressure (e.g., *"9 topics remaining with only 7 periods available"*).
+
+### 4. Class-Level Phase Planning (Optimizer Level 2)
+For each individual 1-hour period (60 minutes), OptiTeach constructs a minute-by-minute phase schedule:
+- **Standard 60-Minute Period**: 5 min recap, 25 min explanation/lecture, 20 min worked examples, 10 min quiz/active check ($5+25+20+10 = 60$).
+- **Revision 60-Minute Period (when prerequisite $< 60\%$)**: 10 min targeted revision, 20 min explanation, 20 min worked examples, 10 min guided practice ($10+20+20+10 = 60$).
+- Phases strictly sum to the period duration (60 minutes).
+- **Pedagogical Advisor**: Suggests teaching methods tailored to the concept's cognitive category and historical effectiveness.
+- Provides explicit, transparent pedagogical rationales for every recommendation.
+
+### 5. The "Next Class" Dashboard Card
+Upon logging in, the instructor is greeted with immediate, actionable context:
+> *"Good afternoon, Prof. Turing. Next up: Dynamic Programming: Matrix-Chain Multiplication. Revise Recursion Trees for 10 minutes first. Reason: student assessment average was 54.2%, below the 60% mastery threshold."*
+Offers one-click actions: **Prepare my class**, **Launch Presenter Mode**, or **Record this class**.
+
+### 6. Lesson Plans & Versioned Teaching Artifacts
+Generates comprehensive lesson plans containing objectives, phase breakdowns, worked examples, interactive activities, common student misconceptions, and Bloom-aligned quiz questions.
+- Instructors can **Approve, Edit, or Reject** plans.
+- Every modification creates a new immutable version in MongoDB with diff inspection and audit logging.
+
+### 7. Teach, Record, and Close the Loop
+After class, the instructor logs actual delivery: minutes spent, teaching methods utilized, student engagement rating (1–5), topics covered, and carry-over status for unfinished topics.
+
+### 8. Assessment & Real-Time Re-Optimization
+The teacher inputs quiz and assignment marks per concept. OptiTeach recalculates concept health scores (*Strong*, *Moderate*, *Weak*, *Bottleneck*), updates course velocity, and **immediately adapts upcoming lesson plans and time allocations**.
+
+---
+
+## 👥 User Roles, Permissions & Account Creation
+
+OptiTeach enforces strict Role-Based Access Control (RBAC) and row-level multi-tenancy:
+
+| Role / Scope | Access Level & Capabilities | Course Boundary & Visibility |
+|---|---|---|
+| **Admin** (`admin`) | Institutional supervisor / department chair. Can view all courses across all faculty, inspect institution-wide attainment metrics, audit logs, and system settings. | Global visibility across all courses and instructors. |
+| **Teacher** (`teacher`) | Course instructor. Creates courses, uploads syllabi, edits curriculum DAGs, approves lesson plans, and enters assessment marks. | Strictly isolated to owned courses (`teacher_id`) and courses where explicitly added as a member. Other courses return `404 Not Found` (anti-enumeration defense). |
+| **Co-Teacher** (`editor`) | Collaborating faculty or lab instructor. Has read and write permissions to edit lesson plans, record sessions, and enter marks. | Granted per-course by the course owner via `course_members`. |
+| **Viewer** (`viewer`) | Teaching assistant, auditor, or observer. Has read-only permissions (`GET` requests allowed; any `POST`/`PUT`/`DELETE` returns `403 Forbidden`). | Granted per-course by the course owner via `course_members`. |
+
+### Account Creation & Registration
+- **Faculty Self-Registration**: Available via the frontend `/register` interface or the API endpoint `POST /api/auth/register`.
+  - Accepts `email`, `password`, `full_name`, `department`, `designation`, and `employee_id`.
+  - Self-registration **strictly assigns the `teacher` role** and automatically provisions a linked `Teacher` profile in the relational schema. Self-registration can never grant administrative privileges.
+- **Admin Account Provisioning**: System administrators are established during database initialization (`python -m database.seed.seed_data`) or promoted directly within the database by setting `role = 'admin'` in the `users` table.
+- **Authentication Lifecycle**:
+  - Secure password hashing using **bcrypt** (work factor 12) with per-user salt.
+  - Legacy SHA-256 password hashes are automatically upgraded to bcrypt upon successful login.
+  - Short-lived **JWT bearer tokens** (HS256) encode user identity, role, and permissions.
+  - Brute-force protection: IP and email-based login throttling via in-memory rate limiting.
+
+---
+
+## 🧠 The Deterministic NLP Engine (`backend/app/nlp/deterministic.py`)
+
+Unlike fragile generative AI extractors that suffer from hallucinations, non-deterministic output, and network latency, OptiTeach utilizes an **auditable, deterministic, rule-based NLP pipeline**:
+
+```
+ Raw Syllabus Text / PDF
+          │
+          ▼
+ 1. Unicode & Whitespace Normalization (Dashes, ligatures, zero-width chars)
+          │
+          ▼
+ 2. Course Name & Code Extraction (e.g., CS355TBB, Advanced Algorithms)
+          │
+          ▼
+ 3. Strict Boundary Detection & Post-Unit Cutoff (Slices before References/Rubrics)
+          │
+          ▼
+ 4. Multi-Unit & Module Recognition (Roman, Arabic, Word numerals)
+          │
+          ▼
+ 5. Wrapped-Line Unwrapping (_merge_wrapped_lines for mid-sentence breaks)
+          │
+          ▼
+ 6. Topic Parsing & Concept Atomic Splitting
+          │
+          ▼
+ 7. Concept Classification, Difficulty Scoring & Prerequisite DAG Linking
+          │
+          ▼
+ 8. Bloom's Taxonomy Course Outcome (CO) Extraction
+```
+
+### Key Technical Innovations in `deterministic.py`
+1. **Unicode Dash & Punctuation Normalization**: Standardizes em-dashes (`—`), en-dashes (`–`), minus signs (`−`), horizontal bars (`―`), and smart quotes into canonical ASCII representations.
+2. **Multi-Unit Roman & Word Numeral Recognition**: Parses `Unit-I`, `Unit – II`, `UNIT 3:`, `MODULE IV`, `CHAPTER 5`, `Part One` through `ROMAN_MAP` and `WORD_MAP` lookup tables.
+3. **Inline Hours Detachment**: Strips administrative time notations such as `09 Hrs`, `(8 Hours)`, `10 Periods`, `45L` from unit headings and topic clauses without corrupting subject titles.
+4. **Intelligent Wrapped-Line Joining (`_merge_wrapped_lines`)**: Indian university syllabus documents frequently break sentences across newlines mid-clause (e.g., `Decreasing a key and \n deleting a node`, or `Johnson's Algorithm for sparse \n graphs`). The parser identifies lowercase continuations and trailing conjunctions/prepositions (`and`, `or`, `for`, `with`, `of`) and merges them into unified semantic clauses.
+5. **Strict Post-Unit Boundary Cutoff**: Stops unit parsing prior to trailing non-curricular sections:
+   - `Course Outcomes` / `CO 1..n`
+   - `Reference Books` / `Textbooks` / `Suggested Readings`
+   - `Continuous Internal Evaluation (CIE)` / `SEE Rubrics` / `Question Paper Pattern`  
+   *This ensures Unit V cleanly ends at its actual concepts and does not absorb reference lists or marking rubrics.*
+6. **Bloom's Taxonomy Classification**: Course Outcomes (`CO 1`, `CO 2`...) are extracted into the `course_outcomes` table with automated cognitive verb mapping (*Remember, Understand, Apply, Analyze, Evaluate, Create*).
+7. **Prerequisite DAG Synthesis**: Chained sequential dependencies are generated between atomic concepts within topics, outputting a valid Directed Acyclic Graph.
+8. **Strict Zero-Hallucination Guarantee**: If unit headers or topics cannot be parsed, the parser raises an explicit `ValueError` guiding the user rather than fabricating artificial placeholder curriculum data.
+
+---
+
+## 🏛️ The Relational & Document DBMS Core (The Graded Core)
+
+OptiTeach is built around an enterprise database architecture demonstrated live on the **DBMS Showcase page** with 9 interactive tabs:
+
+| DBMS Category | Architecture & Technical Implementation in OptiTeach |
 |---|---|
-| **Today** | The next class: topic, any revision the class needs first, the period split into steps, and buttons to start, open or record it |
-| **Calendar** | Every period of the course with its topic and status; record what was taught (unfinished topics can carry over to the next period) |
-| **Lesson plans** | One plan per period; approve, reject or edit the timings. Every save is a new version with history and a diff. Attach slides, videos, links, datasets, code or formulas as class material |
-| **Presenter** (`/present`) | Full-screen class mode: a timer per step, keyboard controls, and a high-contrast projector theme |
-| **Courses** | Your courses and ones shared with you; the course page has an overview, a topic map, test results, progress and people (co-teachers and view-only colleagues) |
-| **Curriculum** | Edit units, topics, concepts and prerequisites: reorder by dragging, add or remove prerequisite links (cycles are refused), adjust difficulty and importance |
-| **Time plan** | How the semester's minutes are shared between topics, revision and tests, with the reason each topic gets its time |
-| **Import syllabus** | PDF, text or Markdown in; units, topics, concepts and course outcomes out, checked by the teacher before anything is saved |
-| **DBMS showcase** | The database work behind it all, shown live (below) |
+| **ER Model** | 22 normalized entities; the interactive Mermaid ER diagram is dynamically generated directly from the live database catalog and foreign key constraints. |
+| **Relational Schema** | Primary keys, 27 foreign keys, 15 unique constraints, and 40 check constraints managed through versioned, reversible **Alembic migrations** (`0001_initial_schema` to `0005_co_teaching`). |
+| **Normalization** | Identified and resolved real-world 1NF violations (multi-valued comma-separated lists migrated to `concept_prerequisites`) and derived attribute violations (converted to generated computed column `total_available_minutes`). Complete functional dependency mapping ensures 3NF / BCNF compliance. |
+| **Advanced SQL** | 19 live SQL query demonstrations featuring multi-table `INNER`/`LEFT JOIN`s, `GROUP BY ... HAVING`, recursive Common Table Expressions (`WITH RECURSIVE` for prerequisite graphs), window functions (`RANK()`, `LAG()`, cumulative running sums), relational division, and `EXCEPT` operations. Each query renders its live query execution plan (`EXPLAIN ANALYZE`). |
+| **Database Objects** | 3 relational views, 1 materialized view (`mv_course_analytics`), 10 custom functions, 1 stored procedure (`archive_completed_course`), and 18 triggers (automated audit logging, real-time student weakness flags, and prerequisite cycle prevention). |
+| **Transactions & ACID** | Multi-step curriculum operations execute within strict ACID transactions featuring row-level locking (`SELECT ... FOR UPDATE`), transaction savepoints, and version-checked concurrency. The **Transaction Lab** demonstrates live rollbacks, isolation levels (`READ COMMITTED`, `REPEATABLE READ`, `SERIALIZABLE`), lost-update mitigation, and deadlock resolution across concurrent connections. |
+| **Security & Privacy** | bcrypt password hashing, JWT bearer tokens, least-privilege connection roles (`optiteach_app` role restricted from DDL and `TRUNCATE`), immutable `SECURITY DEFINER` audit logs, and **Row-Level Security (RLS)** in the interactive SQL console ensuring faculty cannot query other instructors' records. |
+| **Document NoSQL (MongoDB)** | MongoDB 8 houses semi-structured, deeply nested, versioned documents: lesson plan drafts and historical revisions, curriculum DAG graph snapshots, and raw syllabus uploads. Enforces JSON Schema validators, unique and compound indexes, TTL automatic draft expiry, and aggregation analytics pipelines. |
+| **Cross-Store Consistency** | A hybrid coordinator verifies referential integrity between PostgreSQL entity IDs and MongoDB document references, providing an automated detection and reconciliation utility. |
 
-Light, dark and projector themes; the layout works down to phone width.
-
-### Under the hood
-- **Syllabus extraction** is deterministic (no external AI API): unit and module headings, roman
-  numerals, `Topic: concept, concept` lines, course outcomes with Bloom levels, and a prerequisite
-  chain. If a syllabus can't be read the teacher gets a clear error, never invented data.
-- **Time plan**: a mixed-integer program (SciPy MILP) with a two-tier objective that covers every
-  topic's estimated periods before handing out extra ones by priority; revision (10%) and test (8%)
-  time is set aside first. See [docs/mathematical_formulation.md](docs/mathematical_formulation.md).
-- **Next class**: phases always add up to the period length; revision is added when a prerequisite
-  scored below the course threshold; teaching methods are chosen from what worked in past classes.
-
-### DBMS showcase (the graded core)
-- **Schema** with live row counts, and an **ER diagram** generated from the database's own foreign keys
-- **Normalization**: the 1NF and derived-attribute fixes (migration 0002), FDs and keys per table
-- **19 SQL demos** incl. recursive CTEs, window functions, relational division, `EXCEPT`, with `EXPLAIN ANALYZE`
-- **Server-side objects**: 3 views, a materialized view, 10 functions, a stored procedure, 18 triggers, 21 RLS policies
-- **SQL console** running as a read-only role under row-level security, with attack examples PostgreSQL refuses
-- **Transaction Lab**: atomicity, isolation levels, lost updates and deadlocks on real concurrent connections
-- **MongoDB**: collection contracts, aggregation pipelines, curriculum graph versions and diffs
-- **Audit trail** written by triggers, and a **cross-store consistency** check with repair
-
-See **[docs/DBMS_REPORT.md](docs/DBMS_REPORT.md)** for the full write-up mapped to the evaluation criteria.
+### Why a Polyglot Persistence Architecture?
+- **PostgreSQL 17**: Enforces relational integrity, foreign key cascades, complex joins, mathematical aggregation, and ACID constraints for core academic records (courses, units, topics, concepts, outcomes, assessment marks).
+- **MongoDB 8**: Efficiently stores and versions polymorphic, deeply nested documents (lesson plans with variable pedagogical phases, multimedia resources, and graph snapshots) that are read and updated atomically.
 
 ---
 
-## Architecture
+## 🛠️ Complete Technology Stack
 
-```
-OptiMaximus/
-├── backend/app/
-│   ├── api/            # auth, courses (+ sessions, plan review), curriculum builder, members,
-│   │                   # syllabus, exports, dbms, teaching_methods
-│   ├── auth/           # bcrypt, JWT, login throttling, course-level access control, audit actor
-│   ├── database/       # engine setup, config, MongoDB validators/indexes (mongo_schema.py)
-│   ├── models/         # SQLAlchemy entities (mirrors the migrations)
-│   ├── services/       # curriculum, assessment, lesson plan, session, artifact (MongoDB),
-│   │                   # SQL console, transaction lab, DB catalog, DBMS demo queries
-│   ├── optimization/   # time allocator (MILP), class optimizer, scoring, revision, methods
-│   └── nlp/            # deterministic syllabus extraction
-├── backend/tests/      # 120 tests: SQLite suite + PostgreSQL + real MongoDB
-├── database/
-│   ├── migrations/     # Alembic 0001-0005 (source of truth for the schema)
-│   ├── scripts/        # backup.py, restore.py, export_sql_reference.py
-│   ├── sql/            # GENERATED: 01_schema.sql (pg_dump), 02_demo_queries.sql
-│   ├── erd/            # GENERATED: schema_erd.mermaid
-│   └── seed/           # sample CS302 course, teacher + admin accounts
-├── frontend/           # Next.js 15: Today, calendar, lesson plans, presenter, courses, curriculum,
-│                       # time plan, syllabus import, DBMS showcase
-├── docs/               # DBMS_REPORT.md, api_documentation.md, architecture, formulation, manual
-├── deploy/             # Caddyfile for the single-origin reverse proxy
-├── docker-compose.yml  # PostgreSQL, MongoDB, API, web, Caddy
-└── .github/workflows/  # CI: lint, migrations, tests, frontend build, docker compose smoke test
-```
+| Layer | Technologies & Libraries |
+|---|---|
+| **Web Dashboard** | **Next.js 15** (App Router), React 19, TypeScript, Lucide Icons, Mermaid.js (live ER diagrams), Tailwind CSS / Vanilla CSS design tokens. |
+| **Backend API** | **FastAPI**, Uvicorn ASGI server, Pydantic v2 data validation and serialization. |
+| **Relational Database** | **PostgreSQL 17** via SQLAlchemy 2.0 ORM + Alembic migrations (*Zero-config local fallback to SQLite with enforced Foreign Keys*). |
+| **Document Database** | **MongoDB 8** via PyMongo (*Zero-config local fallback to in-memory MongoMock*). |
+| **Optimization & Graph Engine** | **SciPy** (Mixed-Integer Linear Programming MILP solver), **NetworkX** (graph algorithms, cycle detection, topological sorting). |
+| **Security & Auth** | bcrypt, PyJWT (HS256), PostgreSQL RLS policies, least-privilege database roles. |
+| **Testing & Verification** | **Pytest** (121 unit, integration, and security tests), Ruff linter, ESLint, TypeScript compiler checks. |
 
 ---
 
-## Tech stack
+## 🚀 Getting Started
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | Next.js 15 (App Router), React 19, TypeScript, Lucide icons, Mermaid (ER diagram) |
-| **Backend** | FastAPI, Uvicorn, Pydantic v2 |
-| **Relational DB** | PostgreSQL 17 via SQLAlchemy 2 + Alembic (SQLite fallback for zero-config runs) |
-| **Document DB** | MongoDB 8 via PyMongo (MongoMock fallback) |
-| **Optimization** | SciPy MILP, NetworkX |
-| **Security** | bcrypt, JWT (HS256), PostgreSQL roles, row-level security, column privileges |
-| **Testing / CI** | Pytest, Ruff, ESLint, headless Chromium checks, GitHub Actions with database service containers |
-| **Deployment** | Docker multi-stage images, Next.js standalone output, Caddy reverse proxy |
+### 1. Prerequisites
+- **Python 3.11+**
+- **Node.js 18+** & npm
+- *(Optional, Recommended)*: PostgreSQL 15+ and MongoDB 6+. *(If not installed, OptiTeach automatically runs with SQLite + MongoMock for zero-setup execution).*
 
----
-
-## Getting started
-
-### Quick start with Docker
+### 2. Backend Setup
+Run all commands from the **repository root**:
 
 ```bash
-docker compose up -d --build
-# open http://localhost:8080  (faculty@optiteach.edu / admin123)
-```
-
-This starts PostgreSQL 17, MongoDB 8, the API (migrations run automatically, the sample
-course is loaded only into an empty database), the web app, and Caddy as a single-origin
-reverse proxy. Put `POSTGRES_PASSWORD`, `APP_DB_PASSWORD` and `SECRET_KEY` in a `.env`
-file next to `docker-compose.yml` before sharing the server.
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+ and MongoDB 6+ (recommended — views, triggers, stored procedures and
-  row-level security only exist on PostgreSQL). Without them the API falls back to
-  SQLite + in-memory MongoMock so it still starts with zero setup.
-
-### Backend Setup
-
-All commands run from the **repository root**.
-
-```bash
-# 1. Virtual environment + dependencies
+# 1. Create and activate Python virtual environment
 python -m venv .venv
-.venv\Scripts\activate            # Windows  (source .venv/bin/activate on macOS/Linux)
+.venv\Scripts\activate       # Windows PowerShell / CMD
+# source .venv/bin/activate  # macOS / Linux
+
+# 2. Install dependencies
 pip install -r backend/requirements.txt
 
-# 2. Configuration (optional — defaults match a local PostgreSQL with user/password postgres)
-copy backend\.env.example backend\.env
+# 3. Configure environment (Optional: defaults work out-of-the-box for local SQLite/PostgreSQL)
+cp backend/.env.example backend/.env
 
-# 3. Create the database and apply the schema (PostgreSQL). Migrations run as the
-#    owner (MIGRATION_DATABASE_URL) and create the least-privilege optiteach_app role
-#    that the API itself connects as (DATABASE_URL).
-createdb -U postgres optiteach
-alembic -c database/migrations/alembic.ini upgrade head
-
-# 4. Seed the sample CS302 course (runs as optiteach_app)
+# 4. Initialize database and seed sample course data
+# (Initializes tables, seeds Prof. Turing's CS302 course, and seeds faculty/admin users)
 python -m database.seed.seed_data
 
-# 5. Start the API server
-cd backend
-uvicorn app.main:app --reload --port 8000
+# 5. Start the FastAPI backend server
+python -m uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
+Backend API will be running at `http://127.0.0.1:8000` with interactive Swagger API docs at `http://127.0.0.1:8000/docs`.
 
-The API will be available at `http://localhost:8000` with interactive docs at `/docs`.
-Demo logins: `faculty@optiteach.edu` / `admin123` (teacher, owns CS302) and
-`admin@optiteach.edu` / `admin123` (administrator, sees every course).
-
-### Security model
-
-| Layer | Mechanism |
-|-------|-----------|
-| Passwords | bcrypt (per-password salt, cost 12); legacy SHA-256 hashes upgraded on next login |
-| API authentication | JWT bearer tokens on every route except `/`, `/health`, login and register; login throttled per IP + email |
-| Authorization | Roles `teacher` / `admin`; teachers reach their own courses and ones shared with them (others' IDs return 404); co-teachers can edit, viewers only read; nested IDs (assessment, topic) must belong to the course in the URL |
-| Database login | API connects as `optiteach_app`: DML only — no DDL, no `TRUNCATE`, cannot write `audit_log` |
-| Audit trail | Row triggers record every change with the acting user (`app.user_id`); the trigger is `SECURITY DEFINER`, so the log is append-only for the app |
-| SQL console | Read-only transaction, `SET LOCAL ROLE optiteach_readonly`, row-level security per teacher, column privileges hide `users.hashed_password`, statement timeout + row cap |
-| Input | Pydantic validation, parameterized queries only, upload size/type limits and rate limit, HTML-escaped printable exports, explicit CORS origins |
-
-### Frontend Setup
+### 3. Frontend Setup
+In a separate terminal window:
 
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+The web dashboard will be live at `http://localhost:3000`.
 
-The frontend will be available at `http://localhost:3000`.
+### 4. Default Demo Credentials
 
-### Running Tests & Maintenance
+| Role | Email | Password | Description |
+|---|---|---|---|
+| **Teacher (Faculty)** | `faculty@optiteach.edu` | `admin123` | Owns CS302 Database Management Systems; full access to planning, curriculum, and class recording. |
+| **Administrator** | `admin@optiteach.edu` | `admin123` | Department Administrator; global visibility across all courses and institutional metrics. |
+| **New Faculty** | Use `/register` | Custom | Registers a new teacher account with an isolated workspace. |
+
+---
+
+## 🧪 Testing & Verification
+
+The test suite validates data integrity, optimization invariants, concurrency control, and security boundaries:
 
 ```bash
-# From the repository root. Tests use their own throwaway SQLite DB + MongoMock,
-# so they never touch your development database.
+# Run the complete test suite (121 tests)
 python -m pytest backend/tests -v
-
-# Lint
-ruff check backend database ai
-cd frontend && npm run lint && npx tsc --noEmit
-
-# Regenerate the reference SQL / ER diagram after a migration
-python database/scripts/export_sql_reference.py
-
-# Backup both stores, restore into a scratch database
-python database/scripts/backup.py
-python database/scripts/restore.py backups/<timestamp> --target-db optiteach_copy
 ```
 
----
-
-## API
-
-Listed in **[docs/api_documentation.md](docs/api_documentation.md)** (generated from the
-OpenAPI schema) and browsable at `http://localhost:8000/docs`. All routes except `/`, `/health`,
-login and register require a bearer token.
-
----
-
-## Syllabus extraction details
-
-The NLP extraction engine uses **deterministic rule-based parsing** (no external AI APIs required):
-
-- **Unit/Module Detection**: Regex patterns for `UNIT 1:`, `MODULE I:`, `CHAPTER III`, etc.
-- **Roman Numeral Handling**: Accurate I-X conversion
-- **Topic Parsing**: Colon-separated (`Topic: Concept1, Concept2`) and comma-delimited formats
-- **Concept Classification**: Automatic type inference (conceptual, analytical, practical, procedural, problem_solving)
-- **Bloom's Taxonomy**: Verb-based classification of course outcomes
-- **Prerequisites**: each concept in a topic builds on the one before it (edit them on the Curriculum page)
-- **Section Cutoff**: Stops parsing before TEXT BOOKS / REFERENCES sections
-- **No Fallbacks**: Raises explicit `ValueError` with guidance if extraction fails
+### Test Coverage Highlights
+- **Curriculum & NLP**: Deterministic extraction, Roman numeral parsing, wrapped line joining, Unit V boundary isolation, Bloom's CO classification.
+- **Optimization Invariants**: MILP total minute conservation, period integrality, cognitive revision constraints.
+- **Security & Authorization**: Password hashing, JWT validation, brute-force rate limiting, course-level multi-tenancy, RLS isolation in SQL console.
+- **ACID Transactions**: Row locking, optimistic concurrency version checks, and rollback verification in the Transaction Lab.
+- **Subject Lifecycle**: Creation, syllabus upload, updates, and cascading course deletion (relational records + MongoDB artifacts).
 
 ---
 
-## Tests
+## 📄 Project Documentation Links
 
-120 tests (`python -m pytest backend/tests`):
-
-| Area | What is checked |
-|------|-----------------|
-| Core (SQLite) | extraction, optimizer invariants, assessment feedback loop, demo queries, exports |
-| Security | auth required everywhere, bcrypt + legacy upgrade, throttling, course isolation, nested-ID checks, XSS escaping, upload limits |
-| PostgreSQL objects | generated column, preference table, every trigger, functions, procedure, views, materialized view |
-| PostgreSQL security | app-role limits, append-only audit, RLS isolation, hidden password hashes, console attack attempts, timeouts |
-| Concurrency | optimistic-lock conflicts with Mongo compensation, two-thread race on recording a class, carry-over of unfinished topics, Transaction Lab scenarios |
-| Curriculum builder | reordering around the `UNIQUE (unit_id, order_index)` constraint, prerequisite cycles refused, edits audited |
-| Co-teaching | co-teachers can edit, viewers are read-only (403), the owner can't be added as a member, RLS scope in the SQL console |
-| Lesson material | resource validation per kind, versions and diffs in MongoDB |
-| Optimizer | MILP invariants and the cover-every-topic-first allocation |
-| MongoDB | graph versions/diffs, plan history/diffs, pipelines, consistency repair; validator, unique and TTL indexes on a real server |
-
-PostgreSQL and MongoDB tests create throwaway databases and are skipped if no server is reachable.
+- **[docs/DBMS_REPORT.md](docs/DBMS_REPORT.md)**: Comprehensive Database Management Systems report mapped to academic evaluation criteria.
+- **[docs/mathematical_formulation.md](docs/mathematical_formulation.md)**: Exact Mixed-Integer Linear Programming equations and objective functions.
+- **[docs/api_documentation.md](docs/api_documentation.md)**: Full REST API endpoint reference and payload specifications.
+- **[PENDING_IMPLEMENTATIONS_AND_EXTENSIONS.md](PENDING_IMPLEMENTATIONS_AND_EXTENSIONS.md)**: Active engineering roadmap, completed features, and future LMS integration specifications.
 
 ---
 
-## Authors
+## 👨‍💻 Author
 
-- **Vasa Shashank** — Full-stack development & system design
+- **Vasa Shashank** — System Architecture, Optimization, Database Design & Full-Stack Development
+- **Vignesh Hariharan** — System Architecture, Optimization, Database Design & Full-Stack Development
+- **Venkata Saivijay Kuncham** — System Architecture, Optimization, Database Design & Full-Stack Development
 
----
 
-## License
 
-This project is developed for educational purposes as part of an academic engineering lab exercise.
+## 📜 License
+This project is developed for educational and research purposes as an advanced database engineering and curriculum optimization platform.

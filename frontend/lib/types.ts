@@ -54,8 +54,19 @@ export interface ExtractedCurriculum {
   course_code: string;
   outcomes: OutcomeDraft[];
   units: UnitDraft[];
+  total_hours?: number;
+  period_duration?: number;
   confidence_score: number;
   extraction_notes: string[];
+}
+
+export interface CourseUpdate {
+  title?: string;
+  code?: string;
+  semester?: string;
+  academic_year?: string;
+  total_classes?: number;
+  period_duration?: number;
 }
 
 export interface GraphNode {
