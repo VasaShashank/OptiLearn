@@ -29,7 +29,9 @@ export default function CurriculumPage() {
   useEffect(() => {
     coursesAPI.list().then((c) => {
       setCourses(c);
-      if (c.length) setCourseId(c[0].id);
+      const wanted = new URLSearchParams(window.location.search).get("course");
+      const start = c.find((x) => x.id === wanted) || c[0];
+      if (start) setCourseId(start.id);
     }).catch(() => setCourses([]));
   }, []);
 

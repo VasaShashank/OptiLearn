@@ -22,9 +22,11 @@ export default function TimePlanPage() {
   useEffect(() => {
     coursesAPI.list().then((c) => {
       setCourses(c);
-      if (c.length > 0) {
-        setSelectedCourse(c[0].id);
-        return coursesAPI.getOptimization(c[0].id).then(setPlan);
+      const wanted = new URLSearchParams(window.location.search).get("course");
+      const start = c.find((x) => x.id === wanted) || c[0];
+      if (start) {
+        setSelectedCourse(start.id);
+        return coursesAPI.getOptimization(start.id).then(setPlan);
       }
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
