@@ -70,7 +70,7 @@ export default function ConsoleTab() {
         <div>
           <ErrorNote message={error} />
           <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 8 }}>
-            Refused. Errors starting with <code>ERROR:</code> come from PostgreSQL itself (privileges, read-only transaction, timeout); the others come from the API's single-statement allow-list.
+            Refused. Errors starting with <code>ERROR:</code> come from PostgreSQL itself (privileges, read-only transaction, timeout); the others come from the API&apos;s single-statement allow-list.
           </p>
         </div>
       )}

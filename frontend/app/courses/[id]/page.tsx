@@ -5,8 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   BookOpen, Layers, Lightbulb, Clock, Zap, FileText, BarChart3,
-  CheckCircle2, AlertTriangle, TrendingUp, Calendar, Users, ArrowRight,
-  Target, Activity, GitBranch, Upload,
+  CheckCircle2, AlertTriangle, Calendar, Users, Target, GitBranch, Upload,
 } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import CurriculumGraphView from "@/components/curriculum-graph-view";
@@ -14,8 +13,7 @@ import AssessmentResults from "@/components/assessment-results";
 import CoursePeople from "@/components/course-people";
 import type {
   Course, CurriculumGraph, CourseOptimization, CourseAnalytics,
-  AssessmentItem, GraphNode,
-} from "@/lib/types";
+  AssessmentItem, } from "@/lib/types";
 
 type Tab = "overview" | "curriculum" | "optimization" | "assessments" | "analytics" | "people";
 

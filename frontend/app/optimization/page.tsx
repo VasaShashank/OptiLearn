@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import {
-  Zap, Clock, BarChart3, AlertTriangle, CheckCircle2, RefreshCw,
-  Play, Target, Layers, ArrowRight, TrendingUp,
-} from "lucide-react";
+  Zap, Clock, BarChart3, AlertTriangle, RefreshCw,
+  Play, Target, Layers, } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import type { Course, CourseOptimization, NextClassPlan, TopicAllocation, PeriodPhase } from "@/lib/types";
 

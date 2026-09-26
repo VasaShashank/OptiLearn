@@ -108,7 +108,7 @@ export interface CourseOptimization {
   unallocated_buffer_minutes: number;
   time_pressure_status: "healthy" | "balanced" | "high_pressure";
   topic_allocations: TopicAllocation[];
-  formula_explanation: Record<string, any>;
+  formula_explanation: { model?: string; invariant?: string; weights?: Record<string, number>; [key: string]: unknown };
 }
 
 export interface PeriodPhase {
@@ -243,10 +243,10 @@ export interface QueryDemoResult {
   purpose: string;
   sql_features: string[];
   requires?: string | null;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
   row_count: number;
   columns: string[];
-  rows: Record<string, any>[];
+  rows: Record<string, unknown>[];
   execution_time_ms: number;
 }
 

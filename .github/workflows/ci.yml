@@ -36,6 +36,9 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
 
+      - name: Lint (ruff)
+        run: ruff check backend database ai
+
       - name: Migrate (and verify the downgrade path)
         run: |
           alembic -c database/migrations/alembic.ini upgrade head
@@ -69,5 +72,6 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run build

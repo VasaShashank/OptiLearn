@@ -13,11 +13,8 @@ import {
   Layers,
   Target,
   Sparkles,
-  BookOpen,
   ArrowRight,
   PlusCircle,
-  RefreshCw,
-  GitBranch,
   AlertCircle,
 } from "lucide-react";
 import { syllabusAPI, coursesAPI } from "@/lib/api";

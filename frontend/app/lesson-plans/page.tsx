@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import {
-  FileText, Clock, Lightbulb, AlertTriangle, CheckCircle2,
-  BookOpen, Target, Play, RefreshCw, Calendar, Printer, Download,
-} from "lucide-react";
+  FileText, Clock, AlertTriangle, CheckCircle2,
+  BookOpen, Target, Play, Calendar, Printer, } from "lucide-react";
 import Link from "next/link";
 import { Presentation } from "lucide-react";
 import { coursesAPI, exportsAPI } from "@/lib/api";
