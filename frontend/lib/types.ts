@@ -151,8 +151,19 @@ export interface LessonPlan {
   active_exercises: string[];
   misconceptions: string[];
   assessment_questions: string[];
+  resources: LessonResource[];
   version: number;
   created_at?: string;
+}
+
+export type ResourceKind = "slides" | "video" | "link" | "dataset" | "code" | "formula";
+
+export interface LessonResource {
+  kind: ResourceKind;
+  title: string;
+  url?: string | null;
+  content?: string | null;
+  language?: string | null;
 }
 
 export interface AssessmentItem {
@@ -258,6 +269,7 @@ export interface LessonPlanReview {
   active_exercises?: string[];
   misconceptions?: string[];
   assessment_questions?: string[];
+  resources?: LessonResource[];
   change_note?: string;
 }
 
@@ -308,9 +320,11 @@ export interface SessionLogInput {
   completion_rate?: number;
   teacher_notes?: string;
   topic_completed?: boolean;
+  carry_over?: boolean;
 }
 
 export interface SessionLogResult {
+  carried_over: { to_session: number | null; dropped_topic: string | null; plans_removed: number } | null;
   session_number: number;
   status: string;
   teaching_session_id: string;

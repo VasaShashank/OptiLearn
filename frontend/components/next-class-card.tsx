@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ClipboardCheck, FileText } from "lucide-react";
+import { ClipboardCheck, FileText, Presentation } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import type { ClassSessionItem, NextClassPlan } from "@/lib/types";
 import SessionLogModal from "@/components/session-log-modal";
@@ -64,8 +64,11 @@ export default function NextClassCard({ courseId, onRecorded }: { courseId: stri
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link href={`/lesson-plans?course=${courseId}&session=${session.session_number}`} className="btn btn-primary">
-            <FileText size={16} /> Prepare lesson plan
+          <Link href={`/present?course=${courseId}&session=${session.session_number}`} className="btn btn-primary">
+            <Presentation size={16} /> Start class
+          </Link>
+          <Link href={`/lesson-plans?course=${courseId}&session=${session.session_number}`} className="btn btn-secondary">
+            <FileText size={16} /> Lesson plan
           </Link>
           <button type="button" className="btn btn-secondary" onClick={() => setLogging(true)}>
             <ClipboardCheck size={16} /> Record this class

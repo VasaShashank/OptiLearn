@@ -6,18 +6,20 @@ import { coursesAPI, teachingMethodsAPI } from "@/lib/api";
 import type { SessionLogResult, TeachingMethodItem } from "@/lib/types";
 
 /** Post-class record (Teach -> Record). The API stores it in one transaction. */
-export default function SessionLogModal({ courseId, sessionNumber, topicTitle, periodMinutes, onClose, onLogged }: {
+export default function SessionLogModal({ courseId, sessionNumber, topicTitle, periodMinutes, defaultMinutes, defaultNotes, onClose, onLogged }: {
   courseId: string;
   sessionNumber: number;
   topicTitle: string | null;
   periodMinutes: number;
+  defaultMinutes?: number;
+  defaultNotes?: string;
   onClose: () => void;
   onLogged: (result: SessionLogResult) => void;
 }) {
   const [methods, setMethods] = useState<TeachingMethodItem[]>([]);
   const [form, setForm] = useState({
-    method_id: "", actual_minutes: periodMinutes, student_engagement_rating: 4,
-    completion_rate: 100, teacher_notes: "", topic_completed: false,
+    method_id: "", actual_minutes: defaultMinutes || periodMinutes, student_engagement_rating: 4,
+    completion_rate: 100, teacher_notes: defaultNotes || "", topic_completed: false, carry_over: false,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +43,7 @@ export default function SessionLogModal({ courseId, sessionNumber, topicTitle, p
         completion_rate: form.completion_rate / 100,
         teacher_notes: form.teacher_notes || undefined,
         topic_completed: form.topic_completed,
+        carry_over: !form.topic_completed && form.carry_over,
       });
       onLogged(result);
     } catch (err) {
@@ -98,6 +101,14 @@ export default function SessionLogModal({ courseId, sessionNumber, topicTitle, p
             <input type="checkbox" checked={form.topic_completed} onChange={(e) => setForm({ ...form, topic_completed: e.target.checked })} />
             This finishes the topic
           </label>
+          {!form.topic_completed && (
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.9rem" }}>
+              <input type="checkbox" checked={form.carry_over} onChange={(e) => setForm({ ...form, carry_over: e.target.checked })} style={{ marginTop: 4 }} />
+              <span>Continue this topic next period<br />
+                <span style={{ color: "var(--pencil)", fontSize: "0.85rem" }}>Later periods move back by one. Their lesson plans are cleared and made again when you open them.</span>
+              </span>
+            </label>
+          )}
           {error && <div role="alert" style={{ color: "var(--redpen)", fontSize: "0.9rem" }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>

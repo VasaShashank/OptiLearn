@@ -6,6 +6,7 @@ import Sidebar from "@/components/sidebar";
 import { useSession } from "@/lib/auth";
 
 const PUBLIC_ROUTES = ["/login"];
+const FULLSCREEN_ROUTES = ["/present"];
 
 /**
  * Client-side route guard. The API is the real enforcement point (every route checks the
@@ -33,6 +34,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="spinner" aria-label="Loading" />
       </main>
     );
+  }
+
+  // Full-screen views (presenter mode) keep the auth guard but drop the navigation
+  if (FULLSCREEN_ROUTES.includes(pathname)) {
+    return <main style={{ flex: 1, minHeight: "100vh", minWidth: 0 }}>{children}</main>;
   }
 
   return (

@@ -594,3 +594,33 @@ button.card:hover { border-color: var(--rule-strong); }
 .scale button + button { border-left: var(--border-w) solid var(--rule); }
 .scale button.is-on { background: var(--ink); color: #fff; }
 :root[data-theme="dark"] .scale button.is-on { color: #0d1322; }
+
+/* ==========================================================================
+   Presenter mode: readable from the back of the room
+   ========================================================================== */
+.present { min-height: 100vh; display: flex; flex-direction: column; }
+.present-wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 48px; max-width: 900px; margin: 0 auto; }
+.present-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 12px 24px; border-bottom: var(--border-w) solid var(--rule); background: var(--surface); }
+.present-grid { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 32px; padding: 32px 40px; }
+@media (max-width: 1000px) { .present-grid { grid-template-columns: 1fr; padding: 20px 16px; } }
+.present-phase { font-size: clamp(1.3rem, 2.4vw, 2rem); font-weight: 700; }
+.present-clock {
+  font-family: var(--font-mono);
+  font-size: clamp(5rem, 15vw, 11rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  margin: 12px 0 8px;
+  color: var(--graphite);
+}
+.present-clock.is-over { color: var(--redpen); }
+.present-activity { font-size: 1.25rem; max-width: 60ch; }
+.present-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+.present-play { padding: 12px 28px; font-size: 1.1rem; }
+.present-keys { margin-top: 24px; color: var(--pencil); font-size: 0.85rem; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.present-side { border-left: var(--border-w) solid var(--rule); padding-left: 24px; }
+@media (max-width: 1000px) { .present-side { border-left: none; padding-left: 0; } }
+.resource-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.resource-list li { display: flex; gap: 8px; align-items: flex-start; }
+.resource-list a { display: inline-flex; gap: 4px; align-items: center; font-weight: 600; }
+.resource-list summary { cursor: pointer; font-weight: 600; }

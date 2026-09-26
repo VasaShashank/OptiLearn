@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, ClipboardCheck, Download, FileText } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardCheck, Download, FileText, Presentation } from "lucide-react";
 import { coursesAPI, exportsAPI } from "@/lib/api";
 import type { ClassSessionItem, Course } from "@/lib/types";
 import SessionLogModal from "@/components/session-log-modal";
@@ -157,7 +157,12 @@ export default function CalendarPage() {
                   <FileText size={14} /> {selected.lesson_plan_status ? "Open lesson plan" : "Prepare lesson plan"}
                 </Link>
                 {selected.status === "scheduled" && (
-                  <button type="button" className="btn btn-primary" style={{ justifyContent: "center" }} onClick={() => setLogging(true)}>
+                  <Link href={`/present?course=${courseId}&session=${selected.session_number}`} className="btn btn-primary" style={{ justifyContent: "center" }}>
+                    <Presentation size={14} /> Start class
+                  </Link>
+                )}
+                {selected.status === "scheduled" && (
+                  <button type="button" className="btn btn-secondary" style={{ justifyContent: "center" }} onClick={() => setLogging(true)}>
                     <ClipboardCheck size={14} /> Record this class
                   </button>
                 )}

@@ -5,6 +5,8 @@ import {
   FileText, Clock, Lightbulb, AlertTriangle, CheckCircle2,
   BookOpen, Target, Play, RefreshCw, Calendar, Printer, Download,
 } from "lucide-react";
+import Link from "next/link";
+import { Presentation } from "lucide-react";
 import { coursesAPI, exportsAPI } from "@/lib/api";
 import type { Course, LessonPlan, PeriodPhase } from "@/lib/types";
 import PlanReview from "@/components/plan-review";
@@ -245,6 +247,9 @@ export default function LessonPlansPage() {
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: 4 }}>{selectedPlan.topic_title}</p>
                   </div>
                   <div>
+                    <Link href={`/present?course=${selectedCourseId}&session=${selectedPlan.session_number}`} className="btn btn-primary" style={{ marginBottom: 8 }}>
+                      <Presentation size={15} /> Start class
+                    </Link>
                     <button
                       type="button"
                       onClick={() => exportsAPI.openPrintableLessonPlan(selectedPlan.session_id).catch(() => {})}
