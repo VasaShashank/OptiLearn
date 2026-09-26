@@ -1,13 +1,10 @@
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database.connection import SessionLocal, Base, db_engine
-from app.models.entities import Course, Topic, Concept, Performance
+from app.database.connection import SessionLocal
+from app.models.entities import Course
 from app.nlp.deterministic import nlp_provider
-from app.optimization.scoring import scoring_engine
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
-from app.optimization.revision_engine import revision_engine
 
 client = TestClient(app)
 
@@ -83,21 +80,21 @@ def test_class_optimizer_exact_period_duration_sum():
     finally:
         db.close()
 
-def test_assessment_feedback_reoptimization():
+def test_assessment_feedback_reoptimization(api):
     db = SessionLocal()
     try:
         course = db.query(Course).filter(Course.code == "CS302").first()
         assert course is not None
         
         # Call optimize-next-class via API
-        resp = client.post(f"/api/courses/{course.id}/optimize-next-class?session_number=15")
+        resp = api.post(f"/api/courses/{course.id}/optimize-next-class?session_number=15")
         assert resp.status_code == 200
         plan = resp.json()
         assert plan["total_phase_minutes"] == 55
         assert len(plan["phases"]) >= 4
 
         # Verify DBMS Insights queries
-        q_resp = client.post(f"/api/dbms/queries/q1_topics_remaining/execute?course_id={course.id}")
+        q_resp = api.post(f"/api/dbms/queries/q1_topics_remaining/execute?course_id={course.id}")
         assert q_resp.status_code == 200
         q_data = q_resp.json()
         assert q_data["row_count"] > 0

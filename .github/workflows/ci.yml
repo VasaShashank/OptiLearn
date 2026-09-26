@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: optiteach
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      mongo:
+        image: mongo:8
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping: 1})'" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Migrations run as the owner; the API and seed run as the least-privilege role
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/optiteach
+      DATABASE_URL: postgresql://optiteach_app:optiteach_app_dev@localhost:5432/optiteach
+      MONGODB_URL: mongodb://localhost:27017
+      TEST_PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check backend database ai
+
+      - name: Migrate (and verify the downgrade path)
+        run: |
+          alembic -c database/migrations/alembic.ini upgrade head
+          alembic -c database/migrations/alembic.ini downgrade 0001
+          alembic -c database/migrations/alembic.ini upgrade head
+          alembic -c database/migrations/alembic.ini check
+
+      - name: Seed as optiteach_app
+        run: python -m database.seed.seed_data
+
+      - name: Test suite (SQLite + PostgreSQL + MongoDB)
+        # conftest pins the default suite to a throwaway SQLite DB; the PostgreSQL and
+        # real-MongoDB tests create their own throwaway databases on the service containers
+        run: python -m pytest backend/tests -q
+
+      - name: Reference SQL is up to date
+        run: |
+          python database/scripts/export_sql_reference.py --queries-only
+          git diff --exit-code -- database/sql/02_demo_queries.sql
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  docker:
+    # Builds the images and exercises the whole stack through the reverse proxy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Smoke test through Caddy
+        run: |
+          curl -fsS http://localhost:8080/health | grep -q '"relational_dialect":"postgresql"'
+          TOKEN=$(curl -fsS -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+            -d '{"email":"faculty@optiteach.edu","password":"admin123"}' | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+          curl -fsS http://localhost:8080/api/courses -H "Authorization: Bearer $TOKEN" | grep -q CS302
+          curl -fsS http://localhost:8080/login | grep -q "<title>OptiTeach</title>"
+      - name: Restart keeps data (sample seed only runs on an empty database)
+        run: |
+          docker compose restart api
+          docker compose up -d --wait --wait-timeout 120
+          docker compose logs api | grep -q "skipping the sample seed"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

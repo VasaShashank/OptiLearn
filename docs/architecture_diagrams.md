@@ -12,7 +12,7 @@ graph TD
     Web[Next.js 14 Web Application]
     API[FastAPI Backend Server]
     NLP[Deterministic Regex & NLP Parser]
-    OptEngine[SciPy ILP Optimization Engine]
+    OptEngine[Time plan: SciPy MILP]
     PG[(PostgreSQL Relational Core 3NF)]
     Mongo[(MongoDB Pedagogical Document Store)]
 

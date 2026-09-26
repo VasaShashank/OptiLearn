@@ -1,9 +1,9 @@
 """
 Assessment Repository for Assessments, Questions, and Student Performance Tracking
 """
-from typing import List, Optional
+from typing import List
 from sqlalchemy.orm import Session
-from app.models.entities import Assessment, Question, Performance, MethodEffectiveness
+from app.models.entities import Assessment, Performance, MethodEffectiveness
 from app.repositories.base_repository import BaseRepository
 
 class AssessmentRepository(BaseRepository[Assessment]):

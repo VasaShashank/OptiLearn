@@ -3,8 +3,7 @@ Curriculum Repository for Units, Topics, Concepts, and Prerequisites
 """
 from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
-from app.models.entities import Unit, Topic, Concept, CourseOutcome, prerequisites
-from app.repositories.base_repository import BaseRepository
+from app.models.entities import Unit, Topic, Concept, CourseOutcome
 
 class CurriculumRepository:
     def get_units_by_course(self, db: Session, course_id: str) -> List[Unit]:

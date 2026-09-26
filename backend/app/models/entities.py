@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey, 
-    CheckConstraint, UniqueConstraint, Table
+    Column, String, Integer, BigInteger, Float, Boolean, Text, DateTime, ForeignKey,
+    CheckConstraint, UniqueConstraint, Table, Computed, JSON, Index, text
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.database.connection import Base
 
@@ -21,7 +22,9 @@ concept_outcomes = Table(
     "concept_outcomes",
     Base.metadata,
     Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
-    Column("outcome_id", String(36), ForeignKey("course_outcomes.id", ondelete="CASCADE"), primary_key=True)
+    Column("outcome_id", String(36), ForeignKey("course_outcomes.id", ondelete="CASCADE"), primary_key=True),
+    # The composite PK only serves lookups by its leading column (concept_id); FK side needs its own index
+    Index("ix_concept_outcomes_outcome", "outcome_id"),
 )
 
 prerequisites = Table(
@@ -29,7 +32,21 @@ prerequisites = Table(
     Base.metadata,
     Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
     Column("prerequisite_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
-    CheckConstraint("concept_id != prerequisite_id", name="check_no_self_prerequisite")
+    CheckConstraint("concept_id != prerequisite_id", name="check_no_self_prerequisite"),
+    Index("ix_prerequisites_prerequisite", "prerequisite_id"),
+)
+
+# 1NF fix: replaces the former teacher_constraints.preferred_methods_json list column.
+# One row per (constraint, method); `rank` keeps the teacher's preference order.
+teacher_preferred_methods = Table(
+    "teacher_preferred_methods",
+    Base.metadata,
+    Column("constraint_id", String(36), ForeignKey("teacher_constraints.id", ondelete="CASCADE"), primary_key=True),
+    Column("method_id", String(36), ForeignKey("teaching_methods.id", ondelete="CASCADE"), primary_key=True),
+    Column("rank", Integer, nullable=False),
+    UniqueConstraint("constraint_id", "rank", name="uq_preferred_method_rank"),
+    CheckConstraint("rank >= 1", name="check_positive_preference_rank"),
+    Index("ix_teacher_preferred_methods_method", "method_id"),
 )
 
 question_concepts = Table(
@@ -37,7 +54,9 @@ question_concepts = Table(
     Base.metadata,
     Column("question_id", String(36), ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True),
     Column("concept_id", String(36), ForeignKey("concepts.id", ondelete="CASCADE"), primary_key=True),
-    Column("weightage", Float, default=1.0)
+    Column("weightage", Float, default=1.0),
+    CheckConstraint("weightage > 0", name="check_positive_weightage"),
+    Index("ix_question_concepts_concept", "concept_id"),
 )
 
 # -------------------------------------------------------------------
@@ -54,6 +73,10 @@ class User(Base):
     role = Column(String(50), nullable=False, default="teacher") # teacher, admin
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('teacher', 'admin')", name="check_user_role"),
+    )
 
     teacher_profile = relationship("Teacher", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
@@ -83,7 +106,9 @@ class Course(Base):
     academic_year = Column(String(20), default="2026-2027")
     total_classes = Column(Integer, nullable=False) # e.g. 40
     period_duration = Column(Integer, nullable=False, default=55) # minutes
-    total_available_minutes = Column(Integer, nullable=False) # e.g. 40 * 55 = 2200
+    # Derived attribute stored as a generated column: the DBMS computes it, so it can
+    # never disagree with total_classes/period_duration (no update anomaly).
+    total_available_minutes = Column(Integer, Computed("total_classes * period_duration", persisted=True))
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now)
@@ -92,13 +117,14 @@ class Course(Base):
     __table_args__ = (
         CheckConstraint("total_classes > 0", name="check_positive_total_classes"),
         CheckConstraint("period_duration > 0", name="check_positive_period_duration"),
-        CheckConstraint("total_available_minutes >= 0", name="check_non_negative_available_time"),
         UniqueConstraint("teacher_id", "code", "semester", name="uq_teacher_course_semester"),
+        CheckConstraint("end_date IS NULL OR start_date IS NULL OR end_date >= start_date", name="check_course_date_order"),
     )
 
     teacher = relationship("Teacher", back_populates="courses")
     sections = relationship("Section", back_populates="course", cascade="all, delete-orphan")
     constraints = relationship("TeacherConstraint", back_populates="course", uselist=False, cascade="all, delete-orphan")
+    members = relationship("CourseMember", back_populates="course", cascade="all, delete-orphan")
     outcomes = relationship("CourseOutcome", back_populates="course", cascade="all, delete-orphan")
     units = relationship("Unit", back_populates="course", order_by="Unit.order_index", cascade="all, delete-orphan")
     class_sessions = relationship("ClassSession", back_populates="course", order_by="ClassSession.session_number", cascade="all, delete-orphan")
@@ -116,10 +142,10 @@ class Section(Base):
 
     __table_args__ = (
         UniqueConstraint("course_id", "name", name="uq_course_section_name"),
+        CheckConstraint("student_count > 0", name="check_positive_student_count"),
     )
 
     course = relationship("Course", back_populates="sections")
-    students = relationship("Student", back_populates="section", cascade="all, delete-orphan")
 
 
 class TeacherConstraint(Base):
@@ -131,10 +157,22 @@ class TeacherConstraint(Base):
     min_practice_ratio = Column(Float, default=0.35) # Min 35% practice / worked examples
     revision_threshold_score = Column(Float, default=60.0) # Trigger revision if prereq avg < 60%
     default_revision_minutes = Column(Integer, default=10)
-    preferred_methods_json = Column(Text, default="[]") # JSON list of preferred methods
     created_at = Column(DateTime, default=utc_now)
 
+    __table_args__ = (
+        CheckConstraint("max_lecture_ratio >= 0.0 AND max_lecture_ratio <= 1.0", name="check_max_lecture_ratio_range"),
+        CheckConstraint("min_practice_ratio >= 0.0 AND min_practice_ratio <= 1.0", name="check_min_practice_ratio_range"),
+        CheckConstraint("revision_threshold_score >= 0.0 AND revision_threshold_score <= 100.0", name="check_revision_threshold_range"),
+        CheckConstraint("default_revision_minutes >= 0", name="check_non_negative_revision_minutes"),
+    )
+
     course = relationship("Course", back_populates="constraints")
+    preferred_methods = relationship(
+        "TeachingMethod",
+        secondary=teacher_preferred_methods,
+        order_by=teacher_preferred_methods.c.rank,
+        viewonly=True
+    )
 
 
 class CourseOutcome(Base):
@@ -148,6 +186,10 @@ class CourseOutcome(Base):
 
     __table_args__ = (
         UniqueConstraint("course_id", "code", name="uq_course_outcome_code"),
+        CheckConstraint(
+            "bloom_level IN ('Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create')",
+            name="check_bloom_level"
+        ),
     )
 
     course = relationship("Course", back_populates="outcomes")
@@ -190,6 +232,7 @@ class Topic(Base):
         CheckConstraint("estimated_minutes > 0", name="check_positive_estimated_minutes"),
         CheckConstraint("allocated_minutes >= 0", name="check_non_negative_allocated_minutes"),
         UniqueConstraint("unit_id", "order_index", name="uq_unit_topic_order"),
+        CheckConstraint("status IN ('pending', 'in_progress', 'completed')", name="check_topic_status"),
     )
 
     unit = relationship("Unit", back_populates="topics")
@@ -212,6 +255,10 @@ class Concept(Base):
     __table_args__ = (
         CheckConstraint("difficulty >= 1 AND difficulty <= 5", name="check_difficulty_range"),
         CheckConstraint("importance >= 1 AND importance <= 5", name="check_importance_range"),
+        CheckConstraint(
+            "concept_type IN ('conceptual', 'procedural', 'problem_solving', 'practical', 'analytical', 'revision')",
+            name="check_concept_type"
+        ),
     )
 
     topic = relationship("Topic", back_populates="concepts")
@@ -244,6 +291,13 @@ class ClassSession(Base):
         CheckConstraint("session_number >= 1", name="check_positive_session_number"),
         CheckConstraint("duration_minutes > 0", name="check_positive_session_duration"),
         UniqueConstraint("course_id", "session_number", name="uq_course_session_number"),
+        CheckConstraint("status IN ('scheduled', 'in_progress', 'completed', 'cancelled')", name="check_session_status"),
+        Index("ix_class_sessions_current_topic", "current_topic_id"),
+        # Partial index: "next scheduled session" lookups only ever touch the upcoming slice
+        Index(
+            "ix_class_sessions_upcoming", "course_id", "session_number",
+            postgresql_where=text("status = 'scheduled'"), sqlite_where=text("status = 'scheduled'")
+        ),
     )
 
     course = relationship("Course", back_populates="class_sessions")
@@ -261,6 +315,10 @@ class TeachingMethod(Base):
     description = Column(Text, nullable=True)
     typical_time_ratio = Column(Float, default=0.25) # Recommended fraction of period
 
+    __table_args__ = (
+        CheckConstraint("typical_time_ratio > 0.0 AND typical_time_ratio <= 1.0", name="check_typical_time_ratio_range"),
+    )
+
     teaching_sessions = relationship("TeachingSession", back_populates="method")
     effect_records = relationship("MethodEffectiveness", back_populates="method")
 
@@ -276,8 +334,19 @@ class LessonPlan(Base):
     mongo_doc_id = Column(String(100), nullable=True) # Pointer to MongoDB rich document
     ai_confidence = Column(Float, default=0.90)
     teacher_overridden = Column(Boolean, default=False)
+    # Optimistic concurrency control: every UPDATE is issued as
+    # "... WHERE id = :id AND version = :seen" and bumps the version, so a save based on
+    # a stale read matches zero rows and is rejected instead of overwriting.
+    version = Column(Integer, nullable=False, default=1, server_default=text("1"))
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'approved', 'rejected', 'modified', 'completed')", name="check_lesson_plan_status"),
+        CheckConstraint("ai_confidence >= 0.0 AND ai_confidence <= 1.0", name="check_ai_confidence_range"),
+        CheckConstraint("version >= 1", name="check_lesson_plan_version_positive"),
+    )
+    __mapper_args__ = {"version_id_col": version}
 
     session = relationship("ClassSession", back_populates="lesson_plan")
     topic = relationship("Topic", back_populates="lesson_plans")
@@ -297,6 +366,8 @@ class TeachingSession(Base):
 
     __table_args__ = (
         CheckConstraint("actual_minutes > 0", name="check_positive_actual_minutes"),
+        CheckConstraint("student_engagement_rating >= 1 AND student_engagement_rating <= 5", name="check_engagement_rating_range"),
+        CheckConstraint("completion_rate >= 0.0 AND completion_rate <= 1.0", name="check_completion_rate_range"),
     )
 
     session = relationship("ClassSession", back_populates="teaching_session")
@@ -317,6 +388,8 @@ class Assessment(Base):
 
     __table_args__ = (
         CheckConstraint("max_marks > 0", name="check_positive_max_marks"),
+        CheckConstraint("assessment_type IN ('quiz', 'assignment', 'midterm', 'final')", name="check_assessment_type"),
+        CheckConstraint("status IN ('upcoming', 'completed')", name="check_assessment_status"),
     )
 
     course = relationship("Course", back_populates="assessments")
@@ -359,6 +432,8 @@ class Performance(Base):
         CheckConstraint("average_score >= 0.0 AND average_score <= 100.0", name="check_average_score_range"),
         CheckConstraint("sample_size > 0", name="check_positive_sample_size"),
         UniqueConstraint("concept_id", "assessment_id", name="uq_concept_assessment_performance"),
+        # Partial index: weakness/revision queries only need flagged rows
+        Index("ix_performance_weak", "concept_id", postgresql_where=text("weakness_flag"), sqlite_where=text("weakness_flag")),
     )
 
     concept = relationship("Concept", back_populates="performances")
@@ -377,46 +452,68 @@ class MethodEffectiveness(Base):
     sample_sessions_count = Column(Integer, default=5)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
+    __table_args__ = (
+        CheckConstraint("sample_sessions_count >= 0", name="check_non_negative_sample_sessions"),
+    )
+
     method = relationship("TeachingMethod", back_populates="effect_records")
 
 
-class Student(Base):
-    __tablename__ = "students"
+class AuditLog(Base):
+    """
+    Append-only change history. On PostgreSQL it is filled by the fn_audit_row_change()
+    trigger (migration 0002), so every write is captured regardless of which client made it.
+    """
+    __tablename__ = "audit_log"
 
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    section_id = Column(String(36), ForeignKey("sections.id", ondelete="CASCADE"), nullable=False, index=True)
-    roll_number = Column(String(50), nullable=False) # e.g. CS26-001
-    full_name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=True)
-    average_score = Column(Float, default=70.0)
-    is_at_risk = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utc_now)
-
-    __table_args__ = (
-        UniqueConstraint("section_id", "roll_number", name="uq_section_student_roll"),
-    )
-
-    section = relationship("Section", back_populates="students")
-    submissions = relationship("StudentSubmission", back_populates="student", cascade="all, delete-orphan")
-
-
-class StudentSubmission(Base):
-    __tablename__ = "student_submissions"
-
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    student_id = Column(String(36), ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
-    assessment_id = Column(String(36), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
-    question_id = Column(String(36), ForeignKey("questions.id", ondelete="SET NULL"), nullable=True)
-    score = Column(Float, nullable=False)
-    max_marks = Column(Float, nullable=False, default=10.0)
-    feedback = Column(Text, nullable=True)
-    submitted_at = Column(DateTime, default=utc_now)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    table_name = Column(String(63), nullable=False)
+    operation = Column(String(6), nullable=False)
+    row_id = Column(String(36), nullable=True)
+    old_data = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    new_data = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    changed_by = Column(String(36), nullable=True)  # users.id taken from the app.user_id session setting
+    changed_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
-        CheckConstraint("score >= 0.0", name="check_positive_submission_score"),
+        CheckConstraint("operation IN ('INSERT', 'UPDATE', 'DELETE')", name="check_audit_operation"),
+        Index("ix_audit_log_table_row", "table_name", "row_id", "changed_at"),
     )
 
-    student = relationship("Student", back_populates="submissions")
-    assessment = relationship("Assessment")
-    question = relationship("Question")
 
+class TxnLabAccount(Base):
+    """
+    Scratch rows for the Transaction Lab demos (atomicity, isolation levels, lost updates,
+    deadlocks). Kept apart from course data so demonstrations never touch real records.
+    """
+    __tablename__ = "txn_lab_accounts"
+
+    id = Column(String(20), primary_key=True)
+    label = Column(String(50), nullable=False)
+    balance = Column(Integer, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("balance >= 0", name="check_non_negative_balance"),
+    )
+
+
+class CourseMember(Base):
+    """
+    Co-teaching (M:N teachers <-> courses with a role). The owner stays courses.teacher_id;
+    members are the other faculty: co_teacher can change the course, viewer can only read.
+    PostgreSQL additionally rejects adding the owner as a member (trg_course_member_not_owner).
+    """
+    __tablename__ = "course_members"
+
+    course_id = Column(String(36), ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True)
+    teacher_id = Column(String(36), ForeignKey("teachers.id", ondelete="CASCADE"), primary_key=True)
+    role = Column(String(20), nullable=False)
+    added_at = Column(DateTime, nullable=False, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('co_teacher', 'viewer')", name="check_course_member_role"),
+        Index("ix_course_members_teacher", "teacher_id"),
+    )
+
+    course = relationship("Course", back_populates="members")
+    teacher = relationship("Teacher")

@@ -1,7 +1,6 @@
-import math
-from typing import Dict, List, Any
 from sqlalchemy.orm import Session
 from app.models.entities import Course, Topic
+from app.database.connection import refresh_dashboard_snapshot
 from app.optimization.scoring import scoring_engine
 from app.schemas.schemas import CourseOptimizationResponse, TopicAllocationOut
 
@@ -12,8 +11,16 @@ class TimeAllocator:
     Total Instructional Time + Revision Budget + Assessment Budget <= Available Teaching Time
     """
 
-    def optimize_course_time(self, db: Session, course_id: str) -> CourseOptimizationResponse:
-        course = db.query(Course).filter(Course.id == course_id).first()
+    def optimize_course_time(self, db: Session, course_id: str, persist: bool = True) -> CourseOptimizationResponse:
+        """
+        persist=True writes the new allocation. The course row is locked FOR UPDATE first,
+        so two concurrent re-optimizations of one course run one after the other instead
+        of interleaving their topic updates. persist=False (GET) computes without writing.
+        """
+        query = db.query(Course).filter(Course.id == course_id)
+        if persist:
+            query = query.with_for_update()
+        course = query.first()
         if not course:
             raise ValueError(f"Course {course_id} not found")
 
@@ -50,13 +57,13 @@ class TimeAllocator:
 
         allocated_allocations = []
         allocated_sum = 0
-        solver_used = "Discrete Period Knapsack Heuristic"
+        solver_used = "greedy period-by-period sharing (used when the exact solver is unavailable)"
 
         # 1. Attempt exact MILP formulation with SciPy
         milp_periods = ilp_solver.solve_period_allocation(topic_scores, instructional_budget, period_duration)
 
         if milp_periods is not None and len(milp_periods) == len(topic_scores):
-            solver_used = "SciPy MILP Exact Optimization (scipy.optimize.milp)"
+            solver_used = "exact integer optimisation (SciPy MILP)"
             for idx, item in enumerate(topic_scores):
                 topic: Topic = item["topic"]
                 periods_count = milp_periods[idx]
@@ -104,11 +111,15 @@ class TimeAllocator:
                 allocated_sum -= period_duration
 
         # Save allocated minutes and priority scores back to PostgreSQL in transaction
-        for item in allocated_allocations:
-            t = item["topic"]
-            t.allocated_minutes = item["allocated_minutes"]
-            t.priority_score = item["priority_score"]
-        db.commit()
+        if persist:
+            for item in allocated_allocations:
+                t = item["topic"]
+                t.allocated_minutes = item["allocated_minutes"]
+                t.priority_score = item["priority_score"]
+            db.commit()
+            refresh_dashboard_snapshot(db)
+        else:
+            db.rollback()  # release the read snapshot; nothing was written
 
         unallocated_buffer = total_avail_min - (allocated_sum + revision_budget + assessment_budget)
 

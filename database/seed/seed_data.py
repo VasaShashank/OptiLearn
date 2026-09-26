@@ -1,20 +1,28 @@
-import uuid
+import sys
 import datetime
+from pathlib import Path
+
+# Allow `python -m database.seed.seed_data` from the repo root
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+
 from sqlalchemy.orm import Session
-from app.database.connection import db_engine, SessionLocal, Base, init_relational_db, get_mongo_db
+from app.database.connection import db_engine, db_dialect, SessionLocal, Base, get_mongo_db, refresh_dashboard_snapshot
 from app.auth.security import hash_password
 from app.models.entities import (
     User, Teacher, Course, Section, TeacherConstraint, CourseOutcome,
-    Unit, Topic, Concept, ClassSession, TeachingMethod, LessonPlan,
-    TeachingSession, Assessment, Question, Performance, MethodEffectiveness,
-    prerequisites
+    Unit, Topic, Concept, ClassSession, TeachingMethod, TeachingSession, Assessment, Question, Performance, MethodEffectiveness,
+    teacher_preferred_methods
 )
-from app.optimization.scoring import scoring_engine
+from app.database.mongo_schema import ensure_mongo_schema
+from app.services.artifact_service import artifact_service
 from app.optimization.time_allocator import time_allocator
 
 def seed_database():
     print("Initializing Database tables...")
-    Base.metadata.create_all(bind=db_engine)
+    ensure_mongo_schema(get_mongo_db())
+    if db_dialect == "sqlite":
+        Base.metadata.create_all(bind=db_engine)
+    # PostgreSQL tables come from Alembic: alembic -c database/migrations/alembic.ini upgrade head
     db: Session = SessionLocal()
 
     try:
@@ -22,6 +30,8 @@ def seed_database():
         existing_course = db.query(Course).filter(Course.code == "CS302").first()
         if existing_course:
             print("Database already contains CS302 course. Cleaning previous seed...")
+            # No cross-store cascade exists, so remove the course's MongoDB artifacts explicitly
+            artifact_service.delete_course_artifacts(existing_course.id)
             db.delete(existing_course)
             db.commit()
 
@@ -50,6 +60,16 @@ def seed_database():
             db.add(teacher)
             db.flush()
 
+        # Department administrator: sees every course (role-based access demo)
+        if not db.query(User).filter(User.email == "admin@optiteach.edu").first():
+            db.add(User(
+                email="admin@optiteach.edu",
+                hashed_password=hash_password("admin123"),
+                full_name="Dept. Administrator",
+                role="admin"
+            ))
+            db.flush()
+
         print("Seeding Course: Database Management Systems (CS302)...")
         # 2. Course: CS302
         course = Course(
@@ -60,7 +80,6 @@ def seed_database():
             academic_year="2026-2027",
             total_classes=40,
             period_duration=55,
-            total_available_minutes=40 * 55, # 2200 minutes
             start_date=datetime.datetime(2026, 8, 1, 9, 0),
             end_date=datetime.datetime(2026, 12, 15, 17, 0)
         )
@@ -99,13 +118,21 @@ def seed_database():
         print("Seeding Teaching Methods Catalog & Effectiveness Records...")
         # 4. Teaching Methods
         methods_data = [
-            ("Interactive Lecture & Structural Modeling", "conceptual", "Visual architecture mapping and instructor explanation.", 0.35),
-            ("Worked Examples & Decomposition", "problem_solving", "Step-by-step problem dissection and solution synthesis on board.", 0.35),
-            ("Guided Practice & Formative Exit Check", "active_learning", "Student paired exercises with real-time instructor feedback.", 0.20),
-            ("Hands-on Live Demonstration", "practical", "Live terminal queries and query plan inspection.", 0.30),
-            ("Recap & Prerequisite Revision", "revision", "Diagnostic error correction and prerequisite concept reinforcement.", 0.20),
-            ("Case Study & Schema Review", "analytical", "Dissecting production database schemas and normal form trade-offs.", 0.25)
+            ("Lecture with diagrams", "conceptual", "Explain the idea with diagrams on the board.", 0.35),
+            ("Worked examples", "problem_solving", "Solve problems step by step in front of the class.", 0.35),
+            ("Guided practice", "active_learning", "Students work in pairs while you walk around and help.", 0.20),
+            ("Live demonstration", "practical", "Run real queries or tools on the projector.", 0.30),
+            ("Recap and revision", "revision", "Revisit a weak earlier concept and fix common mistakes.", 0.20),
+            ("Case study", "analytical", "Study a real example and discuss the trade-offs.", 0.25)
         ]
+        # Earlier seeds used longer method names; rename those rows instead of duplicating them
+        legacy_names = {'Lecture with diagrams': 'Interactive Lecture & Structural Modeling', 'Worked examples': 'Worked Examples & Decomposition', 'Guided practice': 'Guided Practice & Formative Exit Check', 'Live demonstration': 'Hands-on Live Demonstration', 'Recap and revision': 'Recap & Prerequisite Revision', 'Case study': 'Case Study & Schema Review'}
+        for new_name, old_name in legacy_names.items():
+            old_row = db.query(TeachingMethod).filter(TeachingMethod.name == old_name).first()
+            if old_row and not db.query(TeachingMethod).filter(TeachingMethod.name == new_name).first():
+                old_row.name = new_name
+        db.flush()
+
         method_entities = {}
         for m_name, cat, desc, ratio in methods_data:
             existing_m = db.query(TeachingMethod).filter(TeachingMethod.name == m_name).first()
@@ -115,15 +142,26 @@ def seed_database():
                 db.flush()
             method_entities[m_name] = existing_m
 
+        # Teacher's ranked method preferences (normalized association table)
+        db.flush()
+        for rank, m_name in enumerate(["Worked examples", "Guided practice"], start=1):
+            db.execute(teacher_preferred_methods.insert().values(
+                constraint_id=constraint.id, method_id=method_entities[m_name].id, rank=rank
+            ))
+
         # Method Effectiveness
         eff_records = [
-            (method_entities["Worked Examples & Decomposition"].id, "problem_solving", 50.0, 68.0, 18.0, 12),
-            (method_entities["Guided Practice & Formative Exit Check"].id, "problem_solving", 52.0, 67.5, 15.5, 10),
-            (method_entities["Recap & Prerequisite Revision"].id, "revision", 48.0, 64.0, 16.0, 8),
-            (method_entities["Interactive Lecture & Structural Modeling"].id, "conceptual", 55.0, 66.0, 11.0, 14),
-            (method_entities["Hands-on Live Demonstration"].id, "practical", 54.0, 71.0, 17.0, 9),
-            (method_entities["Case Study & Schema Review"].id, "analytical", 58.0, 70.0, 12.0, 6)
+            (method_entities["Worked examples"].id, "problem_solving", 50.0, 68.0, 18.0, 12),
+            (method_entities["Guided practice"].id, "problem_solving", 52.0, 67.5, 15.5, 10),
+            (method_entities["Recap and revision"].id, "revision", 48.0, 64.0, 16.0, 8),
+            (method_entities["Lecture with diagrams"].id, "conceptual", 55.0, 66.0, 11.0, 14),
+            (method_entities["Live demonstration"].id, "practical", 54.0, 71.0, 17.0, 9),
+            (method_entities["Case study"].id, "analytical", 58.0, 70.0, 12.0, 6)
         ]
+        # Methods outlive the course, so clear their evidence rows to keep re-seeding idempotent
+        db.query(MethodEffectiveness).filter(
+            MethodEffectiveness.method_id.in_([m.id for m in method_entities.values()])
+        ).delete(synchronize_session=False)
         for mid, ctype, base_s, post_s, gain, cnt in eff_records:
             me = MethodEffectiveness(
                 method_id=mid,
@@ -250,7 +288,9 @@ def seed_database():
         db.flush()
         p1 = Performance(concept_id=c_ra_ops.id, assessment_id=a1.id, average_score=78.5, sample_size=62, weakness_flag=False, common_errors="Minor syntax error in Cartesian product")
         p2 = Performance(concept_id=c_sql_dml.id, assessment_id=a1.id, average_score=72.0, sample_size=62, weakness_flag=False, common_errors="GROUP BY column list omissions")
-        db.add_all([p1, p2])
+        # Completes evidence for every concept of "Relational Algebra" (relational-division demo)
+        p_join = Performance(concept_id=c_ra_join.id, assessment_id=a1.id, average_score=74.0, sample_size=62, weakness_flag=False, common_errors="Division operator rewritten as nested NOT EXISTS incorrectly")
+        db.add_all([p1, p2, p_join])
 
         # Quiz 2: Functional Dependencies & Keys (THE WEAK PREREQUISITE)
         a2 = Assessment(
@@ -317,7 +357,7 @@ def seed_database():
             # Record TeachingSession
             ts = TeachingSession(
                 session_id=sess.id,
-                method_id=method_entities["Worked Examples & Decomposition"].id if "Problem" in top.title else method_entities["Interactive Lecture & Structural Modeling"].id,
+                method_id=method_entities["Worked examples"].id if "Problem" in top.title else method_entities["Lecture with diagrams"].id,
                 actual_minutes=55,
                 teacher_notes=f"Completed standard syllabus coverage of {top.title}. Cohort participation was high.",
                 student_engagement_rating=4,
@@ -355,20 +395,10 @@ def seed_database():
         print("Running initial Course-Level Time Optimizer...")
         time_allocator.optimize_course_time(db, course.id)
 
-        # Seed MongoDB curriculum graph artifact
-        mongo_db = get_mongo_db()
-        graph_artifact = {
-            "course_id": course.id,
-            "title": course.title,
-            "seeded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "nodes_count": 22,
-            "edges_count": 18
-        }
-        mongo_db["curriculum_graphs"].update_one(
-            {"course_id": course.id},
-            {"$set": graph_artifact},
-            upsert=True
-        )
+        # Versioned curriculum graph snapshot in MongoDB, built from the SQL graph
+        artifact_service.snapshot_curriculum_graph(db, course.id, reason="Seeded sample course")
+
+        refresh_dashboard_snapshot(db)
 
         print("OptiTeach Seed Dataset successfully populated!")
         print("Teacher: faculty@optiteach.edu / admin123")
@@ -382,5 +412,17 @@ def seed_database():
     finally:
         db.close()
 
+def has_any_course() -> bool:
+    db = SessionLocal()
+    try:
+        return db.query(Course.id).first() is not None
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
-    seed_database()
+    # --if-empty: only seed a fresh database (container start-up must not wipe real data)
+    if "--if-empty" in sys.argv and has_any_course():
+        print("Database already has courses; skipping the sample seed.")
+    else:
+        seed_database()

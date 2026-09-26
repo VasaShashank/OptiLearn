@@ -1,0 +1,14 @@
+# One origin for the browser: the web app, with the API under /api (so no CORS is needed).
+# handle blocks are mutually exclusive and tried in order; the last one is the fallback.
+:80 {
+	encode gzip
+
+	@api path /api/* /health /docs /openapi.json
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

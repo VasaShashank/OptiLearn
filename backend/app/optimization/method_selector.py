@@ -1,15 +1,15 @@
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from sqlalchemy.orm import Session
 from app.models.entities import TeachingMethod, MethodEffectiveness
 
 # Default rule-based fallback mappings
 RULE_BASED_METHODS = {
-    "conceptual": ["Lecture & Interactive Explanation", "Concept Mapping & Analogies"],
-    "problem_solving": ["Worked Examples & Decomposition", "Guided Problem Practice"],
-    "practical": ["Hands-on Live Demonstration", "Interactive Terminal/SQL Lab"],
-    "analytical": ["Comparative Analysis", "Case Study Exploration"],
-    "procedural": ["Step-by-Step Algorithm Walkthrough", "Independent Exercise"],
-    "revision": ["Prerequisite Recap & Common Error Dissection", "Rapid Diagnostic Quiz"]
+    "conceptual": ["Lecture with diagrams", "Discussion"],
+    "problem_solving": ["Worked examples", "Guided practice"],
+    "practical": ["Live demonstration", "Hands-on lab"],
+    "analytical": ["Case study", "Compare and contrast"],
+    "procedural": ["Step-by-step walkthrough", "Independent exercise"],
+    "revision": ["Recap and revision", "Short quiz"]
 }
 
 class MethodSelector:
@@ -22,7 +22,7 @@ class MethodSelector:
     def select_methods(self, db: Session, concept_type: str, has_weak_prereq: bool = False) -> Tuple[List[str], float]:
         if has_weak_prereq:
             return (
-                ["Prerequisite Recap & Common Error Dissection", "Worked Examples & Decomposition", "Guided Problem Practice"],
+                ["Recap and revision", "Worked examples", "Guided practice"],
                 14.5 # Predicted historical gain %
             )
 
@@ -41,7 +41,7 @@ class MethodSelector:
             return top_methods, predicted_gain
 
         # Fallback to rules
-        recommended = RULE_BASED_METHODS.get(concept_type, ["Interactive Explanation", "Guided Practice"])
+        recommended = RULE_BASED_METHODS.get(concept_type, ["Lecture with diagrams", "Guided practice"])
         return recommended, 12.0
 
 method_selector = MethodSelector()

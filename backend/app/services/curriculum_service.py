@@ -1,9 +1,10 @@
 import networkx as nx
 from typing import Dict, List, Any
 from sqlalchemy.orm import Session
-from app.models.entities import Course, Unit, Topic, Concept, CourseOutcome, ClassSession, Performance, prerequisites
+from app.models.entities import Course, Unit, Topic, Concept, CourseOutcome, ClassSession, Performance
 from app.schemas.schemas import ConfirmCurriculumRequest, CurriculumGraphResponse, GraphNode, GraphEdge
-from app.database.connection import get_mongo_db
+from app.database.connection import refresh_dashboard_snapshot
+from app.services.artifact_service import artifact_service
 
 class CurriculumService:
     """
@@ -13,7 +14,9 @@ class CurriculumService:
     """
 
     def confirm_and_persist(self, db: Session, course_id: str, payload: ConfirmCurriculumRequest) -> Dict[str, Any]:
-        course = db.query(Course).filter(Course.id == course_id).first()
+        # Row lock: a second confirm for the same course waits here instead of
+        # interleaving its delete-and-rebuild of units/topics with ours
+        course = db.query(Course).filter(Course.id == course_id).with_for_update().first()
         if not course:
             raise ValueError(f"Course {course_id} not found")
 
@@ -120,28 +123,16 @@ class CurriculumService:
                 db.add(cs)
 
         db.commit()
+        refresh_dashboard_snapshot(db)
 
-        # 6. Save Graph Artifact to MongoDB
-        mongo_db = get_mongo_db()
-        graph_artifact = {
-            "course_id": course_id,
-            "total_units": len(payload.units),
-            "total_topics": total_topics,
-            "total_concepts": len(concept_name_map),
-            "adjacency_list": {
-                c.id: [p.id for p in c.prerequisites] for c in concept_name_map.values()
-            }
-        }
-        mongo_db["curriculum_graphs"].update_one(
-            {"course_id": course_id},
-            {"$set": graph_artifact},
-            upsert=True
-        )
+        # 6. Immutable, versioned snapshot of the confirmed graph in MongoDB
+        snapshot = artifact_service.snapshot_curriculum_graph(db, course_id, reason="Curriculum confirmed")
 
         return {
             "status": "success",
             "message": f"Successfully confirmed curriculum: {len(payload.units)} units, {total_topics} topics, {len(concept_name_map)} concepts.",
             "total_concepts": len(concept_name_map),
+            "graph_version": snapshot["version"],
             "course_id": course_id
         }
 

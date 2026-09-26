@@ -1,160 +1,112 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
-  LayoutDashboard,
-  BookOpen,
-  Upload,
-  Zap,
-  FileText,
-  Database,
-  ChevronLeft,
-  ChevronRight,
-  GraduationCap,
+  BookOpen, CalendarDays, Clock3, Database, FileText, LogOut, Menu, Network, Sun, Upload, X,
 } from "lucide-react";
-import { useState } from "react";
+import { clearSession, useSession } from "@/lib/auth";
+import { THEMES, useTheme } from "@/lib/theme";
 
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/courses", label: "Courses", icon: BookOpen },
-  { href: "/upload", label: "Syllabus Upload", icon: Upload },
-  { href: "/optimization", label: "Optimization", icon: Zap },
-  { href: "/lesson-plans", label: "Lesson Plans", icon: FileText },
-  { href: "/dbms", label: "DBMS Insights", icon: Database },
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ size?: number }> };
+
+// Grouped by what a teacher is doing, named in their words
+export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Teach",
+    items: [
+      { href: "/", label: "Today", icon: Sun },
+      { href: "/calendar", label: "Calendar", icon: CalendarDays },
+      { href: "/lesson-plans", label: "Lesson plans", icon: FileText },
+    ],
+  },
+  {
+    title: "Course",
+    items: [
+      { href: "/courses", label: "Courses", icon: BookOpen },
+      { href: "/curriculum", label: "Curriculum", icon: Network },
+      { href: "/optimization", label: "Time plan", icon: Clock3 },
+      { href: "/upload", label: "Import syllabus", icon: Upload },
+    ],
+  },
+  {
+    title: "Database",
+    items: [{ href: "/dbms", label: "DBMS showcase", icon: Database }],
+  },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const router = useRouter();
+  const { user } = useSession();
+  const [theme, setTheme] = useTheme();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => setOpen(false), [pathname]);
+
+  const signOut = () => {
+    clearSession();
+    router.replace("/login");
+  };
+
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <aside
-      className="sidebar"
-      style={{
-        width: collapsed ? "var(--sidebar-collapsed)" : "var(--sidebar-width)",
-        minHeight: "100vh",
-        background: "var(--bg-secondary)",
-        borderRight: "1px solid var(--border-default)",
-        display: "flex",
-        flexDirection: "column",
-        transition: "width var(--transition-base)",
-        position: "fixed",
-        top: 0,
-        left: 0,
-        zIndex: 40,
-        overflow: "hidden",
-      }}
-    >
-      {/* Logo */}
-      <div
-        style={{
-          padding: collapsed ? "20px 16px" : "20px 24px",
-          borderBottom: "1px solid var(--border-default)",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          minHeight: 72,
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "var(--radius-md)",
-            background: "linear-gradient(135deg, var(--brand-start), var(--brand-mid))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <GraduationCap size={20} color="white" />
-        </div>
-        {!collapsed && (
-          <div style={{ overflow: "hidden" }}>
-            <div
-              style={{
-                fontSize: "1.1rem",
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-              }}
-              className="gradient-text"
-            >
-              OptiTeach
-            </div>
-            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 500 }}>
-              Intelligent Teaching Platform
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: collapsed ? "12px 16px" : "10px 16px",
-                borderRadius: "var(--radius-md)",
-                fontSize: "0.875rem",
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? "var(--text-primary)" : "var(--text-muted)",
-                background: isActive ? "rgba(99, 102, 241, 0.1)" : "transparent",
-                borderLeft: isActive ? "3px solid var(--brand-start)" : "3px solid transparent",
-                textDecoration: "none",
-                transition: "all var(--transition-fast)",
-                justifyContent: collapsed ? "center" : "flex-start",
-              }}
-              title={collapsed ? item.label : undefined}
-            >
-              <Icon
-                size={20}
-                style={{
-                  color: isActive ? "var(--brand-start)" : "var(--text-muted)",
-                  flexShrink: 0,
-                  transition: "color var(--transition-fast)",
-                }}
-              />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Collapse Toggle */}
-      <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border-default)" }}>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="btn-ghost"
-          style={{
-            width: "100%",
-            padding: "10px",
-            borderRadius: "var(--radius-md)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            cursor: "pointer",
-            background: "transparent",
-            border: "none",
-            color: "var(--text-muted)",
-            fontSize: "0.8125rem",
-            transition: "all var(--transition-fast)",
-          }}
-        >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          {!collapsed && <span>Collapse</span>}
+    <>
+      {/* Narrow screens: a slim bar with a menu button */}
+      <div className="app-topbar">
+        <Link href="/" className="app-wordmark">OptiTeach</Link>
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="app-sidebar">
+          {open ? <X size={20} /> : <Menu size={20} />} <span className="visually-hidden">Menu</span>
         </button>
       </div>
-    </aside>
+
+      <aside id="app-sidebar" className={`app-sidebar${open ? " is-open" : ""}`} aria-label="Main navigation">
+        <Link href="/" className="app-wordmark" style={{ padding: "20px 20px 8px" }}>OptiTeach</Link>
+
+        <nav style={{ flex: 1, padding: "8px 10px", overflowY: "auto" }}>
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title} style={{ marginTop: 16 }}>
+              <div style={{ padding: "0 10px 6px", fontSize: "0.8rem", fontWeight: 600, color: "var(--pencil-light)" }}>{group.title}</div>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined}
+                    className={`app-nav-link${active ? " is-active" : ""}`}>
+                    <Icon size={18} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div style={{ padding: "12px 16px", borderTop: "var(--border-w) solid var(--rule)" }}>
+          <div role="radiogroup" aria-label="Theme" className="theme-switch">
+            {THEMES.map((t) => (
+              <button key={t.id} type="button" role="radio" aria-checked={theme === t.id}
+                className={theme === t.id ? "is-on" : ""} onClick={() => setTheme(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {user && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.full_name}</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--pencil)" }}>{user.role === "admin" ? "Administrator" : "Teacher"}</div>
+              </div>
+              <button type="button" onClick={signOut} className="btn btn-ghost" style={{ padding: 8 }} title="Sign out">
+                <LogOut size={18} /><span className="visually-hidden">Sign out</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
+      {open && <div className="app-scrim" onClick={() => setOpen(false)} aria-hidden="true" />}
+    </>
   );
 }

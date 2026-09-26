@@ -1,81 +1,66 @@
 """
-Exact Mixed-Integer Linear Programming (MILP) Solver for Curriculum Time Allocation
-Formulated using scipy.optimize.milp adhering to strict pedagogical invariants.
+Exact Mixed-Integer Linear Programming (MILP) solver for curriculum time allocation,
+formulated with scipy.optimize.milp.
 """
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import numpy as np
-from scipy.optimize import milp, LinearConstraint, Bounds
+from scipy.optimize import Bounds, LinearConstraint, milp
+
+# Value of a period that goes beyond a topic's estimated need, relative to its priority.
+# Kept well below the value of a needed period so that extra time is only handed out
+# once every topic's estimate is covered (diminishing returns).
+EXTRA_PERIOD_WEIGHT = 0.5
+
 
 class CurriculumILPSolver:
     """
-    Solves discrete period allocation:
-    Maximize Mastery: max sum(priority_i * x_i)
-    Subject to:
-      sum(x_i * period_duration) <= instructional_budget
-      x_i >= 1 (each topic receives at least 1 discrete period)
-      x_i integer
+    Discrete period allocation with diminishing returns.
+
+    Each topic i needs e_i periods (its estimate). Its periods are split into
+      y_i  needed periods,  1 <= y_i <= e_i,   worth (1 + p_i) each
+      z_i  extra periods,   0 <= z_i <= e_i,   worth EXTRA_PERIOD_WEIGHT * p_i each
+    and x_i = y_i + z_i. Maximize sum((1 + p_i) y_i + 0.5 p_i z_i)
+    subject to sum(x_i) * P <= instructional_budget, y_i, z_i integer.
+
+    Because a needed period is always worth more than an extra one, the optimum covers
+    every topic's estimate before giving any topic extra time; when the budget is short,
+    priority p_i decides which topics are cut. A purely linear objective (sum p_i x_i)
+    instead pours all spare periods into the single highest-priority topic.
     """
 
     def solve_period_allocation(
         self,
         topic_items: List[Dict[str, Any]],
         instructional_budget: int,
-        period_duration: int = 55
+        period_duration: int = 55,
     ) -> Optional[List[int]]:
-        """
-        Returns list of integer period counts [x_1, x_2, ..., x_n] for each topic.
-        """
+        """Returns integer period counts [x_1, ..., x_n], or None if infeasible."""
         n = len(topic_items)
-        if n == 0 or instructional_budget < n * period_duration:
-            return None
-
         max_periods = instructional_budget // period_duration
-        if max_periods < n:
+        if n == 0 or max_periods < n:
             return None
 
-        # Objective coefficients: minimize negative utility
-        # utility_i = priority_score_i * (base_estimated_minutes / period_duration)
-        c = []
-        for item in topic_items:
-            priority = max(0.1, item["priority_score"])
-            est_periods = max(1.0, item["topic"].estimated_minutes / period_duration)
-            utility = priority * est_periods
-            c.append(-float(utility))
+        priority = np.array([max(0.05, float(item["priority_score"])) for item in topic_items])
+        need = np.array([max(1, round(item["topic"].estimated_minutes / period_duration)) for item in topic_items])
 
-        c = np.array(c)
-
-        # Constraint 1: sum(x_i) <= max_periods
-        # 1 * x_1 + 1 * x_2 + ... + 1 * x_n <= max_periods
-        A_sum = np.ones((1, n))
-        b_u_sum = np.array([max_periods])
-        b_l_sum = np.array([n]) # At least n periods total (1 per topic)
-
-        constraints = LinearConstraint(A_sum, b_l_sum, b_u_sum)
-
-        # Bounds: 1 <= x_i <= max(1, round(item.estimated_minutes / period_duration * 3))
-        lb = np.ones(n)
-        ub = []
-        for item in topic_items:
-            est_p = max(1, round(item["topic"].estimated_minutes / period_duration))
-            # Bound upper limit so one topic doesn't swallow everything
-            ub.append(max(2, est_p * 3))
-        ub = np.array(ub)
-
-        bounds = Bounds(lb, ub)
-
-        # Integrality: 1 indicates integer variable
-        integrality = np.ones(n)
+        # Variables: [y_1..y_n, z_1..z_n]; milp minimizes, so negate the value
+        c = -np.concatenate([1.0 + priority, EXTRA_PERIOD_WEIGHT * priority])
+        total = LinearConstraint(np.ones((1, 2 * n)), lb=n, ub=max_periods)
+        bounds = Bounds(np.concatenate([np.ones(n), np.zeros(n)]), np.concatenate([need, need]).astype(float))
 
         try:
-            res = milp(c=c, constraints=constraints, bounds=bounds, integrality=integrality)
-            if res.success and res.x is not None:
-                periods = [int(round(val)) for val in res.x]
-                # Invariant check: sum(periods) * period_duration <= instructional_budget
-                if sum(periods) * period_duration <= instructional_budget and all(p >= 1 for p in periods):
-                    return periods
+            res = milp(c=c, constraints=total, bounds=bounds, integrality=np.ones(2 * n))
         except Exception:
-            pass
+            return None
+        if not res.success or res.x is None:
+            return None
 
+        values = np.rint(res.x).astype(int)
+        periods = [int(values[i] + values[n + i]) for i in range(n)]
+        if sum(periods) * period_duration <= instructional_budget and all(p >= 1 for p in periods):
+            return periods
         return None
+
 
 ilp_solver = CurriculumILPSolver()

@@ -1,7 +1,7 @@
-from typing import Dict, Any, List
+from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models.entities import Course, ClassSession, Topic, Concept, Performance, TeachingSession, MethodEffectiveness, TeachingMethod
+from app.models.entities import Course, ClassSession, Topic, TeachingSession, MethodEffectiveness, TeachingMethod
 from app.schemas.schemas import CourseAnalyticsResponse, AlertItem
 from app.services.curriculum_service import curriculum_service
 
@@ -77,8 +77,8 @@ class AnalyticsService:
                 alerts.append(AlertItem(
                     id=f"alert-bottleneck-{bn.id}",
                     severity="danger",
-                    title=f"Prerequisite Bottleneck: {bn.name}",
-                    message=f"Cohort performance is {bn.avg_score}% on '{bn.name}', which blocks {bn.downstream_count} downstream topics. Targeted revision required before proceeding.",
+                    title=f"Students are weak on {bn.name}",
+                    message=f"They averaged {bn.avg_score:g}% on it, and {bn.downstream_count} later concepts build on it. Revise it before moving on.",
                     action_label="Review Next Class Plan",
                     action_route="/next-class"
                 ))
@@ -106,7 +106,7 @@ class AnalyticsService:
             alerts.append(AlertItem(
                 id="alert-time-pressure",
                 severity="warning" if pacing_result["status"] == "moderately_behind" else "danger",
-                title=f"Pacing Alert: {pacing_result['status'].replace('_', ' ').title()}",
+                title=f"Pace: {pacing_result['status'].replace('_', ' ')}",
                 message=pacing_result["recommendation"],
                 action_label="View Optimized Allocations",
                 action_route="/optimization"
@@ -115,8 +115,8 @@ class AnalyticsService:
             alerts.append(AlertItem(
                 id="alert-time-pressure",
                 severity="warning",
-                title="Teaching Time Pressure Detected",
-                message=f"{remaining_topics_count} topics remain to be covered with only {remaining_sessions_count} teaching periods remaining. The optimizer recommends compressing introductory examples.",
+                title="Running short of time",
+                message=f"{remaining_topics_count} topics are left and only {remaining_sessions_count} periods. Shorten the introductions or combine related topics.",
                 action_label="View Optimized Allocations",
                 action_route="/optimization"
             ))
@@ -124,8 +124,8 @@ class AnalyticsService:
             alerts.append(AlertItem(
                 id="alert-ahead-schedule",
                 severity="success",
-                title="Pacing on Target",
-                message="Course progression is aligned with the academic calendar. Extra time can be allocated for practical case studies.",
+                title="On schedule",
+                message="You're keeping pace with the calendar, so there's room for a case study or extra practice.",
                 action_label="Explore Curriculum Graph",
                 action_route="/curriculum"
             ))
@@ -136,8 +136,8 @@ class AnalyticsService:
             alerts.append(AlertItem(
                 id="alert-revision-rec",
                 severity="warning",
-                title="Revision Recommended",
-                message=f"{weak_count} concepts identified with below-target mastery. Mini-revision periods have been automatically injected into period plans.",
+                title="Some concepts need revision",
+                message=f"{weak_count} concepts are below your target score. The plans for the next classes already start with a short revision.",
                 action_label="Inspect Class Optimizer",
                 action_route="/next-class"
             ))

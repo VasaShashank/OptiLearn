@@ -1,11 +1,9 @@
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock
 from ai.recommendations.question_generator import question_generator
 from ai.recommendations.pedagogy_advisor import pedagogy_advisor
 from ai.curriculum.prerequisite_graph import prerequisite_graph_engine
 from app.services.export_service import export_service
-from app.models.entities import Course, ClassSession, LessonPlan, Topic, CourseOutcome
+from app.models.entities import Course, ClassSession, CourseOutcome
 
 def test_question_generator():
     qs = question_generator.generate_questions_for_concept(
@@ -27,7 +25,7 @@ def test_prerequisite_graph_ai():
     links = prerequisite_graph_engine.infer_prerequisites(concepts)
     assert len(links) > 0
     # Relational Algebra should depend on Basic Set Theory
-    assert any(l["source"] == "Basic Set Theory" and l["target"] == "Relational Algebra" for l in links)
+    assert any(link["source"] == "Basic Set Theory" and link["target"] == "Relational Algebra" for link in links)
 
     is_dag, cycles = prerequisite_graph_engine.validate_dag(links)
     assert is_dag is True

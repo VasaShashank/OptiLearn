@@ -1,101 +1,114 @@
-# 📚 OptiTeach API Documentation
+# OptiTeach API reference
 
-Comprehensive REST API reference for the OptiTeach course teaching and curriculum optimization platform.
+Generated from the application's OpenAPI schema (`app.openapi()`); the interactive version with
+request/response schemas is served at `http://localhost:8000/docs`.
 
----
+* **Base URL:** `http://localhost:8000`
+* **Authentication:** `POST /api/auth/login` with JSON `{"email", "password"}` returns `access_token`;
+  send it as `Authorization: Bearer <token>`. Every route below needs it except the four marked *public*.
+* **Authorization:** routes under `/api/courses/{course_id}` return **404** for courses the caller neither owns
+  nor has been given access to (admins see all). Viewers of a shared course get **403** on every write.
+  Nested IDs (assessment, topic, session) must belong to that course.
+* **Errors:** `400` bad reference/input, `401` missing/invalid token, `403` role required, `404` not found or not
+  yours, `409` concurrency conflict (stale lesson-plan version, class already recorded), `413`/`415` upload limits,
+  `422` validation, `429` too many failed logins or uploads.
 
-## 🔐 Base URL & Authentication
 
-- **Base URL:** `http://localhost:8000/api`
-- **Auth Header:** `Authorization: Bearer <JWT_ACCESS_TOKEN>`
+## Authentication
 
----
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/auth/login` | Login *(public)* |
+| `GET` | `/api/auth/me` | Get Profile |
+| `POST` | `/api/auth/register` | Register *(public)* |
 
-## 📌 Authentication Endpoints
+## Courses & Optimization
 
-### `POST /api/auth/register`
-Register a new faculty account.
-- **Request Body:**
-  ```json
-  {
-    "email": "faculty@university.edu",
-    "password": "SecurePassword123",
-    "full_name": "Dr. Alan Turing",
-    "department": "Computer Science & Engineering",
-    "employee_id": "FAC-2026-001",
-    "designation": "Associate Professor"
-  }
-  ```
-- **Response:** `200 OK` with user profile and bearer token.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/courses` | Courses the user owns, then courses shared with them (co-teacher or viewer). |
+| `POST` | `/api/courses` | Create Course |
+| `GET` | `/api/courses/{course_id}` | Get Course |
+| `GET` | `/api/courses/{course_id}/analytics` | Get Analytics |
+| `GET` | `/api/courses/{course_id}/assessments` | List Assessments |
+| `POST` | `/api/courses/{course_id}/assessments` | Create Assessment |
+| `POST` | `/api/courses/{course_id}/assessments/{assessment_id}/results` | Record Assessment Results |
+| `POST` | `/api/courses/{course_id}/curriculum/confirm` | Confirm Curriculum |
+| `GET` | `/api/courses/{course_id}/graph` | Get Curriculum Graph |
+| `GET` | `/api/courses/{course_id}/graph/diff` | Diff Graph Versions |
+| `GET` | `/api/courses/{course_id}/graph/versions` | Curriculum graph snapshots stored in MongoDB, newest first. |
+| `GET` | `/api/courses/{course_id}/lesson-plans` | List Course Lesson Plans |
+| `POST` | `/api/courses/{course_id}/lesson-plans/generate` | Generate Lesson Plan |
+| `PATCH` | `/api/courses/{course_id}/lesson-plans/{session_number}` | Accept / edit / reject a recommended plan. Stale expected_version -> 409. |
+| `GET` | `/api/courses/{course_id}/lesson-plans/{session_number}/diff` | Lesson Plan Diff |
+| `GET` | `/api/courses/{course_id}/lesson-plans/{session_number}/history` | Every saved version of the plan (MongoDB), newest first, with who changed it. |
+| `GET` | `/api/courses/{course_id}/optimization` | Get Course Optimization |
+| `POST` | `/api/courses/{course_id}/optimize` | Run Course Optimization |
+| `POST` | `/api/courses/{course_id}/optimize-next-class` | Optimize Next Class |
+| `GET` | `/api/courses/{course_id}/sessions` | List Sessions |
+| `POST` | `/api/courses/{course_id}/sessions/{session_number}/log` | Record a taught class. A second record for the same session -> 409. |
+| `POST` | `/api/courses/{course_id}/syllabus` | Upload Course Syllabus |
 
-### `POST /api/auth/login`
-Authenticate faculty user and retrieve JWT access token.
-- **Request Form / Body:** `username` (email) and `password`.
+## Syllabus Extraction
 
----
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/syllabus/upload` | Upload Syllabus |
 
-## 📖 Course Management & Curriculum
+## DBMS Insights & Academic Showcase
 
-### `GET /api/courses`
-List all enrolled courses for the authenticated instructor.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/dbms/consistency` | Compare PostgreSQL pointers with MongoDB documents. Without course_id: all courses (admin). |
+| `POST` | `/api/dbms/consistency/repair` | Repair Cross Store Consistency |
+| `POST` | `/api/dbms/console` | Ad-hoc read-only SQL, executed as optiteach_readonly under row-level security. |
+| `GET` | `/api/dbms/er-diagram` | Mermaid erDiagram generated from the live schema. |
+| `GET` | `/api/dbms/nosql/aggregations` | List Nosql Aggregations |
+| `POST` | `/api/dbms/nosql/aggregations/{aggregation_id}/execute` | Run Nosql Aggregation |
+| `GET` | `/api/dbms/objects` | Views, routines, triggers, RLS policies, indexes and roles from the system catalogs. |
+| `GET` | `/api/dbms/queries` | List Demo Queries |
+| `POST` | `/api/dbms/queries/{query_id}/execute` | Execute Query |
+| `POST` | `/api/dbms/queries/{query_id}/explain` | EXPLAIN (ANALYZE, BUFFERS) of a demo query: the executed plan, timings and index use. |
+| `GET` | `/api/dbms/schema` | Get Relational Schema |
+| `GET` | `/api/dbms/status` | Get Db Status |
+| `GET` | `/api/dbms/transaction-lab` | List Transaction Scenarios |
+| `POST` | `/api/dbms/transaction-lab/{scenario}` | Runs interleaved transactions on the txn_lab_accounts scratch table and returns the timeline. |
 
-### `POST /api/courses`
-Create a new course with constraints and schedule limits.
-- **Request Body:**
-  ```json
-  {
-    "code": "CS302",
-    "title": "Database Management Systems",
-    "semester": "Fall 2026",
-    "academic_year": "2026-2027",
-    "total_classes": 40,
-    "period_duration": 55,
-    "section_name": "Section A",
-    "student_count": 60,
-    "constraints": {
-      "max_lecture_ratio": 0.45,
-      "min_practice_ratio": 0.35,
-      "revision_threshold_score": 60.0,
-      "default_revision_minutes": 10
-    }
-  }
-  ```
+## Exports & Compliance
 
-### `POST /api/courses/{course_id}/syllabus/extract`
-Upload a syllabus PDF or text to trigger high-fidelity deterministic NLP extraction.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/exports/courses/{course_id}/calendar.ics` | Export course schedule as iCalendar (.ics) format |
+| `GET` | `/api/exports/courses/{course_id}/outcomes-matrix` | Export NBA/ABET Course Outcome Attainment Matrix |
+| `GET` | `/api/exports/lesson-plans/{session_id}/printable` | Export formatted printable HTML lesson plan (saveable as PDF) |
 
-### `POST /api/courses/{course_id}/curriculum/confirm`
-Persist the reviewed curriculum DAG into the relational database.
+## Teaching Methods
 
-### `GET /api/courses/{course_id}/graph`
-Retrieve the Directed Acyclic Graph (DAG) of concepts, prerequisites, and bottleneck nodes.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/teaching-methods` | Global method catalog (not course-specific), used when recording a taught class. |
 
----
+## Curriculum Builder
 
-## ⚡ Optimization & In-Class Planning
+| Method | Path | Description |
+|---|---|---|
+| `PATCH` | `/api/courses/{course_id}/concepts/{concept_id}` | Change difficulty / importance / type; returns the topic's time allocation before and after. |
+| `GET` | `/api/courses/{course_id}/curriculum` | Units, their topics in teaching order, concepts and prerequisite links. |
+| `PUT` | `/api/courses/{course_id}/curriculum/layout` | Save topic order (and moves between units) in one transaction. |
+| `DELETE` | `/api/courses/{course_id}/prerequisites` | Remove Prerequisite |
+| `POST` | `/api/courses/{course_id}/prerequisites` | Add a prerequisite link. A link that would create a loop is refused with 409. |
 
-### `POST /api/courses/{course_id}/optimize`
-Execute the operations research time allocator to compute discrete period allocations across all syllabus topics.
+## Co-teaching
 
-### `POST /api/courses/{course_id}/optimize-next-class`
-Generate a structured 5-phase plan for an upcoming class session, with automatic prerequisite revision injection if scores fall below threshold.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/courses/{course_id}/members` | Who has access to the course: the owner, co-teachers and viewers. |
+| `PUT` | `/api/courses/{course_id}/members` | Share the course with another teacher by email, or change their role. Owner only. |
+| `DELETE` | `/api/courses/{course_id}/members/{teacher_id}` | Remove Member |
 
----
+## Service
 
-## 📝 Lesson Plans
-
-### `GET /api/courses/{course_id}/lesson-plans`
-Fetch generated lesson plans with optional query filters (`session_number`, `unit_id`, `status`).
-
-### `POST /api/courses/{course_id}/lesson-plans/generate`
-Generate a comprehensive pedagogical lesson plan stored across relational (PostgreSQL) and rich document (MongoDB) backends.
-
----
-
-## 📊 Analytics & DBMS Insights
-
-### `GET /api/courses/{course_id}/analytics`
-Retrieve real-time velocity metrics, student performance drift, concept health, and pedagogical alerts.
-
-### `GET /api/dbms/insights`
-Execute relational queries directly against the 3NF schema for schema inspection and query performance verification.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Root *(public)* |
+| `GET` | `/health` | Healthcheck *(public)* |

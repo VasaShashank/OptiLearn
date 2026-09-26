@@ -9,7 +9,7 @@
 
 The following core modules are **fully implemented, tested, and verified**:
 - ✅ **Deterministic & Hybrid Extraction Engine**: Regex/NLP parser with confidence scoring and fallback synthesis (`ai/extractors/`).
-- ✅ **Normalized 3NF Relational Core + Alembic Migrations**: PostgreSQL / SQLite schema with foreign keys, check constraints, versioned Alembic migrations (`database/migrations/`), and per-student tracking (`Student`, `StudentSubmission`).
+- ✅ **Normalized 3NF Relational Core + Alembic Migrations**: PostgreSQL / SQLite schema with foreign keys, check constraints, versioned Alembic migrations (`database/migrations/`).
 - ✅ **Decoupled Architecture**: Repository layer (`CourseRepository`, `CurriculumRepository`, `AssessmentRepository`, `LessonPlanRepository`) and standalone utilities (`roman_numerals`, `graph_utils`, `datetime_helpers`, `math_formatting`).
 - ✅ **Operations Research Optimization Engine**: Exact Mixed-Integer Linear Programming solver (`scipy.optimize.milp`) adhering to discrete period integrality and cognitive threshold constraints.
 - ✅ **Academic Calendar & Disruption Catch-Up Engine**: Timetable slot resolution (MWF/TTh), holiday exclusion mapping, and dynamic rescheduling acceleration when classes are lost.
@@ -20,71 +20,70 @@ The following core modules are **fully implemented, tested, and verified**:
 
 ---
 
-## 📑 Remaining Pending Features & Extensions
+## Remaining work
 
-### 1. In-Class Execution & Live Pacing
-- [ ] **Live Lecture Presenter Mode**:
-  - Active session view with phase countdown timer (e.g., 5 min Warm-up $\to$ 25 min Instruction $\to$ 15 min Practice $\to$ 5 min Assessment $\to$ 5 min Wrap-up).
-  - Ability for faculty to click "Extend Phase by 5 mins" and auto-compress wrap-up or flag unfinished topics for rollover into next class.
-  - High-contrast projector mode and presenter scratchpad.
+### LMS integration (not started)
+- [ ] **LTI 1.3 / REST sync with Canvas, Moodle or Google Classroom**: push units as LMS modules,
+  push generated quiz questions into question banks, and pull gradebook results back so they feed
+  the revision engine the way manually entered test results do today. Needs a test LMS instance
+  and developer credentials, so it was left out of this round.
 
-### 2. Database & Rich Unstructured Content
-- [ ] **Full MongoDB Unstructured Document Store Integration**:
-  - Expand MongoDB storage for rich pedagogical assets:
-    - Lecture slide decks, code snippets, LaTeX formula blocks, sample datasets, video links.
-    - Version history tracking of teacher-modified lesson plans with diff inspection.
-
-### 3. Frontend UI/UX Workstation Features
-- [ ] **Interactive Drag-and-Drop Curriculum Builder**:
-  - Visual DAG graph editor: drag-and-drop to reorder topics and units.
-  - Interactive edge creation for prerequisite links with instant cyclic-dependency detection in the browser.
-  - Concept detail drawer: adjust difficulty, importance, and Bloom level with live recalculation preview.
-- [ ] **Frontend Auth Workflow & Protected Routes**:
-  - Dedicated Login and Registration modal/page connected to `/api/auth/login` and `/api/auth/register`.
-  - Next.js route middleware protecting `/courses`, `/optimization`, and `/upload`.
-- [ ] **Theme Toggle & Accessibility**:
-  - Theme toggle (Dark / Light / High-Contrast Projector mode).
-  - Keyboard shortcuts (`J`/`K` for topic navigation, `Space` to start/pause timer).
-
-### 4. LMS Integrations & Interoperability
-- [ ] **LMS Interoperability (LTI 1.3 / REST)**:
-  - Connect with Canvas, Moodle, and Google Classroom:
-    - One-click sync of course units as LMS modules.
-    - Direct sync of generated Bloom quiz questions into LMS question banks.
-    - Pull gradebook results back into OptiTeach to automatically drive the continuous revision engine.
-- [ ] **Multi-Faculty Co-Teaching**:
-  - Support multiple instructors co-teaching shared sections with synced pacing.
-
-### 5. Testing, DevOps & Production Readiness
-- [ ] **Automated CI/CD Pipeline**:
-  - Create `.github/workflows/ci.yml`:
-    - Run backend linting (`ruff`, `flake8`, `mypy`).
-    - Execute Pytest suite across all test modules.
-    - Run Next.js linting and production build validation.
-- [ ] **Production Dockerization**:
-  - `backend/Dockerfile` (Multi-stage Python slim build).
-  - `frontend/Dockerfile` (Standalone Next.js output build).
-  - `docker-compose.yml` orchestrating API, Web, PostgreSQL, MongoDB, and Caddy/Nginx reverse proxy.
-- [ ] **Edge Case & Security Hardening**:
-  - Rate limiting on authentication and upload endpoints (`slowapi`).
-  - File size limit enforcement and sanitization for PDF uploads.
+### Smaller follow-ups
+- [ ] Static type checking (`mypy`) for the backend; Ruff and ESLint already run in CI.
+- [ ] The lesson-plan generator's wording is templated; a richer generator (or an LLM behind the
+  same `LessonPlanUpdate` contract and teacher review) would make plans read less mechanically.
 
 ---
 
-## 📊 Remaining Feature Prioritization Matrix
+## Completed on the feature/dbms-phases branch
 
-| Priority | Feature / Module | Impact | Complexity | Status |
-|:---:|---|:---:|:---:|:---:|
-| 🔴 **P0** | Frontend Auth UI & Route Protection | Critical | Medium | Pending |
-| 🟡 **P1** | Drag-and-Drop Curriculum & DAG Editor | High | High | Pending |
-| 🟡 **P1** | Live Lecture Presenter Mode with Pacing Timer | High | Medium | Pending |
-| 🟡 **P1** | Full MongoDB Unstructured Content Integration | High | Medium | Pending |
-| 🟢 **P2** | Production Dockerization & docker-compose | High | Medium | Pending |
-| 🟢 **P2** | Automated CI/CD GitHub Actions Pipeline | Medium | Low | Pending |
-| 🟢 **P2** | Security & Rate Limiting Hardening | Medium | Low | Pending |
-| ⚪ **P3** | LMS Integration (Canvas / Moodle LTI 1.3) | Medium | High | Future |
-| ⚪ **P3** | Multi-Faculty Co-teaching & Department Sync | Low | High | Future |
+### Database core
+- **PostgreSQL-owned schema**: Alembic migrations 0001–0005 with working downgrades; normalization fixes
+  (1NF preference table, generated `total_available_minutes`); 3 views, a materialized view, 10
+  functions, a stored procedure, 18 triggers, JSONB audit log, partial and FK indexes.
+- **Security**: bcrypt, JWT on every route, login throttling, upload rate limit, course-level
+  authorization, least-privilege `optiteach_app` role, append-only audit via `SECURITY DEFINER`,
+  21 row-level security policies for a read-only SQL console, upload limits, stored-XSS fix, explicit CORS.
+- **Transactions**: row locks, savepoints, optimistic locking with 409 handling, two-phase reorder
+  around a UNIQUE constraint, topic carry-over, Transaction Lab.
+- **MongoDB**: validators, unique/TTL indexes, lesson-plan version history + diffs, typed class
+  material (slides, video, link, dataset, code, formula), curriculum graph snapshots + diffs,
+  aggregation pipelines, cross-store consistency check/repair.
+
+### Features from the original roadmap
+- **Live presenter mode**: full-screen class view with a per-step timer, extend-by-5-minutes,
+  keyboard controls and a projector theme; unfinished topics carry over to the next period.
+- **Curriculum builder**: drag-and-drop topic order, concept editing, prerequisite links with cycle
+  detection in the API and a database trigger as the backstop.
+- **Frontend auth and themes**: sign-in / create-account page, protected routes, light / dark /
+  projector themes.
+- **Co-teaching**: `course_members` with co-teacher and viewer roles, enforced in the API and in RLS.
+- **Time plan**: MILP allocation reworked so every topic's estimate is covered before extra periods
+  are handed out by priority.
+- **Plain-language UI**: every teacher-facing screen reworded and redesigned around the teacher's
+  tasks (Today, Calendar, Lesson plans, Courses, Curriculum, Time plan, Import syllabus).
+
+### Operations
+- Backup/restore scripts, generated reference SQL + ER diagram.
+- GitHub Actions CI: Ruff, migrations up/down/up + drift check, 120 tests on PostgreSQL 17 and
+  MongoDB 8 service containers, ESLint + typecheck + build, and a `docker compose` smoke test.
+- Docker: multi-stage API and web images, Next.js standalone output, Caddy reverse proxy;
+  migrations and first-run seeding happen on API start.
+
+## Status
+
+| Feature | Status |
+|---|:---:|
+| Frontend auth UI and route protection | Done |
+| MongoDB content (versions, material, graphs, pipelines) | Done |
+| CI pipeline with linting | Done |
+| Security and rate limiting | Done |
+| Drag-and-drop curriculum builder with cycle checks | Done |
+| Live presenter mode with pacing timer | Done |
+| Docker and docker-compose | Done |
+| Multi-faculty co-teaching | Done |
+| LMS integration (LTI 1.3) | Not started |
 
 ---
 
-*Updated for VasaShashank / OptiLearn (OptiTeach) Repository.*
+*Updated for the VasaShashank / OptiTeach repository.*

@@ -1,10 +1,9 @@
-import pytest
 from unittest.mock import MagicMock
 from app.repositories.course_repository import course_repository
 from app.repositories.curriculum_repository import curriculum_repository
 from app.repositories.assessment_repository import assessment_repository
 from app.repositories.lesson_plan_repository import lesson_plan_repository
-from app.models.entities import Course, Unit, Topic, Concept, Assessment, LessonPlan
+from app.models.entities import Course, Unit, Assessment, LessonPlan
 
 def test_course_repository():
     db = MagicMock()

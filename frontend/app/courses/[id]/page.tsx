@@ -3,19 +3,24 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  BookOpen, Layers, Lightbulb, Clock, Zap, FileText, BarChart3,
-  CheckCircle2, AlertTriangle, TrendingUp, Calendar, Users, ArrowRight,
-  Target, Activity, GitBranch, Upload,
-} from "lucide-react";
+import { Upload } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import CurriculumGraphView from "@/components/curriculum-graph-view";
-import type {
-  Course, CurriculumGraph, CourseOptimization, CourseAnalytics,
-  AssessmentItem, GraphNode,
-} from "@/lib/types";
+import AssessmentResults from "@/components/assessment-results";
+import CoursePeople from "@/components/course-people";
+import type { Course, CurriculumGraph, CourseAnalytics, AssessmentItem } from "@/lib/types";
 
-type Tab = "overview" | "curriculum" | "optimization" | "assessments" | "analytics";
+type Tab = "overview" | "map" | "results" | "progress" | "people";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "map", label: "Topic map" },
+  { key: "results", label: "Test results" },
+  { key: "progress", label: "Progress" },
+  { key: "people", label: "People" },
+];
+
+const fmt = (n: number) => Math.round(n).toLocaleString();
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -23,7 +28,6 @@ export default function CourseDetailPage() {
 
   const [course, setCourse] = useState<Course | null>(null);
   const [graph, setGraph] = useState<CurriculumGraph | null>(null);
-  const [optimization, setOptimization] = useState<CourseOptimization | null>(null);
   const [analytics, setAnalytics] = useState<CourseAnalytics | null>(null);
   const [assessments, setAssessments] = useState<AssessmentItem[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -32,16 +36,14 @@ export default function CourseDetailPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [c, g, o, a, assess] = await Promise.all([
+        const [c, g, a, assess] = await Promise.all([
           coursesAPI.get(courseId),
           coursesAPI.getGraph(courseId).catch(() => null),
-          coursesAPI.getOptimization(courseId).catch(() => null),
           coursesAPI.getAnalytics(courseId).catch(() => null),
           coursesAPI.listAssessments(courseId).catch(() => []),
         ]);
         setCourse(c);
         setGraph(g);
-        setOptimization(o);
         setAnalytics(a);
         setAssessments(assess);
       } catch { /* ignore */ }
@@ -50,377 +52,251 @@ export default function CourseDetailPage() {
     load();
   }, [courseId]);
 
-  if (loading) return <LoadingSkeleton />;
-  if (!course) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Course not found</div>;
+  // New results change weakness flags, priorities and alerts: reload what depends on them
+  const refreshAfterResults = async () => {
+    const [assess, g, a] = await Promise.all([
+      coursesAPI.listAssessments(courseId).catch(() => assessments),
+      coursesAPI.getGraph(courseId).catch(() => graph),
+      coursesAPI.getAnalytics(courseId).catch(() => analytics),
+    ]);
+    setAssessments(assess);
+    setGraph(g);
+    setAnalytics(a);
+  };
 
-  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: "overview", label: "Overview", icon: <BookOpen size={14} /> },
-    { key: "curriculum", label: "Curriculum Graph", icon: <GitBranch size={14} /> },
-    { key: "optimization", label: "Optimization", icon: <Zap size={14} /> },
-    { key: "assessments", label: "Assessments", icon: <FileText size={14} /> },
-    { key: "analytics", label: "Analytics", icon: <BarChart3 size={14} /> },
-  ];
+  if (loading) return <div className="skeleton" style={{ height: 360 }} />;
+  if (!course) {
+    return (
+      <p>
+        This course doesn&apos;t exist, or it hasn&apos;t been shared with you. <Link href="/courses">Back to courses</Link>
+      </p>
+    );
+  }
+
+  const canEdit = course.my_role !== "viewer";
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-          <span className="badge badge-info">{course.code}</span>
-          <span className="badge badge-neutral">{course.semester}</span>
+      <header className="page-header">
+        <div>
+          <p style={{ color: "var(--pencil)", marginTop: 0 }}>
+            <Link href="/courses">Courses</Link> / {course.code}, {course.semester}
+          </p>
+          <h1>{course.title}</h1>
+          <p>
+            {course.teacher_name ? `${course.teacher_name}. ` : ""}
+            {course.total_classes} periods of {course.period_duration} minutes, {fmt(course.total_available_minutes)} minutes in all.
+          </p>
         </div>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>{course.title}</h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 4 }}>
-          {course.teacher_name || "Faculty"} · {course.total_classes} periods × {course.period_duration}m = {course.total_available_minutes}m total
-        </p>
-      </div>
+        {course.units_count > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link href={`/optimization?course=${course.id}`} className="btn btn-secondary">Time plan</Link>
+            <Link href={`/lesson-plans?course=${course.id}`} className="btn btn-primary">Lesson plans</Link>
+          </div>
+        )}
+      </header>
 
-      {/* Tabs */}
-      <div className="tab-list" style={{ marginBottom: 24 }}>
-        {tabs.map((t) => (
+      {!canEdit && (
+        <p role="note" style={{ padding: "10px 14px", marginBottom: 16, background: "var(--caution-wash)", borderLeft: "4px solid var(--caution)", borderRadius: "var(--radius-sm)" }}>
+          This course is shared with you to view. You can look at everything, but only the owner or a co-teacher can change it.
+        </p>
+      )}
+
+      <div className="tab-list" role="tablist" style={{ marginBottom: 24 }}>
+        {TABS.map((t) => (
           <button
             key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === t.key}
             className={`tab ${activeTab === t.key ? "active" : ""}`}
             onClick={() => setActiveTab(t.key)}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
           >
-            {t.icon} {t.label}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="animate-fade-in" key={activeTab}>
-        {activeTab === "overview" && <OverviewTab course={course} analytics={analytics} graph={graph} />}
-        {activeTab === "curriculum" && <CurriculumTab graph={graph} courseId={courseId} />}
-        {activeTab === "optimization" && <OptimizationTab optimization={optimization} />}
-        {activeTab === "assessments" && <AssessmentsTab assessments={assessments} />}
-        {activeTab === "analytics" && <AnalyticsTab analytics={analytics} />}
+      <div className="animate-fade-in" key={activeTab} role="tabpanel">
+        {activeTab === "overview" && <OverviewTab course={course} analytics={analytics} graph={graph} canEdit={canEdit} />}
+        {activeTab === "map" && (
+          graph && graph.nodes.length > 0
+            ? <CurriculumGraphView graph={graph} />
+            : <NoSyllabus course={course} canEdit={canEdit} />
+        )}
+        {activeTab === "results" && (
+          <AssessmentResults
+            courseId={courseId}
+            assessments={assessments}
+            concepts={graph?.nodes ?? []}
+            onRecorded={refreshAfterResults}
+          />
+        )}
+        {activeTab === "progress" && <ProgressTab analytics={analytics} />}
+        {activeTab === "people" && <CoursePeople courseId={courseId} canManage={course.my_role === "owner" || course.my_role === "admin"} />}
       </div>
     </div>
   );
 }
 
-function OverviewTab({ course, analytics, graph }: { course: Course; analytics: CourseAnalytics | null; graph: CurriculumGraph | null }) {
+function NoSyllabus({ course, canEdit }: { course: Course; canEdit: boolean }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-      {course.units_count === 0 && (
-        <div
-          className="glass-card animate-fade-in"
-          style={{
-            gridColumn: "1 / -1",
-            padding: "32px 28px",
-            textAlign: "center",
-            background: "rgba(139, 92, 246, 0.06)",
-            border: "1px solid rgba(139, 92, 246, 0.25)",
-          }}
-        >
-          <Upload size={40} style={{ color: "var(--accent-purple)", margin: "0 auto 12px" }} />
-          <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: 8 }}>
-            No Curriculum Attached Yet
-          </h3>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: 20, maxWidth: 480, margin: "0 auto 20px" }}>
-            Upload a syllabus copy to generate the full curriculum tree, topic allocations, and optimization. No synthetic data will be injected.
-          </p>
-          <Link href={`/upload?courseId=${course.id}`} className="btn btn-primary">
-            <Upload size={16} /> Upload Syllabus Copy
-          </Link>
-        </div>
+    <section className="card" style={{ padding: 24, maxWidth: 620 }}>
+      <h2 style={{ fontSize: "1.15rem" }}>This course has no syllabus yet</h2>
+      <p style={{ color: "var(--pencil)", margin: "6px 0 16px" }}>
+        Import the syllabus to add its units, topics and course outcomes. The time plan, lesson plans and topic map
+        are all built from it.
+      </p>
+      {canEdit && (
+        <Link href={`/upload?courseId=${course.id}`} className="btn btn-primary">
+          <Upload size={16} /> Import syllabus
+        </Link>
       )}
+    </section>
+  );
+}
 
-      <div className="card" style={{ padding: 24 }}>
-        <h3 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 16 }}>
-          Course Summary
-        </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <InfoRow icon={<Layers size={16} />} label="Units" value={course.units_count.toString()} />
-          <InfoRow icon={<BookOpen size={16} />} label="Topics" value={course.topics_count.toString()} />
-          <InfoRow icon={<Lightbulb size={16} />} label="Concepts" value={course.concepts_count.toString()} />
-          <InfoRow icon={<Clock size={16} />} label="Total Time" value={`${course.total_available_minutes}m`} />
-          <InfoRow icon={<Calendar size={16} />} label="Periods" value={course.total_classes.toString()} />
-          <InfoRow icon={<Users size={16} />} label="Section" value={course.section_name || "A"} />
-        </div>
-      </div>
+function OverviewTab({ course, analytics, graph, canEdit }: {
+  course: Course; analytics: CourseAnalytics | null; graph: CurriculumGraph | null; canEdit: boolean;
+}) {
+  if (course.units_count === 0) return <NoSyllabus course={course} canEdit={canEdit} />;
+
+  const struggling = graph ? graph.nodes.filter((n) => graph.bottlenecks.includes(n.id)) : [];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 }}>
+      <section className="card" style={{ padding: 22 }}>
+        <h2 style={{ fontSize: "1.05rem", marginBottom: 12 }}>What&apos;s in the course</h2>
+        <dl className="facts">
+          <dt>Units</dt><dd>{course.units_count}</dd>
+          <dt>Topics</dt><dd>{course.topics_count}</dd>
+          <dt>Concepts</dt><dd>{course.concepts_count}</dd>
+          <dt>Section</dt><dd>{course.section_name || "A"}</dd>
+        </dl>
+        {canEdit && (
+          <p style={{ marginTop: 14 }}>
+            <Link href={`/curriculum?course=${course.id}`}>Edit units, topics and prerequisites</Link>
+          </p>
+        )}
+      </section>
 
       {analytics && (
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 16 }}>
-            Progress
-          </h3>
-          <div style={{ textAlign: "center", padding: "16px 0" }}>
-            <div style={{ fontSize: "2.5rem", fontWeight: 800, background: "linear-gradient(135deg, var(--brand-start), var(--accent-emerald))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {analytics.progress_percentage}%
-            </div>
-            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 4 }}>
-              {analytics.completed_sessions} of {analytics.total_sessions} sessions completed
-            </div>
+        <section className="card" style={{ padding: 22 }}>
+          <h2 style={{ fontSize: "1.05rem", marginBottom: 12 }}>How far along</h2>
+          <p style={{ fontSize: "1.05rem" }}>
+            <strong>{analytics.completed_sessions} of {analytics.total_sessions} periods taught</strong>{" "}
+            <span style={{ color: "var(--pencil)" }}>({analytics.progress_percentage}%)</span>
+          </p>
+          <div className="progress-bar" style={{ marginTop: 12 }} aria-hidden>
+            <div className="progress-bar-fill" style={{ width: `${analytics.progress_percentage}%` }} />
           </div>
-          <div className="progress-bar" style={{ marginTop: 12 }}>
-            <div className="progress-bar-fill" style={{ width: `${analytics.progress_percentage}%`, background: "linear-gradient(90deg, var(--brand-start), var(--accent-emerald))" }} />
-          </div>
-        </div>
+          <p style={{ color: "var(--pencil)", marginTop: 10 }}>
+            {fmt(analytics.remaining_minutes)} teaching minutes left this semester.
+          </p>
+        </section>
       )}
 
-      {graph && graph.bottlenecks.length > 0 && (
-        <div className="card" style={{ padding: 24, gridColumn: "1 / -1" }}>
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--accent-rose)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-            <AlertTriangle size={16} /> Prerequisite Bottlenecks
-          </h3>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {graph.nodes.filter((n) => graph.bottlenecks.includes(n.id)).map((n) => (
-              <div key={n.id} className="badge badge-danger" style={{ padding: "8px 14px" }}>
-                {n.name} — {n.avg_score}% avg · {n.downstream_count} dependents
-              </div>
+      {struggling.length > 0 && (
+        <section className="card" style={{ padding: 22, gridColumn: "1 / -1" }}>
+          <h2 style={{ fontSize: "1.05rem" }}>Concepts holding the class back</h2>
+          <p style={{ color: "var(--pencil)", margin: "4px 0 12px" }}>
+            Students scored low on these, and later concepts depend on them. The next lesson plans add revision for them.
+          </p>
+          <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+            {struggling.map((n) => (
+              <li key={n.id}>
+                <strong>{n.name}</strong>: class average {n.avg_score}%, {n.downstream_count} later concept{n.downstream_count === 1 ? "" : "s"} depend on it
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
     </div>
   );
 }
 
-function CurriculumTab({ graph, courseId }: { graph: CurriculumGraph | null; courseId: string }) {
-  if (!graph) return (
-    <div className="card" style={{ padding: 48, textAlign: "center" }}>
-      <GitBranch size={40} style={{ color: "var(--text-muted)", margin: "0 auto 12px" }} />
-      <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 8 }}>No Curriculum Data</h3>
-      <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: 20 }}>
-        Upload and confirm a syllabus to generate the curriculum graph with prerequisite DAGs.
+function ProgressTab({ analytics }: { analytics: CourseAnalytics | null }) {
+  if (!analytics) return <p>Progress appears here once you record the first class.</p>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <p style={{ fontSize: "1.05rem" }}>
+        <strong>{analytics.progress_percentage}% of the course taught.</strong>{" "}
+        {fmt(analytics.actual_minutes_taught)} minutes taught so far, {fmt(analytics.remaining_minutes)} left.
       </p>
-      <Link href={`/upload?courseId=${courseId}`} className="btn btn-primary">
-        <Upload size={16} /> Upload Syllabus Copy
-      </Link>
-    </div>
-  );
-  return <CurriculumGraphView graph={graph} />;
-}
 
-function OptimizationTab({ optimization }: { optimization: CourseOptimization | null }) {
-  if (!optimization) return <EmptyState message="No optimization data available." />;
-
-  const pressureColors: Record<string, string> = {
-    healthy: "var(--accent-emerald)", balanced: "var(--accent-amber)", high_pressure: "var(--accent-rose)",
-  };
-
-  return (
-    <div>
-      {/* Budget Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 24 }}>
-        <BudgetCard label="Total Available" value={`${optimization.total_available_minutes}m`} color="var(--accent-blue)" />
-        <BudgetCard label="Allocated" value={`${optimization.total_allocated_minutes}m`} color="var(--accent-purple)" />
-        <BudgetCard label="Revision Budget" value={`${optimization.revision_budget_minutes}m`} color="var(--accent-amber)" />
-        <BudgetCard label="Assessment Budget" value={`${optimization.assessment_budget_minutes}m`} color="var(--accent-cyan)" />
-        <BudgetCard label="Buffer" value={`${optimization.unallocated_buffer_minutes}m`} color={pressureColors[optimization.time_pressure_status]} />
-      </div>
-
-      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-        <span className={`badge ${optimization.time_pressure_status === "healthy" ? "badge-success" : optimization.time_pressure_status === "balanced" ? "badge-warning" : "badge-danger"}`}>
-          {optimization.time_pressure_status.replace("_", " ")}
-        </span>
-        <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-          Time Pressure: {optimization.formula_explanation?.invariant}
-        </span>
-      </div>
-
-      {/* Allocations Table */}
-      <div className="card" style={{ overflow: "hidden" }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Unit</th>
-              <th>Topic</th>
-              <th>Estimated</th>
-              <th>Allocated</th>
-              <th>Periods</th>
-              <th>Priority</th>
-              <th>Reason Codes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {optimization.topic_allocations.map((alloc) => (
-              <tr key={alloc.topic_id}>
-                <td><span className="badge badge-neutral">U{alloc.unit_number}</span></td>
-                <td style={{ fontWeight: 500, color: "var(--text-primary)" }}>{alloc.topic_title}</td>
-                <td>{alloc.estimated_minutes}m</td>
-                <td style={{ fontWeight: 600, color: "var(--accent-blue)" }}>{alloc.allocated_minutes}m</td>
-                <td>{alloc.recommended_periods}</td>
-                <td>
-                  <span style={{ fontWeight: 600, color: alloc.priority_score > 0.6 ? "var(--accent-amber)" : "var(--text-secondary)" }}>
-                    {alloc.priority_score.toFixed(3)}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {alloc.reason_codes.slice(0, 2).map((r) => (
-                      <span key={r} className="badge badge-neutral" style={{ fontSize: "0.5625rem" }}>{r}</span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function AssessmentsTab({ assessments }: { assessments: AssessmentItem[] }) {
-  if (assessments.length === 0) return <EmptyState message="No assessments recorded yet." />;
-
-  return (
-    <div>
-      <div style={{ display: "grid", gap: 16 }}>
-        {assessments.map((a) => (
-          <div key={a.id} className="card" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div>
-                <h4 style={{ fontSize: "0.9375rem", fontWeight: 600 }}>{a.title}</h4>
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <span className="badge badge-neutral">{a.assessment_type}</span>
-                  <span className={`badge ${a.status === "completed" ? "badge-success" : "badge-warning"}`}>{a.status}</span>
-                  <span className="badge badge-neutral">{a.max_marks} marks</span>
-                </div>
-              </div>
-              <div style={{ textAlign: "right", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                {a.questions_count} questions
-              </div>
-            </div>
-            {a.performances && a.performances.length > 0 && (
-              <div style={{ borderTop: "1px solid var(--border-default)", paddingTop: 12 }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>
-                  Concept Performance
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {a.performances.map((p) => (
-                    <div key={p.concept_id} className={`badge ${p.weakness_flag ? "badge-danger" : "badge-success"}`}>
-                      {p.concept_name}: {p.average_score}%
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AnalyticsTab({ analytics }: { analytics: CourseAnalytics | null }) {
-  if (!analytics) return <EmptyState message="No analytics available." />;
-
-  return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <div className="card stat-glow-emerald" style={{ padding: 20, textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--accent-emerald)" }}>{analytics.progress_percentage}%</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Course Progress</div>
-        </div>
-        <div className="card stat-glow-blue" style={{ padding: 20, textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--accent-blue)" }}>{analytics.actual_minutes_taught}m</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Minutes Taught</div>
-        </div>
-        <div className="card stat-glow-amber" style={{ padding: 20, textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--accent-amber)" }}>{analytics.remaining_minutes}m</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Remaining</div>
-        </div>
-      </div>
-
-      {/* Method Effectiveness */}
-      {analytics.teaching_method_effectiveness.length > 0 && (
-        <div className="card" style={{ overflow: "hidden", marginBottom: 24 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-default)" }}>
-            <h3 style={{ fontSize: "0.875rem", fontWeight: 600 }}>Teaching Method Effectiveness</h3>
-          </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Method</th>
-                <th>Concept Type</th>
-                <th>Baseline</th>
-                <th>Post-Score</th>
-                <th>Gain</th>
-                <th>Sessions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analytics.teaching_method_effectiveness.map((m, i) => (
-                <tr key={i}>
-                  <td style={{ fontWeight: 500, color: "var(--text-primary)" }}>{m.method_name}</td>
-                  <td><span className="badge badge-neutral">{m.concept_type}</span></td>
-                  <td>{m.baseline_score}%</td>
-                  <td>{m.post_score}%</td>
-                  <td style={{ fontWeight: 600, color: "var(--accent-emerald)" }}>+{m.observed_gain}%</td>
-                  <td>{m.sessions_tracked}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Alerts */}
       {analytics.alerts.length > 0 && (
-        <div className="card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 12 }}>Intelligent Alerts</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <section>
+          <h2 style={{ fontSize: "1.05rem", marginBottom: 10 }}>Things to look at</h2>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
             {analytics.alerts.map((alert) => (
-              <div key={alert.id} style={{ padding: 12, borderRadius: "var(--radius-md)", background: alert.severity === "danger" ? "rgba(244,63,94,0.06)" : alert.severity === "warning" ? "rgba(245,158,11,0.06)" : alert.severity === "success" ? "rgba(16,185,129,0.06)" : "rgba(59,130,246,0.06)", border: "1px solid var(--border-default)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  {alert.severity === "danger" ? <AlertTriangle size={14} style={{ color: "#fb7185" }} /> : alert.severity === "warning" ? <AlertTriangle size={14} style={{ color: "#fbbf24" }} /> : <CheckCircle2 size={14} style={{ color: "#34d399" }} />}
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{alert.title}</span>
-                </div>
-                <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: 0 }}>{alert.message}</p>
-              </div>
+              <li
+                key={alert.id}
+                className="note-item"
+                style={{ borderLeftColor: ALERT_COLOR[alert.severity] || "var(--ink)" }}
+              >
+                <strong>{alert.title}</strong>
+                <p style={{ color: "var(--pencil)", margin: "2px 0 0" }}>{alert.message}</p>
+              </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {analytics.teaching_method_effectiveness.length > 0 && (
+        <section className="card" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--rule)" }}>
+            <h2 style={{ fontSize: "1.05rem" }}>Which teaching methods worked</h2>
+            <p style={{ color: "var(--pencil)", marginTop: 2 }}>
+              Average quiz score before and after classes taught each way. The lesson plans favour methods with bigger improvements.
+            </p>
           </div>
-        </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Method</th>
+                  <th scope="col">Used for</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Before</th>
+                  <th scope="col" style={{ textAlign: "right" }}>After</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Improvement</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Classes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analytics.teaching_method_effectiveness.map((m, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{m.method_name}</td>
+                    <td>{CONCEPT_KIND[m.concept_type] || m.concept_type}</td>
+                    <td style={{ textAlign: "right" }}>{m.baseline_score}%</td>
+                    <td style={{ textAlign: "right" }}>{m.post_score}%</td>
+                    <td style={{ textAlign: "right", fontWeight: 600, color: m.observed_gain >= 0 ? "var(--tick)" : "var(--redpen)" }}>
+                      {m.observed_gain >= 0 ? "+" : ""}{m.observed_gain} points
+                    </td>
+                    <td style={{ textAlign: "right" }}>{m.sessions_tracked}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   );
 }
 
-function BudgetCard({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="card" style={{ padding: 16, textAlign: "center" }}>
-      <div style={{ fontSize: "1.375rem", fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4 }}>{label}</div>
-    </div>
-  );
-}
+const ALERT_COLOR: Record<string, string> = {
+  danger: "var(--redpen)",
+  warning: "var(--caution)",
+  success: "var(--tick)",
+  info: "var(--ink)",
+};
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ color: "var(--text-muted)" }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>{label}</div>
-        <div style={{ fontSize: "0.9375rem", fontWeight: 600 }}>{value}</div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="card" style={{ padding: 48, textAlign: "center" }}>
-      <Target size={40} style={{ color: "var(--text-muted)", margin: "0 auto 12px" }} />
-      <p style={{ color: "var(--text-secondary)" }}>{message}</p>
-    </div>
-  );
-}
-
-function LoadingSkeleton() {
-  return (
-    <div>
-      <div className="skeleton" style={{ width: 300, height: 32, marginBottom: 8 }} />
-      <div className="skeleton" style={{ width: 500, height: 18, marginBottom: 24 }} />
-      <div className="skeleton" style={{ width: "100%", height: 44, borderRadius: "var(--radius-md)", marginBottom: 24 }} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        <div className="skeleton" style={{ height: 250, borderRadius: "var(--radius-lg)" }} />
-        <div className="skeleton" style={{ height: 250, borderRadius: "var(--radius-lg)" }} />
-      </div>
-    </div>
-  );
-}
+const CONCEPT_KIND: Record<string, string> = {
+  conceptual: "Ideas to understand",
+  procedural: "Procedures",
+  problem_solving: "Problem solving",
+  analytical: "Analysis",
+  practical: "Hands-on practice",
+  revision: "Revision",
+};

@@ -1,7 +1,7 @@
 import networkx as nx
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Any
 from sqlalchemy.orm import Session
-from app.models.entities import Topic, Concept, Performance, CourseOutcome, Course
+from app.models.entities import Topic, Concept, Performance
 
 # Default weights for priority scoring model
 DEFAULT_WEIGHTS = {
@@ -107,18 +107,19 @@ class ScoringEngine:
             reasons_list = list(reason_codes)
             explanation_parts = []
             if "WEAK_RECENT_PERFORMANCE" in reasons_list:
-                explanation_parts.append("cohort demonstrated below-threshold mastery on prior assessments")
+                explanation_parts.append("students scored low on it recently")
             if any("PREREQUISITE_FOR" in r for r in reasons_list):
-                explanation_parts.append("serves as critical prerequisite for multiple downstream advanced topics")
+                explanation_parts.append("later topics build on it")
             if "HIGH_ASSESSMENT_RELEVANCE" in reasons_list:
-                explanation_parts.append("carries high weight in scheduled examinations")
+                explanation_parts.append("it carries a lot of exam marks")
             if "HIGH_CONCEPTUAL_DIFFICULTY" in reasons_list:
-                explanation_parts.append("presents high cognitive difficulty requiring dedicated worked examples")
+                explanation_parts.append("it is hard and needs worked examples")
 
-            if not explanation_parts:
-                explanation_parts.append("foundational curriculum progression requirements")
-
-            explanation_text = f"High priority allocated because {', and '.join(explanation_parts)}."
+            if explanation_parts:
+                reasons_text = ", ".join(explanation_parts[:-1]) + (" and " if len(explanation_parts) > 1 else "") + explanation_parts[-1]
+                explanation_text = f"Weighted up because {reasons_text}."
+            else:
+                explanation_text = "No extra weighting."
 
             results.append({
                 "topic": topic,

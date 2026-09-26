@@ -1,7 +1,7 @@
 """
 Graph Utilities for Curriculum Prerequisite DAGs
 """
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict, deque
 
 def detect_cycles(adjacency_list: Dict[str, List[str]]) -> List[List[str]]:
@@ -55,7 +55,7 @@ def topological_sort(adjacency_list: Dict[str, List[str]]) -> Optional[List[str]
         if u not in in_degree:
             in_degree[u] = 0
 
-    for u, neighbors in adjacency_list.items():
+    for neighbors in adjacency_list.values():
         for v in neighbors:
             in_degree[v] += 1
 

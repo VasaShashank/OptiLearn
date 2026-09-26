@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
 
 # -------------------------------------------------------------
@@ -14,16 +14,17 @@ class Token(BaseModel):
     role: str
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
 
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    department: str
-    employee_id: str
-    designation: Optional[str] = "Assistant Professor"
+    email: EmailStr
+    # bcrypt only uses the first 72 bytes; cap well below any abuse size
+    password: str = Field(min_length=8, max_length=72)
+    full_name: str = Field(min_length=1, max_length=255)
+    department: str = Field(min_length=1, max_length=100)
+    employee_id: str = Field(min_length=1, max_length=50)
+    designation: Optional[str] = Field(default="Assistant Professor", max_length=100)
 
 class UserOut(BaseModel):
     id: str
@@ -68,18 +69,24 @@ class CourseOut(BaseModel):
     units_count: int = 0
     topics_count: int = 0
     concepts_count: int = 0
+    my_role: str = "owner"  # owner / co_teacher / viewer / admin
     created_at: Optional[datetime] = None
 
 # -------------------------------------------------------------
 # Curriculum & Extraction Schemas
 # -------------------------------------------------------------
+# Same value sets as the CHECK constraints on concepts.concept_type / course_outcomes.bloom_level,
+# so bad input is a 422 from the API rather than a constraint error from the database
+ConceptType = Literal["conceptual", "procedural", "problem_solving", "practical", "analytical", "revision"]
+BloomLevel = Literal["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"]
+
 class ConceptDraft(BaseModel):
     id: Optional[str] = None
     name: str
     description: Optional[str] = None
     difficulty: int = Field(default=3, ge=1, le=5)
     importance: int = Field(default=3, ge=1, le=5)
-    concept_type: str = "conceptual"
+    concept_type: ConceptType = "conceptual"
     prerequisites: List[str] = [] # list of prerequisite concept names or IDs
     bloom_level: Optional[str] = "Understand"
 
@@ -100,7 +107,7 @@ class UnitDraft(BaseModel):
 class OutcomeDraft(BaseModel):
     code: str
     description: str
-    bloom_level: str = "Understand"
+    bloom_level: BloomLevel = "Understand"
 
 class ExtractedCurriculum(BaseModel):
     course_name: str
@@ -170,6 +177,26 @@ class CourseOptimizationResponse(BaseModel):
     topic_allocations: List[TopicAllocationOut]
     formula_explanation: Dict[str, Any]
 
+ResourceKind = Literal["slides", "video", "link", "dataset", "code", "formula"]
+
+class LessonResource(BaseModel):
+    """Teaching material attached to a lesson plan. Link-type resources carry a URL;
+    code and formula resources carry their text (formulas as LaTeX)."""
+    kind: ResourceKind
+    title: str = Field(min_length=1, max_length=200)
+    url: Optional[str] = Field(default=None, max_length=2000)
+    content: Optional[str] = Field(default=None, max_length=20000)
+    language: Optional[str] = Field(default=None, max_length=30)
+
+    @model_validator(mode="after")
+    def _check_payload(self):
+        if self.kind in ("slides", "video", "link", "dataset"):
+            if not self.url or not self.url.lower().startswith(("https://", "http://")):
+                raise ValueError(f"A {self.kind} resource needs an http(s) link")
+        elif not (self.content and self.content.strip()):
+            raise ValueError(f"A {self.kind} resource needs its text")
+        return self
+
 class PeriodPhase(BaseModel):
     phase_name: str
     duration_minutes: int
@@ -224,7 +251,34 @@ class LessonPlanOut(BaseModel):
     active_exercises: List[str]
     misconceptions: List[str]
     assessment_questions: List[str]
+    resources: List[LessonResource] = []
+    version: int = 1
     created_at: Optional[datetime] = None
+
+class SessionLogIn(BaseModel):
+    """What the teacher records after a class (Teach -> Record)."""
+    method_id: Optional[str] = None
+    actual_minutes: int = Field(gt=0, le=300)
+    student_engagement_rating: int = Field(default=4, ge=1, le=5)
+    completion_rate: float = Field(default=1.0, ge=0.0, le=1.0)
+    teacher_notes: Optional[str] = Field(default=None, max_length=2000)
+    topic_completed: bool = False
+    # The topic ran out of time: teach it again next period and push later periods back one
+    carry_over: bool = False
+
+class LessonPlanUpdate(BaseModel):
+    """Teacher review of a recommended plan (human-in-the-loop). expected_version is the
+    version the client last read; a mismatch means someone else saved in between -> 409."""
+    expected_version: int = Field(ge=1)
+    status: Optional[Literal["approved", "rejected", "modified"]] = None
+    phases: Optional[List[PeriodPhase]] = None
+    learning_objectives: Optional[List[str]] = None
+    worked_examples: Optional[List[str]] = None
+    active_exercises: Optional[List[str]] = None
+    misconceptions: Optional[List[str]] = None
+    assessment_questions: Optional[List[str]] = None
+    resources: Optional[List[LessonResource]] = Field(default=None, max_length=50)
+    change_note: Optional[str] = Field(default=None, max_length=500)
 
 # -------------------------------------------------------------
 # Assessment & Performance Schemas
@@ -244,12 +298,12 @@ class AssessmentCreate(BaseModel):
 
 class PerformanceRecordIn(BaseModel):
     concept_id: str
-    average_score: float
-    sample_size: int = 58
-    common_errors: Optional[str] = None
+    average_score: float = Field(ge=0.0, le=100.0)
+    sample_size: int = Field(default=58, gt=0)
+    common_errors: Optional[str] = Field(default=None, max_length=2000)
 
 class RecordAssessmentResultsRequest(BaseModel):
-    performances: List[PerformanceRecordIn]
+    performances: List[PerformanceRecordIn] = Field(min_length=1)
 
 class AssessmentOut(BaseModel):
     id: str
@@ -308,6 +362,8 @@ class QueryDemoResult(BaseModel):
     category: str
     sql: str
     purpose: str
+    sql_features: List[str] = []
+    requires: Optional[str] = None
     params: Dict[str, Any] = {}
     row_count: int
     columns: List[str]

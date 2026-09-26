@@ -1,0 +1,256 @@
+"""
+Database-enforced security from migration 0003, exercised with the real roles:
+  * optiteach_app      - what the API connects as (least privilege)
+  * optiteach_readonly - what the SQL console runs as (SELECT + row-level security)
+Each test tries something that must be refused *by PostgreSQL*.
+"""
+import uuid
+
+import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
+
+from app.models.entities import User
+from app.services.sql_console_service import ConsoleError, run_console_query
+
+
+# ------------------------------------------------------------------ helpers / fixtures
+
+@pytest.fixture
+def app_conn(pg_app):
+    with pg_app.connect() as connection:
+        trans = connection.begin()
+        yield connection
+        trans.rollback()
+
+
+def refused(conn, sql, match="permission denied"):
+    with pytest.raises(DBAPIError, match=match):
+        with conn.begin_nested():
+            conn.execute(text(sql))
+
+
+@pytest.fixture(scope="module")
+def second_teacher(pg):
+    """A committed second teacher + course, so console isolation can be observed."""
+    suffix = uuid.uuid4().hex[:8]
+    ids = {"user": f"u-{suffix}", "teacher": f"t-{suffix}", "course": f"c-{suffix}"}
+    with pg.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO users (id, email, hashed_password, full_name, role, is_active)
+                VALUES (:user, :email, 'x', 'Second Teacher', 'teacher', true);
+            INSERT INTO teachers (id, user_id, department, employee_id) VALUES (:teacher, :user, 'EEE', :emp);
+            INSERT INTO courses (id, teacher_id, code, title, semester, total_classes, period_duration)
+                VALUES (:course, :teacher, 'EE201', 'Circuits', 'Fall 2026', 30, 50);
+        """), {**ids, "email": f"second-{suffix}@optiteach.edu", "emp": f"EMP-{suffix}"})
+    yield ids
+    with pg.begin() as conn:
+        conn.execute(text("DELETE FROM users WHERE id = :u"), {"u": ids["user"]})
+
+
+def console(pg_app, sql, email, **kw):
+    with Session(bind=pg_app) as session:
+        user = session.query(User).filter(User.email == email).one()
+        return run_console_query(session, sql, user, **kw)
+
+
+# ------------------------------------------------------------------ least privilege (app role)
+
+def test_app_role_cannot_change_schema(app_conn):
+    refused(app_conn, "DROP TABLE courses", match="must be owner")
+    refused(app_conn, "ALTER TABLE courses ADD COLUMN x int", match="must be owner")
+    refused(app_conn, "TRUNCATE performance")
+    refused(app_conn, "CREATE TABLE sneaky (id int)")
+    refused(app_conn, "SELECT * FROM alembic_version")
+
+
+def test_audit_log_is_append_only_for_the_app(app_conn):
+    refused(app_conn, "INSERT INTO audit_log (table_name, operation) VALUES ('courses', 'DELETE')")
+    refused(app_conn, "UPDATE audit_log SET changed_by = 'someone-else'")
+    refused(app_conn, "DELETE FROM audit_log")
+
+    # ...yet the SECURITY DEFINER trigger still records the app's own writes
+    topic_id = app_conn.execute(text("SELECT id FROM topics LIMIT 1")).scalar()
+    before = app_conn.execute(text("SELECT count(*) FROM audit_log")).scalar()
+    app_conn.execute(text("UPDATE topics SET priority_score = priority_score + 1 WHERE id = :t"), {"t": topic_id})
+    assert app_conn.execute(text("SELECT count(*) FROM audit_log")).scalar() == before + 1
+
+
+def test_materialized_view_refresh_only_through_definer_function(app_conn):
+    refused(app_conn, "REFRESH MATERIALIZED VIEW mv_course_dashboard", match="permission denied|must be owner")
+    app_conn.execute(text("SELECT fn_refresh_course_dashboard()"))
+
+
+def test_app_role_can_use_granted_routines(app_conn):
+    course_id = app_conn.execute(text("SELECT id FROM courses WHERE code = 'CS302'")).scalar()
+    assert app_conn.execute(text("SELECT pressure_status FROM fn_time_pressure(:c)"), {"c": course_id}).scalar()
+
+
+# ------------------------------------------------------------------ console: row-level security
+
+def test_console_teacher_sees_only_own_courses(pg_app, second_teacher):
+    codes = {r["code"] for r in console(pg_app, "SELECT code FROM courses", "faculty@optiteach.edu")["rows"]}
+    assert codes == {"CS302"}
+
+    # Child tables inherit the parent's visibility through their policies
+    units = console(pg_app, "SELECT count(*) AS n FROM units u JOIN courses c ON c.id = u.course_id", "faculty@optiteach.edu")
+    all_units = console(pg_app, "SELECT count(*) AS n FROM units", "faculty@optiteach.edu")
+    assert units["rows"] == all_units["rows"]
+
+
+def test_console_admin_sees_every_course(pg_app, second_teacher):
+    result = console(pg_app, "SELECT code FROM courses", "admin@optiteach.edu")
+    assert {"CS302", "EE201"} <= {r["code"] for r in result["rows"]}
+    assert result["scope"].startswith("all courses")
+
+
+def test_console_rls_applies_through_views(pg_app, second_teacher):
+    rows = console(pg_app, "SELECT DISTINCT code FROM v_course_progress", "faculty@optiteach.edu")["rows"]
+    assert rows == [{"code": "CS302"}]
+
+
+def test_console_users_table_hides_password_hashes_and_other_users(pg_app, second_teacher):
+    with pytest.raises(ConsoleError, match="permission denied"):
+        console(pg_app, "SELECT hashed_password FROM users", "faculty@optiteach.edu")
+    emails = [r["email"] for r in console(pg_app, "SELECT email FROM users", "faculty@optiteach.edu")["rows"]]
+    assert emails == ["faculty@optiteach.edu"]
+
+
+# ------------------------------------------------------------------ console: attack attempts
+
+@pytest.mark.parametrize("sql,match", [
+    # Rewriting the settings the RLS policies read
+    ("SELECT set_config('app.is_admin', 'true', true), code FROM courses", "permission denied"),
+    ("SELECT query_to_xml('select * from courses', true, false, '')", "permission denied"),
+    # Writes, even disguised inside a CTE
+    ("WITH gone AS (DELETE FROM courses RETURNING id) SELECT * FROM gone", "read-only transaction"),
+    # Statements the allow-list refuses outright
+    ("SET app.is_admin = 'true'", "Only SELECT"),
+    ("RESET ROLE", "Only SELECT"),
+    ("DO $$ BEGIN END $$", "Only SELECT"),
+    ("SELECT 1; DELETE FROM courses", "single statement"),
+    ("UPDATE courses SET title = 'x'", "Only SELECT"),
+])
+def test_console_attacks_are_refused(pg_app, sql, match):
+    with pytest.raises(ConsoleError, match=match):
+        console(pg_app, sql, "faculty@optiteach.edu")
+
+
+def test_console_statement_timeout(pg_app):
+    with pytest.raises(ConsoleError, match="statement timeout"):
+        console(pg_app, "SELECT pg_sleep(2)", "faculty@optiteach.edu", timeout_ms=200)
+
+
+def test_console_semicolon_inside_literal_is_fine_and_explain_works(pg_app):
+    assert console(pg_app, "SELECT 'a;b' AS s;", "faculty@optiteach.edu")["rows"] == [{"s": "a;b"}]
+    plan = console(pg_app, "EXPLAIN SELECT * FROM class_sessions WHERE status = 'scheduled'", "faculty@optiteach.edu")
+    assert plan["columns"] == ["QUERY PLAN"]
+
+
+def test_console_leaves_no_state_behind(pg_app):
+    console(pg_app, "SELECT 1", "faculty@optiteach.edu")
+    with pg_app.connect() as conn:  # same pool: role and settings must be reset
+        assert conn.execute(text("SELECT current_user")).scalar() == "optiteach_app"
+        assert conn.execute(text("SELECT current_setting('app.teacher_id', true)")).scalar() in (None, "")
+
+
+# ------------------------------------------------------------------ Phase 4: concurrency on PostgreSQL
+
+def test_concurrent_session_logs_one_wins(pg_app):
+    """Two requests record the same class at the same moment: FOR UPDATE makes one wait,
+    and it then sees the session completed -> exactly one success, one conflict."""
+    import threading
+    from app.schemas.schemas import SessionLogIn
+    from app.services.errors import ConflictError
+    from app.services.session_service import session_service
+
+    with pg_app.connect() as conn:
+        course_id = conn.execute(text("SELECT id FROM courses WHERE code = 'CS302'")).scalar()
+        number = conn.execute(text(
+            "SELECT max(session_number) FROM class_sessions WHERE course_id = :c AND status = 'scheduled'"
+        ), {"c": course_id}).scalar()
+
+    barrier, outcomes = threading.Barrier(2), []
+
+    def attempt():
+        with Session(bind=pg_app) as session:
+            barrier.wait()
+            try:
+                session_service.log_session(session, course_id, number, SessionLogIn(actual_minutes=50))
+                outcomes.append("ok")
+            except ConflictError:
+                outcomes.append("conflict")
+
+    threads = [threading.Thread(target=attempt) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=20)
+    assert sorted(outcomes) == ["conflict", "ok"]
+
+    with pg_app.connect() as conn:
+        assert conn.execute(text("""
+            SELECT count(*) FROM teaching_sessions ts JOIN class_sessions cs ON cs.id = ts.session_id
+            WHERE cs.course_id = :c AND cs.session_number = :n
+        """), {"c": course_id, "n": number}).scalar() == 1
+
+
+def test_transaction_lab_scenarios(pg_app):
+    from app.services.transaction_lab_service import INITIAL_BALANCES, transaction_lab_service as lab
+
+    atomic = lab.run(pg_app, "atomicity")
+    assert atomic["final_balances"] == INITIAL_BALANCES
+    assert any(not s["ok"] and "check_non_negative_balance" in s["result"] for s in atomic["timeline"])
+
+    nrr = {r["isolation_level"]: r for r in lab.run(pg_app, "non_repeatable_read")["runs"]}
+    assert nrr["READ COMMITTED"]["repeatable"] is False
+    assert nrr["REPEATABLE READ"]["repeatable"] is True
+
+    lost = lab.run(pg_app, "lost_update")["runs"]
+    assert lost[0]["actual"] != lost[0]["expected"]  # anomaly reproduced
+    assert "could not serialize" in " ".join(str(s["result"]) for s in lost[1]["timeline"])
+    assert all(r["actual"] == r["expected"] for r in lost[1:])
+
+    deadlock = lab.run(pg_app, "deadlock")
+    assert sorted(deadlock["outcome"].values()) == ["aborted", "committed"]
+    assert any("deadlock detected" in str(s["result"]) for s in deadlock["timeline"])
+
+
+def test_catalog_and_explain_on_postgres(pg_app):
+    from app.services.db_catalog_service import db_catalog_service
+    from app.services.dbms_insights_service import dbms_insights_service
+
+    with Session(bind=pg_app) as session:
+        objects = db_catalog_service.database_objects(session)
+        assert {"trg_prerequisite_guard", "trg_performance_weakness"} <= {t["name"] for t in objects["triggers"]}
+        assert any(r["name"] == "fn_audit_row_change" and r["security_definer"] for r in objects["routines"])
+        assert {"courses", "course_members"} <= {p["table_name"] for p in objects["policies"]}
+        assert any(i["is_partial"] for i in objects["indexes"])
+
+        course_id = session.execute(text("SELECT id FROM courses WHERE code = 'CS302'")).scalar()
+        plan = dbms_insights_service.explain_demo_query(session, "q11_curriculum_depth_recursive", course_id)["plan"]
+        assert any("actual time" in line for line in plan)
+
+
+# ------------------------------------------------------------------ co-teaching on PostgreSQL
+
+def test_owner_cannot_be_member_and_console_sees_shared_courses(pg, pg_app, second_teacher):
+    cs302_teacher = None
+    with pg.begin() as conn:
+        cs302 = conn.execute(text("SELECT id, teacher_id FROM courses WHERE code = 'CS302'")).one()
+        cs302_teacher = cs302.teacher_id
+        with pytest.raises(DBAPIError, match="owner cannot also be added"):
+            with conn.begin_nested():
+                conn.execute(text("INSERT INTO course_members VALUES (:c, :t, 'viewer', now())"), {"c": cs302.id, "t": cs302.teacher_id})
+        # Share the second teacher's course with the CS302 teacher as a viewer
+        conn.execute(text("INSERT INTO course_members VALUES (:c, :t, 'viewer', now())"),
+                     {"c": second_teacher["course"], "t": cs302_teacher})
+    try:
+        codes = {r["code"] for r in console(pg_app, "SELECT code FROM courses", "faculty@optiteach.edu")["rows"]}
+        assert codes == {"CS302", "EE201"}  # own + shared, and nothing else
+        shared = console(pg_app, "SELECT role FROM course_members", "faculty@optiteach.edu")["rows"]
+        assert shared == [{"role": "viewer"}]
+    finally:
+        with pg.begin() as conn:
+            conn.execute(text("DELETE FROM course_members WHERE course_id = :c"), {"c": second_teacher["course"]})
