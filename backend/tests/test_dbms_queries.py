@@ -26,7 +26,13 @@ def test_query_catalog_lists_features(api):
 
 def test_schema_summary_reports_real_row_counts(api):
     tables = {t["table_name"]: t for t in api.get("/api/dbms/schema").json()}
-    assert tables["concepts"]["row_count"] == 19
+    from app.database.connection import SessionLocal
+    from app.models.entities import Concept
+    db = SessionLocal()
+    try:
+        assert tables["concepts"]["row_count"] == db.query(Concept).count() >= 19
+    finally:
+        db.close()
     assert "1NF" in tables["teacher_preferred_methods"]["normal_form"]
 
 
