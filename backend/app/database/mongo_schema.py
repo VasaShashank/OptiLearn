@@ -39,6 +39,17 @@ COLLECTIONS: Dict[str, Dict[str, Any]] = {
                 "parent_doc_id": {"bsonType": ["string", "null"]},
                 "phases": {"bsonType": "array", "minItems": 1, "items": PHASE_SCHEMA},
                 "learning_objectives": {"bsonType": "array", "items": {"bsonType": "string"}},
+                "resources": {"bsonType": "array", "maxItems": 50, "items": {
+                    "bsonType": "object",
+                    "required": ["kind", "title"],
+                    "properties": {
+                        "kind": {"enum": ["slides", "video", "link", "dataset", "code", "formula"]},
+                        "title": {"bsonType": "string", "minLength": 1},
+                        "url": {"bsonType": ["string", "null"]},
+                        "content": {"bsonType": ["string", "null"]},
+                        "language": {"bsonType": ["string", "null"]},
+                    },
+                }},
                 "change_note": {"bsonType": ["string", "null"]},
                 "edited_by": {"bsonType": ["string", "null"]},
             },

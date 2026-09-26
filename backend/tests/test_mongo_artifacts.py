@@ -6,8 +6,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-from pymongo import MongoClient
-from pymongo.errors import DuplicateKeyError, ServerSelectionTimeoutError, WriteError
+from pymongo.errors import DuplicateKeyError, WriteError
 
 from app.database.connection import get_mongo_db
 from app.database.mongo_schema import NLP_DRAFT_TTL_SECONDS, ensure_mongo_schema
@@ -145,19 +144,9 @@ def test_consistency_report_finds_and_repairs_orphans(api):
 
 # ------------------------------------------------------------------ real MongoDB server
 
-@pytest.fixture(scope="module")
-def real_mongo():
-    try:
-        client = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=1500)
-        client.admin.command("ping")
-    except ServerSelectionTimeoutError:
-        pytest.skip("MongoDB server not available")
-    name = f"optiteach_test_{uuid.uuid4().hex[:6]}"
-    db = client[name]
-    ensure_mongo_schema(db)
-    yield db
-    client.drop_database(name)
-    client.close()
+@pytest.fixture
+def real_mongo(real_mongo_db):
+    return real_mongo_db
 
 
 def _valid_plan_doc(**overrides):

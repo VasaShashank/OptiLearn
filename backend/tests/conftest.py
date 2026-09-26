@@ -100,3 +100,24 @@ def pg_app(pg):
     engine = create_engine(PG_APP_TEST_URL)
     yield engine
     engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def real_mongo_db():
+    """A throwaway database on a real MongoDB server, with validators and indexes applied."""
+    import uuid
+    from pymongo import MongoClient
+    from pymongo.errors import ServerSelectionTimeoutError
+    from app.database.mongo_schema import ensure_mongo_schema
+
+    try:
+        client = MongoClient(os.getenv("TEST_MONGO_URL", "mongodb://localhost:27017"), serverSelectionTimeoutMS=1500)
+        client.admin.command("ping")
+    except ServerSelectionTimeoutError:
+        pytest.skip("MongoDB server not available")
+    name = f"optiteach_test_{uuid.uuid4().hex[:6]}"
+    db = client[name]
+    ensure_mongo_schema(db)
+    yield db
+    client.drop_database(name)
+    client.close()

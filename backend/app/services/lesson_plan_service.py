@@ -201,6 +201,7 @@ class LessonPlanService:
             active_exercises=doc.get("active_exercises", []) if doc else [],
             misconceptions=doc.get("misconceptions", []) if doc else [],
             assessment_questions=doc.get("assessment_questions", []) if doc else [],
+            resources=doc.get("resources", []) if doc else [],
             version=lp.version,
             created_at=lp.created_at
         )

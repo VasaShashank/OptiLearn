@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database.connection import get_mongo_db
 from app.models.entities import ClassSession, Concept, Course, LessonPlan, Topic, Unit, User
 
-LIST_FIELDS = ["learning_objectives", "worked_examples", "active_exercises", "misconceptions", "assessment_questions"]
+LIST_FIELDS = ["learning_objectives", "worked_examples", "active_exercises", "misconceptions", "assessment_questions", "resources"]
 PHASE_FIELDS = ["phase_name", "duration_minutes", "method_name", "activity_description"]
 
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
 
@@ -176,6 +176,26 @@ class CourseOptimizationResponse(BaseModel):
     topic_allocations: List[TopicAllocationOut]
     formula_explanation: Dict[str, Any]
 
+ResourceKind = Literal["slides", "video", "link", "dataset", "code", "formula"]
+
+class LessonResource(BaseModel):
+    """Teaching material attached to a lesson plan. Link-type resources carry a URL;
+    code and formula resources carry their text (formulas as LaTeX)."""
+    kind: ResourceKind
+    title: str = Field(min_length=1, max_length=200)
+    url: Optional[str] = Field(default=None, max_length=2000)
+    content: Optional[str] = Field(default=None, max_length=20000)
+    language: Optional[str] = Field(default=None, max_length=30)
+
+    @model_validator(mode="after")
+    def _check_payload(self):
+        if self.kind in ("slides", "video", "link", "dataset"):
+            if not self.url or not self.url.lower().startswith(("https://", "http://")):
+                raise ValueError(f"A {self.kind} resource needs an http(s) link")
+        elif not (self.content and self.content.strip()):
+            raise ValueError(f"A {self.kind} resource needs its text")
+        return self
+
 class PeriodPhase(BaseModel):
     phase_name: str
     duration_minutes: int
@@ -230,6 +250,7 @@ class LessonPlanOut(BaseModel):
     active_exercises: List[str]
     misconceptions: List[str]
     assessment_questions: List[str]
+    resources: List[LessonResource] = []
     version: int = 1
     created_at: Optional[datetime] = None
 
@@ -253,6 +274,7 @@ class LessonPlanUpdate(BaseModel):
     active_exercises: Optional[List[str]] = None
     misconceptions: Optional[List[str]] = None
     assessment_questions: Optional[List[str]] = None
+    resources: Optional[List[LessonResource]] = Field(default=None, max_length=50)
     change_note: Optional[str] = Field(default=None, max_length=500)
 
 # -------------------------------------------------------------
