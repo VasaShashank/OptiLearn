@@ -12,6 +12,7 @@ export interface Course {
   units_count: number;
   topics_count: number;
   concepts_count: number;
+  my_role: "owner" | "admin" | "co_teacher" | "viewer";
   created_at?: string;
 }
 
@@ -484,4 +485,12 @@ export interface ConceptEditResult {
   topic_id: string;
   allocated_minutes_before: number;
   allocated_minutes_after: number;
+}
+
+// ── Co-teaching ──
+export type MemberRole = "co_teacher" | "viewer";
+
+export interface CourseMembers {
+  owner: { teacher_id: string; name: string; email: string };
+  members: { teacher_id: string; name: string; email: string; role: MemberRole; added_at: string }[];
 }

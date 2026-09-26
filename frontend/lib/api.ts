@@ -31,6 +31,8 @@ import type {
   CurriculumStructure,
   ConceptEditResult,
   ConceptType,
+  CourseMembers,
+  MemberRole,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -167,6 +169,17 @@ export const curriculumAPI = {
     const endpoint = `/courses/${courseId}/prerequisites?concept_id=${conceptId}&prerequisite_id=${prerequisiteId}`;
     const res = await fetch(`${API_BASE}${endpoint}`, { method: "DELETE", headers: authHeaders() });
     if (!res.ok) await handle(res, endpoint);  // 204 has no body to parse
+  },
+};
+
+export const membersAPI = {
+  list: (courseId: string) => fetchAPI<CourseMembers>(`/courses/${courseId}/members`),
+  put: (courseId: string, email: string, role: MemberRole) =>
+    fetchAPI<CourseMembers>(`/courses/${courseId}/members`, { method: "PUT", ...json({ email, role }) }),
+  remove: async (courseId: string, teacherId: string) => {
+    const endpoint = `/courses/${courseId}/members/${teacherId}`;
+    const res = await fetch(`${API_BASE}${endpoint}`, { method: "DELETE", headers: authHeaders() });
+    if (!res.ok) await handle(res, endpoint);
   },
 };
 

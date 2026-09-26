@@ -11,12 +11,13 @@ import {
 import { coursesAPI } from "@/lib/api";
 import CurriculumGraphView from "@/components/curriculum-graph-view";
 import AssessmentResults from "@/components/assessment-results";
+import CoursePeople from "@/components/course-people";
 import type {
   Course, CurriculumGraph, CourseOptimization, CourseAnalytics,
   AssessmentItem, GraphNode,
 } from "@/lib/types";
 
-type Tab = "overview" | "curriculum" | "optimization" | "assessments" | "analytics";
+type Tab = "overview" | "curriculum" | "optimization" | "assessments" | "analytics" | "people";
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -72,6 +73,7 @@ export default function CourseDetailPage() {
     { key: "optimization", label: "Optimization", icon: <Zap size={14} /> },
     { key: "assessments", label: "Assessments", icon: <FileText size={14} /> },
     { key: "analytics", label: "Analytics", icon: <BarChart3 size={14} /> },
+    { key: "people", label: "People", icon: <Users size={14} /> },
   ];
 
   return (
@@ -89,6 +91,11 @@ export default function CourseDetailPage() {
       </div>
 
       {/* Tabs */}
+      {course.my_role === "viewer" && (
+        <p role="note" className="card" style={{ padding: "10px 14px", marginBottom: 16, borderColor: "var(--caution)" }}>
+          This course is shared with you to view. You can look at everything, but only the owner or a co-teacher can change it.
+        </p>
+      )}
       <div className="tab-list" style={{ marginBottom: 24 }}>
         {tabs.map((t) => (
           <button
@@ -116,6 +123,7 @@ export default function CourseDetailPage() {
           />
         )}
         {activeTab === "analytics" && <AnalyticsTab analytics={analytics} />}
+        {activeTab === "people" && <CoursePeople courseId={courseId} canManage={course.my_role === "owner" || course.my_role === "admin"} />}
       </div>
     </div>
   );

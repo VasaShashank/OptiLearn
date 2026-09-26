@@ -86,6 +86,9 @@ export default function CoursesPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                 <div>
                   <span className="badge badge-info" style={{ marginBottom: 10 }}>{course.code}</span>
+                  {(course.my_role === "co_teacher" || course.my_role === "viewer") && (
+                    <span className="badge badge-neutral" style={{ marginLeft: 6 }}>Shared with you: {course.my_role === "viewer" ? "view only" : "co-teacher"}</span>
+                  )}
                   <h3 style={{ fontSize: "1.0625rem", fontWeight: 700, marginTop: 8, letterSpacing: "-0.01em" }}>{course.title}</h3>
                 </div>
                 <ArrowRight size={18} style={{ color: "var(--text-muted)", marginTop: 4 }} />
