@@ -89,7 +89,7 @@ export default function PlanReview({ courseId, plan, onUpdated }: {
     <div className="card" style={{ padding: 16, marginBottom: 20, borderColor: "var(--ink)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginRight: 4 }}>
-          Recommended plan · version {plan.version}
+          Version {plan.version}
         </span>
         <button type="button" className="btn btn-secondary" disabled={busy || plan.status === "approved" || editing}
           onClick={() => save({ expected_version: plan.version, status: "approved" })} style={{ fontSize: "0.9rem" }}>
