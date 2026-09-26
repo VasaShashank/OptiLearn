@@ -172,7 +172,7 @@ deletions — which is why the seed now deletes a course's Mongo artifacts befor
 
 ## 9. Tests
 
-121 tests (`python -m pytest backend/tests`): the portable suite on a throwaway SQLite database,
+120 tests (`python -m pytest backend/tests`): the portable suite on a throwaway SQLite database,
 plus PostgreSQL tests on a freshly migrated `optiteach_test` database (triggers, functions,
 procedure, views, generated column, roles, RLS and attack attempts, concurrency races, the
 Transaction Lab, co-teaching access, curriculum reordering) and MongoDB tests on a throwaway database (validators, unique and TTL indexes).

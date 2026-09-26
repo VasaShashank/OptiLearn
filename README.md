@@ -63,7 +63,7 @@ OptiMaximus/
 │   │                   # SQL console, transaction lab, DB catalog, DBMS demo queries
 │   ├── optimization/   # time allocator (MILP), class optimizer, scoring, revision, methods
 │   └── nlp/            # deterministic syllabus extraction
-├── backend/tests/      # 121 tests: SQLite suite + PostgreSQL + real MongoDB
+├── backend/tests/      # 120 tests: SQLite suite + PostgreSQL + real MongoDB
 ├── database/
 │   ├── migrations/     # Alembic 0001-0005 (source of truth for the schema)
 │   ├── scripts/        # backup.py, restore.py, export_sql_reference.py
@@ -215,7 +215,7 @@ The NLP extraction engine uses **deterministic rule-based parsing** (no external
 
 ## Tests
 
-121 tests (`python -m pytest backend/tests`):
+120 tests (`python -m pytest backend/tests`):
 
 | Area | What is checked |
 |------|-----------------|

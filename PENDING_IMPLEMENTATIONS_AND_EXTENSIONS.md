@@ -65,7 +65,7 @@ The following core modules are **fully implemented, tested, and verified**:
 
 ### Operations
 - Backup/restore scripts, generated reference SQL + ER diagram.
-- GitHub Actions CI: Ruff, migrations up/down/up + drift check, 121 tests on PostgreSQL 17 and
+- GitHub Actions CI: Ruff, migrations up/down/up + drift check, 120 tests on PostgreSQL 17 and
   MongoDB 8 service containers, ESLint + typecheck + build, and a `docker compose` smoke test.
 - Docker: multi-stage API and web images, Next.js standalone output, Caddy reverse proxy;
   migrations and first-run seeding happen on API start.
