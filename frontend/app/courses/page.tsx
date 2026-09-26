@@ -2,211 +2,81 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, BookOpen, Layers, Lightbulb, Clock, ArrowRight, Calendar, Users, Upload, Check } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { coursesAPI } from "@/lib/api";
 import type { Course } from "@/lib/types";
 
+const ROLE_NOTE: Record<string, string> = { co_teacher: "Shared with you (co-teacher)", viewer: "Shared with you (view only)" };
+
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [justCreatedCourse, setJustCreatedCourse] = useState<Course | null>(null);
+  const [courses, setCourses] = useState<Course[] | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState<Course | null>(null);
 
   useEffect(() => {
-    coursesAPI.list().then(setCourses).catch(() => {}).finally(() => setLoading(false));
+    coursesAPI.list().then(setCourses).catch(() => setCourses([]));
   }, []);
 
-  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    try {
-      const newCourse = await coursesAPI.create({
-        code: fd.get("code") as string,
-        title: fd.get("title") as string,
-        semester: fd.get("semester") as string,
-        academic_year: fd.get("academic_year") as string || "2026-2027",
-        total_classes: Number(fd.get("total_classes")) || 40,
-        period_duration: Number(fd.get("period_duration")) || 55,
-        section_name: fd.get("section_name") as string || "Section A",
-        student_count: Number(fd.get("student_count")) || 60,
-      });
-      setCourses((prev) => [...prev, newCourse]);
-      setShowModal(false);
-      setJustCreatedCourse(newCourse);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to create course");
-    }
-  };
-
-  if (loading) {
-    return (
-      <div>
-        <div className="skeleton" style={{ width: 200, height: 32, marginBottom: 24 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton" style={{ height: 200, borderRadius: "var(--radius-lg)" }} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  if (courses === null) return <div className="skeleton" style={{ height: 240 }} />;
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+      <header className="page-header">
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Courses</h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
-            Manage your courses and track curriculum progress
-          </p>
+          <h1>Courses</h1>
+          <p>Your courses, and any a colleague has shared with you.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> New Course
+        <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+          <Plus size={16} /> New course
         </button>
-      </div>
+      </header>
 
       {courses.length === 0 ? (
-        <div className="glass-card" style={{ padding: 64, textAlign: "center" }}>
-          <BookOpen size={48} style={{ color: "var(--text-muted)", margin: "0 auto 16px" }} />
-          <h3 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: 8 }}>No courses found</h3>
-          <p style={{ color: "var(--text-secondary)", marginBottom: 20 }}>Create a new course or upload a syllabus to begin.</p>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Create Course
-          </button>
+        <div style={{ maxWidth: 520 }}>
+          <p style={{ marginBottom: 16 }}>You don&apos;t have any courses yet. Create one, then import its syllabus to lay out the topics.</p>
+          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} /> New course</button>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 20 }}>
-          {courses.map((course, idx) => (
-            <Link
-              key={course.id}
-              href={`/courses/${course.id}`}
-              className={`glass-card animate-fade-in-up stagger-${idx + 1}`}
-              style={{ padding: 24, textDecoration: "none", color: "inherit", display: "block" }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                <div>
-                  <span className="badge badge-info" style={{ marginBottom: 10 }}>{course.code}</span>
-                  {(course.my_role === "co_teacher" || course.my_role === "viewer") && (
-                    <span className="badge badge-neutral" style={{ marginLeft: 6 }}>Shared with you: {course.my_role === "viewer" ? "view only" : "co-teacher"}</span>
-                  )}
-                  <h3 style={{ fontSize: "1.0625rem", fontWeight: 700, marginTop: 8, letterSpacing: "-0.01em" }}>{course.title}</h3>
-                </div>
-                <ArrowRight size={18} style={{ color: "var(--text-muted)", marginTop: 4 }} />
-              </div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                <span className="badge badge-neutral"><Calendar size={12} /> {course.semester}</span>
-                <span className="badge badge-neutral"><Users size={12} /> {course.teacher_name || "Faculty"}</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                <MiniStat icon={<Layers size={14} />} label="Units" value={course.units_count} />
-                <MiniStat icon={<BookOpen size={14} />} label="Topics" value={course.topics_count} />
-                <MiniStat icon={<Lightbulb size={14} />} label="Concepts" value={course.concepts_count} />
-                <MiniStat icon={<Clock size={14} />} label="Minutes" value={course.total_available_minutes} />
-              </div>
-              {course.units_count === 0 && (
-                <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px dashed var(--border-default)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.85rem", color: "var(--accent-amber)", fontWeight: 500 }}>
-                    Syllabus Pending
+        <ul className="course-list">
+          {courses.map((c) => (
+            <li key={c.id}>
+              <Link href={`/courses/${c.id}`} className="course-row">
+                <span className="course-row__code">{c.code}</span>
+                <span className="course-row__main">
+                  <strong>{c.title}</strong>
+                  <span>
+                    {c.semester}, {c.total_classes} periods of {c.period_duration} min
+                    {ROLE_NOTE[c.my_role] ? `. ${ROLE_NOTE[c.my_role]}` : ""}
                   </span>
-                  <span className="badge badge-purple" style={{ fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 4 }}>
-                    <Upload size={10} /> Upload Syllabus
-                  </span>
-                </div>
-              )}
-            </Link>
+                </span>
+                <span className="course-row__status">
+                  {c.units_count === 0
+                    ? <span className="badge badge-warning">Needs a syllabus</span>
+                    : <span style={{ color: "var(--pencil)" }}>{c.topics_count} topics, {c.concepts_count} concepts</span>}
+                </span>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
-      {/* Create Course Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
-          <div className="modal-content" style={{ padding: 32 }}>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: 20 }}>Create New Course</h2>
-            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Course Code *
-                  </label>
-                  <input name="code" className="input" placeholder="CS302" required />
-                </div>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Course Title *
-                  </label>
-                  <input name="title" className="input" placeholder="Database Management Systems" required />
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Semester *
-                  </label>
-                  <input name="semester" className="input" placeholder="Fall 2026" required />
-                </div>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Academic Year
-                  </label>
-                  <input name="academic_year" className="input" defaultValue="2026-2027" />
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Total Classes
-                  </label>
-                  <input name="total_classes" className="input" type="number" defaultValue={40} />
-                </div>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Period (min)
-                  </label>
-                  <input name="period_duration" className="input" type="number" defaultValue={55} />
-                </div>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Section
-                  </label>
-                  <input name="section_name" className="input" defaultValue="Section A" />
-                </div>
-                <div>
-                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600, display: "block", marginBottom: 6 }}>
-                    Students
-                  </label>
-                  <input name="student_count" className="input" type="number" defaultValue={60} />
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 8 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Course</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {creating && (
+        <NewCourseDialog
+          onClose={() => setCreating(false)}
+          onCreated={(c) => { setCourses((prev) => [...(prev || []), c]); setCreating(false); setCreated(c); }}
+        />
       )}
 
-      {/* Post-Creation Prompt Modal */}
-      {justCreatedCourse && (
-        <div className="modal-overlay" onClick={() => setJustCreatedCourse(null)}>
-          <div className="modal-content animate-fade-in-up" style={{ padding: 32, maxWidth: 500, textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--tick-wash)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "var(--accent-emerald)" }}>
-              <Check size={28} />
-            </div>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: 8 }}>
-              {justCreatedCourse.code} Created Successfully!
-            </h2>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginBottom: 24, lineHeight: 1.5 }}>
-              Would you like to upload a syllabus copy now? OptiTeach will extract all units, topics, and concepts without synthetic fallbacks and configure pedagogical allocations.
+      {created && (
+        <div className="modal-overlay" onClick={() => setCreated(null)}>
+          <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="created-title" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <h2 id="created-title" style={{ fontSize: "1.3rem" }}>{created.code} is ready.</h2>
+            <p style={{ color: "var(--pencil)", margin: "8px 0 20px" }}>
+              Import its syllabus next: OptiTeach reads the units, topics and course outcomes, and you check them before anything is saved.
             </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <Link href={`/upload?courseId=${justCreatedCourse.id}`} className="btn btn-primary">
-                <Upload size={16} /> Upload Syllabus Copy
-              </Link>
-              <Link href={`/courses/${justCreatedCourse.id}`} className="btn btn-secondary">
-                View Course Dashboard
-              </Link>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Link href={`/upload?courseId=${created.id}`} className="btn btn-primary"><Upload size={16} /> Import syllabus</Link>
+              <Link href={`/courses/${created.id}`} className="btn btn-secondary">Open the course</Link>
             </div>
           </div>
         </div>
@@ -215,12 +85,53 @@ export default function CoursesPage() {
   );
 }
 
-function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function NewCourseDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (c: Course) => void }) {
+  const [form, setForm] = useState({
+    code: "", title: "", semester: "", academic_year: "2026-2027",
+    total_classes: 40, period_duration: 55, section_name: "Section A", student_count: 60,
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const set = (field: keyof typeof form, numeric = false) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, [field]: numeric ? Number(e.target.value) : e.target.value });
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      onCreated(await coursesAPI.create(form));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create the course");
+    }
+    setBusy(false);
+  };
+
+  const total = form.total_classes * form.period_duration;
+
   return (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ color: "var(--text-muted)", marginBottom: 4, display: "flex", justifyContent: "center" }}>{icon}</div>
-      <div style={{ fontSize: "1rem", fontWeight: 700 }}>{value}</div>
-      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{label}</div>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="new-course-title" style={{ maxWidth: 560, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+        <h2 id="new-course-title" style={{ fontSize: "1.3rem" }}>New course</h2>
+        <form onSubmit={submit} className="form-grid" style={{ marginTop: 12 }}>
+          <label className="field">Code<input className="input" required placeholder="CS302" value={form.code} onChange={set("code")} /></label>
+          <label className="field" style={{ gridColumn: "span 3" }}>Title<input className="input" required placeholder="Database Management Systems" value={form.title} onChange={set("title")} /></label>
+          <label className="field" style={{ gridColumn: "span 2" }}>Semester<input className="input" required placeholder="Fall 2026" value={form.semester} onChange={set("semester")} /></label>
+          <label className="field" style={{ gridColumn: "span 2" }}>Academic year<input className="input" value={form.academic_year} onChange={set("academic_year")} /></label>
+          <label className="field" style={{ gridColumn: "span 2" }}>Periods in the semester<input className="input" type="number" min={1} value={form.total_classes} onChange={set("total_classes", true)} /></label>
+          <label className="field" style={{ gridColumn: "span 2" }}>Minutes per period<input className="input" type="number" min={1} value={form.period_duration} onChange={set("period_duration", true)} /></label>
+          <label className="field" style={{ gridColumn: "span 2" }}>Section<input className="input" value={form.section_name} onChange={set("section_name")} /></label>
+          <label className="field" style={{ gridColumn: "span 2" }}>Students<input className="input" type="number" min={1} value={form.student_count} onChange={set("student_count", true)} /></label>
+          <p style={{ gridColumn: "1 / -1", color: "var(--pencil)" }}>
+            That&apos;s {total.toLocaleString()} minutes of teaching to plan.
+          </p>
+          {error && <p role="alert" style={{ gridColumn: "1 / -1", color: "var(--redpen)", fontWeight: 600 }}>{error}</p>}
+          <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Creating…" : "Create course"}</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
