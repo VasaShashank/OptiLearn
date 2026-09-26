@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.database.connection import get_db
-from app.models.entities import Course, Teacher, Unit, Topic, Concept, CourseOutcome, Section, TeacherConstraint, Assessment, User, CourseMember
+from app.models.entities import Course, Teacher, Unit, Topic, Section, TeacherConstraint, Assessment, User, CourseMember
 from app.schemas.schemas import (
     CourseCreate, CourseOut, ConfirmCurriculumRequest, CurriculumGraphResponse,
     CourseOptimizationResponse, NextClassOptimizationResponse,
-    LessonPlanCreate, LessonPlanOut, LessonPlanUpdate, AssessmentCreate, AssessmentOut,
+    LessonPlanOut, LessonPlanUpdate, AssessmentCreate, AssessmentOut,
     RecordAssessmentResultsRequest, CourseAnalyticsResponse, SessionLogIn
 )
 from app.nlp.deterministic import nlp_provider
@@ -108,9 +108,9 @@ def create_course(
     db.add(constraint)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="You already have a course with this code in this semester")
+        raise HTTPException(status_code=409, detail="You already have a course with this code in this semester") from exc
     db.refresh(course)
 
     return CourseOut(
@@ -191,11 +191,11 @@ async def upload_course_syllabus(
         else:
             raise HTTPException(status_code=400, detail="No syllabus content provided. Please upload a PDF or paste text.")
     except ValueError as ve:
-        raise HTTPException(status_code=422, detail=str(ve))
+        raise HTTPException(status_code=422, detail=str(ve)) from ve
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(status_code=500, detail=f"Syllabus extraction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Syllabus extraction failed: {str(e)}") from e
 
     # Automatically confirm and persist directly to this course
     confirm_payload = ConfirmCurriculumRequest(
@@ -205,7 +205,7 @@ async def upload_course_syllabus(
         outcomes=curriculum.outcomes
     )
     artifact_service.record_extraction(curriculum, course_id=course_id, extracted_by=course.teacher.user_id)
-    result = curriculum_service.confirm_and_persist(db, course_id, confirm_payload)
+    curriculum_service.confirm_and_persist(db, course_id, confirm_payload)
     time_allocator.optimize_course_time(db, course_id)
 
     return {

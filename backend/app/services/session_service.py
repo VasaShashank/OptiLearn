@@ -99,9 +99,9 @@ class SessionService:
                 carry = self._carry_over(db, course_id, session_number, topic.id)
 
             db.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             db.rollback()
-            raise ConflictError(f"Session {session_number} has already been recorded")
+            raise ConflictError(f"Session {session_number} has already been recorded") from exc
         except Exception:
             db.rollback()
             raise
@@ -150,7 +150,7 @@ class SessionService:
         dropped = topics[-1] if topics[-1] not in shifted else None
 
         removed = []
-        for s, new_topic in zip(later, shifted):
+        for s, new_topic in zip(later, shifted, strict=True):
             if s.current_topic_id != new_topic:
                 s.current_topic_id = new_topic
                 if s.lesson_plan is not None:

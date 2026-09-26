@@ -1,13 +1,10 @@
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database.connection import SessionLocal, Base, db_engine
-from app.models.entities import Course, Topic, Concept, Performance
+from app.database.connection import SessionLocal
+from app.models.entities import Course
 from app.nlp.deterministic import nlp_provider
-from app.optimization.scoring import scoring_engine
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
-from app.optimization.revision_engine import revision_engine
 
 client = TestClient(app)
 

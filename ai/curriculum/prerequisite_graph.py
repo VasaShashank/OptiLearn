@@ -2,8 +2,8 @@
 Semantic Prerequisite Discovery & Cross-Concept Graph Linker
 """
 import re
-from typing import List, Dict, Set, Tuple
-from app.utils.graph_utils import detect_cycles, topological_sort
+from typing import List, Dict, Tuple
+from app.utils.graph_utils import detect_cycles
 
 # Common prerequisite semantic mapping keywords
 PREREQUISITE_INDICATORS = [

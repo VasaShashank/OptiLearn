@@ -2,7 +2,7 @@
 Datetime & Academic Calendar Utilities
 """
 from datetime import datetime, date, timedelta, time
-from typing import List, Dict, Optional, Set
+from typing import List, Optional, Set
 
 DAY_NAME_TO_INT = {
     "MON": 0, "MONDAY": 0,

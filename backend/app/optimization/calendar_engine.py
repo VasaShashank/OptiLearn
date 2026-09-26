@@ -1,7 +1,7 @@
 """
 Academic Calendar & Real-World Disruption Rescheduling Engine
 """
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Optional
 from datetime import datetime, date, timedelta
 from app.utils.datetime_helpers import calculate_class_dates, parse_timetable_slots
 

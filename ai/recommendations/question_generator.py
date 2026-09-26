@@ -1,7 +1,7 @@
 """
 Bloom's Taxonomy-Aligned Question and Rubric Generator
 """
-from typing import List, Dict, Any
+from typing import List
 from pydantic import BaseModel
 
 class AssessmentQuestionItem(BaseModel):
@@ -48,10 +48,10 @@ class QuestionGenerator:
                 question_type="mcq",
                 question_text=f"Which of the following statements is unconditionally TRUE regarding {concept_name}?",
                 options=[
-                    f"It maintains structural invariants during concurrent transaction executions.",
-                    f"It always requires quadratic time complexity regardless of index structures.",
-                    f"It violates dependency preservation under 3NF synthesis.",
-                    f"None of the above."
+                    "It maintains structural invariants during concurrent transaction executions.",
+                    "It always requires quadratic time complexity regardless of index structures.",
+                    "It violates dependency preservation under 3NF synthesis.",
+                    "None of the above."
                 ],
                 correct_answer="It maintains structural invariants during concurrent transaction executions.",
                 max_marks=1.0,

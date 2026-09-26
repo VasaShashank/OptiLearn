@@ -3,10 +3,9 @@ Phase 4: optimistic locking, compensation across SQL/NoSQL, read-only GETs and t
 atomic post-class record. Default (SQLite + MongoMock) test database.
 """
 import pytest
-from sqlalchemy.orm import Session
 
 from app.database.connection import SessionLocal, get_mongo_db
-from app.models.entities import ClassSession, Course, LessonPlan, Topic, Unit
+from app.models.entities import LessonPlan, Topic, Unit
 from app.schemas.schemas import LessonPlanUpdate
 from app.services.errors import ConflictError
 from app.services.lesson_plan_service import lesson_plan_service
@@ -91,7 +90,8 @@ def test_concurrent_save_loses_race_and_compensates_mongo(cs302_id, plan):
             lesson_plan_service.update_plan(s1, cs302_id, 15, LessonPlanUpdate(expected_version=v, status="rejected"), "u1")
         assert _docs_for(plan["id"]) == docs_after_winner  # loser's Mongo document was removed
     finally:
-        s1.close(); s2.close()
+        s1.close()
+        s2.close()
 
 
 # ------------------------------------------------------------------ read-only GET
@@ -166,7 +166,8 @@ def test_unfinished_topic_carries_into_next_period(api):
     client.post(f"/api/courses/{cid}/curriculum/confirm", json={"units": [{"unit_number": 1, "title": "U", "topics": [
         {"title": "A", "concepts": [{"name": "a"}]}, {"title": "B", "concepts": [{"name": "b"}]}, {"title": "C", "concepts": [{"name": "c"}]},
     ]}]})
-    topics = lambda: [s["topic_title"] for s in client.get(f"/api/courses/{cid}/sessions").json()]
+    def topics():
+        return [s["topic_title"] for s in client.get(f"/api/courses/{cid}/sessions").json()]
     assert topics() == ["A", "A", "B", "B", "C", "C"]
 
     plan3 = client.get(f"/api/courses/{cid}/lesson-plans?session_number=3").json()[0]

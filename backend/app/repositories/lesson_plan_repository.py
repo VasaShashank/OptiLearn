@@ -3,7 +3,7 @@ Lesson Plan Repository for Relational Entity Mapping
 """
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from app.models.entities import LessonPlan, ClassSession, TeachingSession
+from app.models.entities import LessonPlan, ClassSession
 from app.repositories.base_repository import BaseRepository
 
 class LessonPlanRepository(BaseRepository[LessonPlan]):

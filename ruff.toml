@@ -1,0 +1,18 @@
+# Lint for bugs, not style: pyflakes (undefined names, unused imports/variables),
+# pycodestyle errors, and flake8-bugbear's likely-bug patterns.
+target-version = "py311"
+line-length = 120
+extend-exclude = [".venv", "frontend", "backups"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "B"]
+ignore = [
+    "B008",  # FastAPI's Depends(...) in argument defaults is the framework's idiom
+    "E712",  # SQLAlchemy filters use == True / == False to build SQL
+]
+
+[lint.per-file-ignores]
+"database/migrations/env.py" = ["E402"]            # path setup must precede app imports
+"database/seed/seed_data.py" = ["E402"]
+"database/scripts/*.py" = ["E402"]
+"backend/tests/*.py" = ["E402"]

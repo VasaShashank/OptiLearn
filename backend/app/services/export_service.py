@@ -2,10 +2,10 @@
 Multi-Format Export Service (iCalendar .ics, Printable Lesson Plan HTML, ABET/NBA Matrix)
 """
 from html import escape as html_escape
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from app.models.entities import Course, ClassSession, LessonPlan, Topic, CourseOutcome, Performance
+from app.models.entities import Course, ClassSession, LessonPlan, CourseOutcome
 from app.database.connection import get_mongo_db
 
 class ExportService:
@@ -83,7 +83,8 @@ class ExportService:
 
         # Everything interpolated below can originate from an uploaded syllabus or a teacher
         # edit, so it is HTML-escaped to prevent stored XSS in the printable page.
-        esc = lambda value: html_escape(str(value))
+        def esc(value):
+            return html_escape(str(value))
         phases_rows = "".join(
             f"<tr><td><b>{esc(p.get('phase_name', ''))}</b></td><td>{esc(p.get('duration_minutes', 0))} mins</td><td>{esc(p.get('method_name', ''))}</td><td>{esc(p.get('activity_description', ''))}</td></tr>"
             for p in phases

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.auth.security import login_rate_limiter, _LEGACY_SALT
 from app.database.connection import SessionLocal
-from app.models.entities import Assessment, ClassSession, Course, LessonPlan, Topic, User
+from app.models.entities import Assessment, ClassSession, LessonPlan, Topic, User
 from conftest import login_client
 
 anon = TestClient(app)

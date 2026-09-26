@@ -8,7 +8,7 @@ import uuid
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError, DBAPIError
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.models.entities import User

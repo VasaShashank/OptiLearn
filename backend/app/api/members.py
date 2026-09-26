@@ -59,7 +59,7 @@ def add_or_update_member(payload: MemberIn, course: Course = Depends(get_owned_c
         db.commit()
     except (IntegrityError, DBAPIError) as exc:  # e.g. trg_course_member_not_owner on PostgreSQL
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(getattr(exc, "orig", exc)).splitlines()[0])
+        raise HTTPException(status_code=400, detail=str(getattr(exc, "orig", exc)).splitlines()[0]) from exc
     return _serialize(course, db)
 
 

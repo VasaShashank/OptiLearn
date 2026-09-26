@@ -1,6 +1,6 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from sqlalchemy.orm import Session
-from app.models.entities import Course, ClassSession, Topic, Concept, TeacherConstraint
+from app.models.entities import Course, ClassSession, Topic
 from app.optimization.revision_engine import revision_engine
 from app.optimization.method_selector import method_selector
 from app.schemas.schemas import NextClassOptimizationResponse, PeriodPhase

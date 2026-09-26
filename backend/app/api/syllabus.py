@@ -34,11 +34,11 @@ async def upload_syllabus(
                 detail="No syllabus content provided. Please upload a PDF file or paste syllabus text to extract."
             )
     except ValueError as ve:
-        raise HTTPException(status_code=422, detail=str(ve))
+        raise HTTPException(status_code=422, detail=str(ve)) from ve
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(status_code=500, detail=f"Syllabus extraction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Syllabus extraction failed: {str(e)}") from e
 
     # Raw extraction draft in MongoDB (expires via TTL unless confirmed into a course)
     artifact_service.record_extraction(curriculum, course_id=None, extracted_by=current_user.id)

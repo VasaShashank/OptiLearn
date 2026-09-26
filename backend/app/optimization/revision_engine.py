@@ -1,6 +1,6 @@
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 from sqlalchemy.orm import Session
-from app.models.entities import Concept, Performance, Topic, Course
+from app.models.entities import Concept, Performance, Topic
 
 class RevisionEngine:
     """

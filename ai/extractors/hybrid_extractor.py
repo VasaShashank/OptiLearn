@@ -2,7 +2,6 @@
 Hybrid Syllabus Extractor (Deterministic + LLM Fallback Pipeline)
 """
 import re
-from typing import Dict, Any, Optional
 from ai.extractors.base import BaseSyllabusExtractor, ExtractorResult
 
 class HybridSyllabusExtractor(BaseSyllabusExtractor):
@@ -104,7 +103,6 @@ class HybridSyllabusExtractor(BaseSyllabusExtractor):
             )
 
     def extract_from_pdf(self, pdf_bytes: bytes) -> ExtractorResult:
-        from app.nlp.deterministic import nlp_provider
         try:
             from pypdf import PdfReader
             import io

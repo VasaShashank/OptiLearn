@@ -1,5 +1,3 @@
-import math
-from typing import Dict, List, Any
 from sqlalchemy.orm import Session
 from app.models.entities import Course, Topic
 from app.database.connection import refresh_dashboard_snapshot

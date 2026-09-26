@@ -3,7 +3,7 @@ Course Repository for Course and Section Entities
 """
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from app.models.entities import Course, Section, Teacher, TeacherConstraint, ClassSession
+from app.models.entities import Course, TeacherConstraint, ClassSession
 from app.repositories.base_repository import BaseRepository
 
 class CourseRepository(BaseRepository[Course]):

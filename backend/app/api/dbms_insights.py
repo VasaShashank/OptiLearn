@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List
 from app.database.connection import get_db
 from app.models.entities import Course, Teacher, User
 from app.schemas.schemas import TableSchemaInfo, QueryDemoResult

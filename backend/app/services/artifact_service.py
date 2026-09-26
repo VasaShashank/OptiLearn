@@ -8,7 +8,7 @@ whose shape is nested, versioned or evolving and which are read whole:
   * nlp_extractions        - raw extractor output (drafts, expire via TTL index)
 """
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pymongo.errors import DuplicateKeyError
 from sqlalchemy.orm import Session, joinedload
@@ -82,7 +82,9 @@ class ArtifactService:
 
         nodes_a = {n["name"]: n for n in a["nodes"]}
         nodes_b = {n["name"]: n for n in b["nodes"]}
-        edge_key = lambda e: (e.get("source_name"), e.get("target_name"))
+        def edge_key(e):
+            return e.get("source_name"), e.get("target_name")
+
         edges_a, edges_b = {edge_key(e) for e in a["edges"]}, {edge_key(e) for e in b["edges"]}
 
         changed = []

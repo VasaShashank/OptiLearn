@@ -46,10 +46,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     ))
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         # UNIQUE(email) / UNIQUE(employee_id) — also covers a concurrent duplicate registration
         db.rollback()
-        raise HTTPException(status_code=400, detail="Email or employee ID already registered")
+        raise HTTPException(status_code=400, detail="Email or employee ID already registered") from exc
     db.refresh(user)
     return _token_for(user)
 

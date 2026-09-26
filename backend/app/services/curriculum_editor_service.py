@@ -15,7 +15,7 @@ from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.entities import Concept, Course, Topic, Unit, prerequisites
+from app.models.entities import Concept, Topic, Unit, prerequisites
 from app.optimization.time_allocator import time_allocator
 from app.services.artifact_service import artifact_service
 from app.services.errors import ConflictError
@@ -117,7 +117,7 @@ class CurriculumEditorService:
             db.commit()
         except DBAPIError as exc:  # PostgreSQL trigger: a concurrent edit closed the loop first
             db.rollback()
-            raise ConflictError(str(exc.orig).splitlines()[0])
+            raise ConflictError(str(exc.orig).splitlines()[0]) from exc
         artifact_service.snapshot_curriculum_graph(db, course_id, reason="Prerequisite added in curriculum builder")
         return {"concept_id": concept_id, "prerequisite_id": prerequisite_id}
 

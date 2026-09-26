@@ -1,8 +1,8 @@
-from typing import List, Dict, Any
+from typing import Dict, Any
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
-from app.models.entities import Assessment, Question, Performance, Concept, Topic, Unit, Course, question_concepts
+from app.models.entities import Assessment, Question, Performance, Concept, Topic, Unit
 from app.schemas.schemas import AssessmentCreate, AssessmentOut, RecordAssessmentResultsRequest
 from app.optimization.scoring import scoring_engine
 from app.database.connection import refresh_dashboard_snapshot

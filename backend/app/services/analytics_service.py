@@ -1,7 +1,7 @@
-from typing import Dict, Any, List
+from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models.entities import Course, ClassSession, Topic, Concept, Performance, TeachingSession, MethodEffectiveness, TeachingMethod
+from app.models.entities import Course, ClassSession, Topic, TeachingSession, MethodEffectiveness, TeachingMethod
 from app.schemas.schemas import CourseAnalyticsResponse, AlertItem
 from app.services.curriculum_service import curriculum_service
 

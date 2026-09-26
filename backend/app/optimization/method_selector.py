@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from sqlalchemy.orm import Session
 from app.models.entities import TeachingMethod, MethodEffectiveness
 

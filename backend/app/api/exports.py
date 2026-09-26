@@ -21,7 +21,7 @@ def export_course_calendar(course_id: str, db: Session = Depends(get_db), _: Cou
             headers={"Content-Disposition": f"attachment; filename=course-{course_id}-schedule.ics"}
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 @router.get("/lesson-plans/{session_id}/printable")
 def export_lesson_plan_printable(session_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -37,7 +37,7 @@ def export_lesson_plan_printable(session_id: str, db: Session = Depends(get_db),
             media_type="text/html"
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 @router.get("/courses/{course_id}/outcomes-matrix")
 def export_course_outcomes_matrix(course_id: str, db: Session = Depends(get_db), _: Course = Depends(get_accessible_course)):
@@ -45,4 +45,4 @@ def export_course_outcomes_matrix(course_id: str, db: Session = Depends(get_db),
     try:
         return export_service.generate_outcome_matrix(db, course_id)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

@@ -1,7 +1,7 @@
 """
 Pedagogy Recommendation Advisor
 """
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 class PedagogyAdvisor:
     """

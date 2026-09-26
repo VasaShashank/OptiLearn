@@ -3,9 +3,9 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
-from app.models.entities import LessonPlan, ClassSession, Topic, Concept, generate_uuid
+from app.models.entities import LessonPlan, ClassSession, Topic, generate_uuid
 from app.database.connection import get_mongo_db
-from app.schemas.schemas import LessonPlanCreate, LessonPlanOut, LessonPlanUpdate, PeriodPhase
+from app.schemas.schemas import LessonPlanOut, LessonPlanUpdate, PeriodPhase
 from app.services.errors import ConflictError
 
 class LessonPlanService:
@@ -33,12 +33,12 @@ class LessonPlanService:
         objectives = [
             f"Understand core principles, formal definitions, and mechanics of {topic.title}.",
             f"Formulate and solve standard analytical problems related to {topic.title}.",
-            f"Recognize practical trade-offs and edge cases encountered in real-world database systems."
+            "Recognize practical trade-offs and edge cases encountered in real-world database systems."
         ]
 
         worked_examples = [
             f"Worked Example 1: Basic execution and verification algorithm for {topic.title}.",
-            f"Worked Example 2: Edge-case problem involving decomposed schemas and constraint preservation."
+            "Worked Example 2: Edge-case problem involving decomposed schemas and constraint preservation."
         ]
 
         active_exercises = [
@@ -120,10 +120,10 @@ class LessonPlanService:
         """
         try:
             db.commit()
-        except StaleDataError:
+        except StaleDataError as exc:
             db.rollback()
             mongo_db["lesson_plan_documents"].delete_one({"_id": new_doc_id})
-            raise ConflictError("This lesson plan was changed by someone else. Reload and try again.")
+            raise ConflictError("This lesson plan was changed by someone else. Reload and try again.") from exc
         except Exception:
             db.rollback()
             mongo_db["lesson_plan_documents"].delete_one({"_id": new_doc_id})

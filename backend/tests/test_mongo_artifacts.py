@@ -9,7 +9,7 @@ import pytest
 from pymongo.errors import DuplicateKeyError, WriteError
 
 from app.database.connection import get_mongo_db
-from app.database.mongo_schema import NLP_DRAFT_TTL_SECONDS, ensure_mongo_schema
+from app.database.mongo_schema import NLP_DRAFT_TTL_SECONDS
 from conftest import login_client
 
 

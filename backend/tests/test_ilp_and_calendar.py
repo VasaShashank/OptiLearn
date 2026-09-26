@@ -1,5 +1,4 @@
-import pytest
-from datetime import datetime, date
+from datetime import datetime
 from unittest.mock import MagicMock
 from app.optimization.ilp_solver import ilp_solver
 from app.optimization.calendar_engine import calendar_engine

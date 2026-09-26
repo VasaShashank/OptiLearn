@@ -1,5 +1,4 @@
 import sys
-import uuid
 import datetime
 from pathlib import Path
 
@@ -7,15 +6,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 from sqlalchemy.orm import Session
-from app.database.connection import db_engine, db_dialect, SessionLocal, Base, init_relational_db, get_mongo_db, refresh_dashboard_snapshot
+from app.database.connection import db_engine, db_dialect, SessionLocal, Base, get_mongo_db, refresh_dashboard_snapshot
 from app.auth.security import hash_password
 from app.models.entities import (
     User, Teacher, Course, Section, TeacherConstraint, CourseOutcome,
-    Unit, Topic, Concept, ClassSession, TeachingMethod, LessonPlan,
-    TeachingSession, Assessment, Question, Performance, MethodEffectiveness,
-    prerequisites, teacher_preferred_methods
+    Unit, Topic, Concept, ClassSession, TeachingMethod, TeachingSession, Assessment, Question, Performance, MethodEffectiveness,
+    teacher_preferred_methods
 )
-from app.optimization.scoring import scoring_engine
 from app.database.mongo_schema import ensure_mongo_schema
 from app.services.artifact_service import artifact_service
 from app.optimization.time_allocator import time_allocator

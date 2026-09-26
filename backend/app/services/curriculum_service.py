@@ -1,7 +1,7 @@
 import networkx as nx
 from typing import Dict, List, Any
 from sqlalchemy.orm import Session
-from app.models.entities import Course, Unit, Topic, Concept, CourseOutcome, ClassSession, Performance, prerequisites
+from app.models.entities import Course, Unit, Topic, Concept, CourseOutcome, ClassSession, Performance
 from app.schemas.schemas import ConfirmCurriculumRequest, CurriculumGraphResponse, GraphNode, GraphEdge
 from app.database.connection import refresh_dashboard_snapshot
 from app.services.artifact_service import artifact_service

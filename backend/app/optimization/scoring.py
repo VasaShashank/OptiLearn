@@ -1,7 +1,7 @@
 import networkx as nx
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Any
 from sqlalchemy.orm import Session
-from app.models.entities import Topic, Concept, Performance, CourseOutcome, Course
+from app.models.entities import Topic, Concept, Performance
 
 # Default weights for priority scoring model
 DEFAULT_WEIGHTS = {

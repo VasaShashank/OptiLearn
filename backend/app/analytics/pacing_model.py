@@ -1,8 +1,7 @@
 """
 Curriculum Pacing Deviation Model (Planned vs Actual Velocity)
 """
-from typing import Dict, Any, List
-from datetime import datetime, timedelta
+from typing import Dict, Any
 
 class CurriculumPacingModel:
     """

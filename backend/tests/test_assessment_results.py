@@ -3,7 +3,7 @@ Recording assessment results is one transaction with per-item savepoints.
 Runs on the default test database (SQLite, ORM upsert path).
 """
 from app.database.connection import SessionLocal
-from app.models.entities import Assessment, Concept, Course, Performance, Topic, Unit
+from app.models.entities import Assessment, Concept, Course, Performance
 
 # A leaf concept (nothing depends on it), so recording a weak score here cannot change
 # the revision decisions other test modules assert on.

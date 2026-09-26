@@ -417,7 +417,7 @@ class DBMSInsightsService:
             
             fk_map = {}
             for f in fks:
-                for constrained_col, referred_col in zip(f["constrained_columns"], f["referred_columns"]):
+                for constrained_col, referred_col in zip(f["constrained_columns"], f["referred_columns"], strict=True):
                     fk_map[constrained_col] = f"{f['referred_table']}.{referred_col}"
 
             col_infos = []
@@ -476,7 +476,7 @@ class DBMSInsightsService:
         t0 = time.time()
         result_proxy = db.execute(text(sql_to_run), {"course_id": course_id})
         columns = list(result_proxy.keys())
-        rows = [dict(zip(columns, row)) for row in result_proxy.fetchall()]
+        rows = [dict(zip(columns, row, strict=True)) for row in result_proxy.fetchall()]
         exec_ms = round((time.time() - t0) * 1000, 2)
 
         return QueryDemoResult(

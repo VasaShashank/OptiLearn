@@ -90,7 +90,7 @@ def run_console_query(db: Session, sql: str, user: User, timeout_ms: int = DEFAU
 
     return {
         "columns": columns,
-        "rows": [dict(zip(columns, row)) for row in fetched[:MAX_ROWS]],
+        "rows": [dict(zip(columns, row, strict=True)) for row in fetched[:MAX_ROWS]],
         "row_count": min(len(fetched), MAX_ROWS),
         "truncated": len(fetched) > MAX_ROWS,
         "execution_time_ms": elapsed_ms,
