@@ -27,11 +27,19 @@ OptiTeach formulates curriculum time distribution as a **Mixed-Integer Linear Pr
 
 ## 2. Mathematical Objective Function
 
-Maximize expected cumulative curriculum mastery across the semester:
+Each topic $i$ has a priority $p_i$ (the weighted score above) and an estimated need of
+$e_i = \max(1, \text{round}(\text{estimated\_minutes}_i / P))$ periods. Its periods are split into
+*needed* periods $y_i$ and *extra* periods $z_i$, with $x_i = y_i + z_i$:
 
-$$\max \sum_{i=1}^{N} \left( \alpha \cdot w_i + \beta \cdot d_i + \gamma \cdot \frac{b_i}{\max(1, \max_j b_j)} \right) \cdot x_i$$
+$$\max \sum_{i=1}^{N} (1 + p_i)\, y_i + 0.5\, p_i\, z_i$$
 
-Where weights are normalized: $\alpha = 0.45$, $\beta = 0.35$, $\gamma = 0.20$.
+$$1 \le y_i \le e_i, \qquad 0 \le z_i \le e_i, \qquad y_i, z_i \in \mathbb{Z}$$
+
+A needed period is always worth more than an extra one ($1 + p_i > 0.5\,p_j$), so the optimum
+covers every topic's estimate before any topic gets extra time (diminishing returns). When the
+budget is short, priority decides which topics are cut back towards their one-period floor.
+A purely linear objective $\sum p_i x_i$ has corner-point optima that pour every spare period
+into the single highest-priority topic, which is why the two tiers are used.
 
 ---
 
