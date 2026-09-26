@@ -4,10 +4,10 @@ from app.nlp.deterministic import nlp_provider
 from app.schemas.schemas import ExtractedCurriculum
 from app.models.entities import User
 from app.services.artifact_service import artifact_service
-from app.auth.security import get_current_user
+from app.auth.security import get_current_user, limit_uploads
 from app.api.courses import read_syllabus_upload
 
-router = APIRouter(prefix="/syllabus", tags=["Syllabus Extraction"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/syllabus", tags=["Syllabus Extraction"], dependencies=[Depends(get_current_user), Depends(limit_uploads)])
 
 @router.post("/upload", response_model=ExtractedCurriculum)
 async def upload_syllabus(

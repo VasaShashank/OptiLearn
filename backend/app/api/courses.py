@@ -21,7 +21,7 @@ from app.services.artifact_service import artifact_service
 from app.optimization.time_allocator import time_allocator
 from app.optimization.class_optimizer import class_optimizer
 
-from app.auth.security import get_current_user, get_current_teacher, get_accessible_course, course_role
+from app.auth.security import get_current_user, get_current_teacher, get_accessible_course, course_role, limit_uploads
 
 # Every route requires a valid bearer token; /{course_id} routes additionally resolve the
 # course through get_accessible_course (owner or admin, otherwise 404).
@@ -168,7 +168,7 @@ async def read_syllabus_upload(file: UploadFile) -> bytes:
     if file.filename.lower().endswith(".pdf") and not content.startswith(b"%PDF"):
         raise HTTPException(status_code=415, detail="File is not a valid PDF")
     return content
-@router.post("/{course_id}/syllabus")
+@router.post("/{course_id}/syllabus", dependencies=[Depends(limit_uploads)])
 async def upload_course_syllabus(
     course_id: str,
     file: Optional[UploadFile] = File(None),

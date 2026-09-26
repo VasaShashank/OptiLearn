@@ -46,12 +46,13 @@ def needs_rehash(hashed_password: str) -> bool:
 
 
 # -------------------------------------------------------------------
-# Login throttling (per client IP + email, sliding window)
+# Rate limiting (sliding window, in memory: one API process)
 # -------------------------------------------------------------------
-class LoginRateLimiter:
-    def __init__(self, max_attempts: int = 5, window_seconds: int = 60):
+class SlidingWindowLimiter:
+    def __init__(self, max_attempts: int, window_seconds: int, message: str):
         self.max_attempts = max_attempts
         self.window_seconds = window_seconds
+        self.message = message
         self._failures: Dict[str, Deque[float]] = defaultdict(deque)
 
     def _prune(self, key: str, now: float) -> Deque[float]:
@@ -66,7 +67,7 @@ class LoginRateLimiter:
             retry_after = int(self.window_seconds - (time.monotonic() - attempts[0])) + 1
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many failed login attempts. Try again shortly.",
+                detail=self.message,
                 headers={"Retry-After": str(retry_after)},
             )
 
@@ -77,7 +78,11 @@ class LoginRateLimiter:
         self._failures.pop(key, None)
 
 
-login_rate_limiter = LoginRateLimiter()
+# Failed logins per client IP + email (successful logins reset it)
+login_rate_limiter = SlidingWindowLimiter(5, 60, "Too many failed login attempts. Try again shortly.")
+# Syllabus uploads per user: PDF parsing is the most expensive request the API serves
+upload_rate_limiter = SlidingWindowLimiter(10, 60, "Too many syllabus uploads in a minute. Wait a moment and try again.")
+
 
 
 # -------------------------------------------------------------------
@@ -212,3 +217,8 @@ def get_owned_course(
 def client_key(request: Request, email: str) -> str:
     host = request.client.host if request.client else "unknown"
     return f"{host}:{email.lower()}"
+
+
+def limit_uploads(current_user: User = Depends(get_current_user)) -> None:
+    upload_rate_limiter.check(current_user.id)
+    upload_rate_limiter.record_failure(current_user.id)  # every attempt counts, not only failures

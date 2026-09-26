@@ -204,3 +204,12 @@ def test_printable_lesson_plan_escapes_html(api, cs302_id):
 def test_syllabus_upload_limits(api, filename, content, expected):
     resp = api.post("/api/syllabus/upload", files={"file": (filename, content)})
     assert resp.status_code == expected
+
+
+def test_syllabus_uploads_are_rate_limited(other_teacher):
+    from app.auth.security import upload_rate_limiter
+    client, _ = other_teacher
+    codes = [client.post("/api/syllabus/upload", files={"file": ("s.exe", b"x")}).status_code for _ in range(11)]
+    assert codes[:10] == [415] * 10  # each attempt counts, even rejected ones
+    assert codes[10] == 429
+    upload_rate_limiter._failures.clear()
