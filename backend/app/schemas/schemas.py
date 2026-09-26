@@ -262,6 +262,8 @@ class SessionLogIn(BaseModel):
     completion_rate: float = Field(default=1.0, ge=0.0, le=1.0)
     teacher_notes: Optional[str] = Field(default=None, max_length=2000)
     topic_completed: bool = False
+    # The topic ran out of time: teach it again next period and push later periods back one
+    carry_over: bool = False
 
 class LessonPlanUpdate(BaseModel):
     """Teacher review of a recommended plan (human-in-the-loop). expected_version is the

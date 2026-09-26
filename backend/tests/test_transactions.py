@@ -148,3 +148,40 @@ def test_session_log_validation(api, cs302_id):
     assert api.post(url, json={"actual_minutes": 0}).status_code == 422
     assert api.post(url, json={"actual_minutes": 50, "student_engagement_rating": 9}).status_code == 422
     assert api.post(f"/api/courses/{cs302_id}/sessions/999/log", json={"actual_minutes": 50}).status_code == 404
+
+
+# ------------------------------------------------------------------ carry an unfinished topic over
+
+def test_unfinished_topic_carries_into_next_period(api):
+    import uuid
+    from conftest import login_client
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    email = f"co-{uuid.uuid4().hex[:8]}@optiteach.edu"
+    TestClient(app).post("/api/auth/register", json={"email": email, "password": "long-enough-pw", "full_name": "Carry",
+                                                     "department": "CSE", "employee_id": f"CO-{uuid.uuid4().hex[:6]}"})
+    client = login_client(email, "long-enough-pw")
+    cid = client.post("/api/courses", json={"code": "CO101", "title": "Carry", "semester": "S1", "total_classes": 6}).json()["id"]
+    client.post(f"/api/courses/{cid}/curriculum/confirm", json={"units": [{"unit_number": 1, "title": "U", "topics": [
+        {"title": "A", "concepts": [{"name": "a"}]}, {"title": "B", "concepts": [{"name": "b"}]}, {"title": "C", "concepts": [{"name": "c"}]},
+    ]}]})
+    topics = lambda: [s["topic_title"] for s in client.get(f"/api/courses/{cid}/sessions").json()]
+    assert topics() == ["A", "A", "B", "B", "C", "C"]
+
+    plan3 = client.get(f"/api/courses/{cid}/lesson-plans?session_number=3").json()[0]
+    assert _docs_for(plan3["id"]) >= 1
+
+    resp = client.post(f"/api/courses/{cid}/sessions/1/log", json={"actual_minutes": 50, "carry_over": True})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["carried_over"] == {"to_session": 2, "dropped_topic": None, "plans_removed": 1}
+    assert topics() == ["A", "A", "A", "B", "B", "C"]
+
+    # Period 3's plan was for topic B; it is gone from PostgreSQL and MongoDB
+    assert client.get(f"/api/courses/{cid}/lesson-plans/3/history").status_code == 404
+    assert _docs_for(plan3["id"]) == 0
+    assert client.get(f"/api/dbms/consistency?course_id={cid}").json()["consistent"] is True
+
+    # Topic finished next time: nothing shifts
+    resp = client.post(f"/api/courses/{cid}/sessions/2/log", json={"actual_minutes": 50, "topic_completed": True, "carry_over": True})
+    assert resp.json()["carried_over"] is None and topics() == ["A", "A", "A", "B", "B", "C"]
