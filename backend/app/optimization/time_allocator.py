@@ -57,13 +57,13 @@ class TimeAllocator:
 
         allocated_allocations = []
         allocated_sum = 0
-        solver_used = "Discrete Period Knapsack Heuristic"
+        solver_used = "greedy period-by-period sharing (used when the exact solver is unavailable)"
 
         # 1. Attempt exact MILP formulation with SciPy
         milp_periods = ilp_solver.solve_period_allocation(topic_scores, instructional_budget, period_duration)
 
         if milp_periods is not None and len(milp_periods) == len(topic_scores):
-            solver_used = "SciPy MILP Exact Optimization (scipy.optimize.milp)"
+            solver_used = "exact integer optimisation (SciPy MILP)"
             for idx, item in enumerate(topic_scores):
                 topic: Topic = item["topic"]
                 periods_count = milp_periods[idx]
