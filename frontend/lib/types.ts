@@ -431,3 +431,43 @@ export interface ConsistencyReport {
   stale_graph_snapshots: { course_id: string; sql_concepts: number; snapshot_concepts: number | null }[];
   consistent: boolean;
 }
+
+// ── Curriculum builder ──
+export type ConceptType = "conceptual" | "procedural" | "problem_solving" | "practical" | "analytical" | "revision";
+
+export interface BuilderConcept {
+  id: string;
+  name: string;
+  difficulty: number;
+  importance: number;
+  concept_type: ConceptType;
+  prerequisite_ids: string[];
+}
+
+export interface BuilderTopic {
+  id: string;
+  title: string;
+  status: string;
+  allocated_minutes: number;
+  estimated_minutes: number;
+  concepts: BuilderConcept[];
+}
+
+export interface BuilderUnit {
+  id: string;
+  unit_number: number;
+  title: string;
+  topics: BuilderTopic[];
+}
+
+export interface CurriculumStructure {
+  course_id: string;
+  units: BuilderUnit[];
+}
+
+export interface ConceptEditResult {
+  concept_id: string;
+  topic_id: string;
+  allocated_minutes_before: number;
+  allocated_minutes_after: number;
+}

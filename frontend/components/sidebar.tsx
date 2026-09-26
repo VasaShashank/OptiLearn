@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  BookOpen, CalendarDays, Clock3, Database, FileText, LogOut, Menu, Sun, Upload, X,
+  BookOpen, CalendarDays, Clock3, Database, FileText, LogOut, Menu, Network, Sun, Upload, X,
 } from "lucide-react";
 import { clearSession, useSession } from "@/lib/auth";
 import { THEMES, useTheme } from "@/lib/theme";
@@ -25,6 +25,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Course",
     items: [
       { href: "/courses", label: "Courses", icon: BookOpen },
+      { href: "/curriculum", label: "Curriculum", icon: Network },
       { href: "/optimization", label: "Time plan", icon: Clock3 },
       { href: "/upload", label: "Import syllabus", icon: Upload },
     ],

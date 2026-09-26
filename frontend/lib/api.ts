@@ -28,6 +28,9 @@ import type {
   AggregationResult,
   ConsistencyReport,
   SessionUserResponse,
+  CurriculumStructure,
+  ConceptEditResult,
+  ConceptType,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -149,6 +152,22 @@ export const coursesAPI = {
     postForm<{ status: string; message: string; curriculum: ExtractedCurriculum }>(
       `/courses/${courseId}/syllabus`, syllabusForm(file, rawText)
     ),
+};
+
+export const curriculumAPI = {
+  get: (courseId: string) => fetchAPI<CurriculumStructure>(`/courses/${courseId}/curriculum`),
+  saveLayout: (courseId: string, units: { unit_id: string; topic_ids: string[] }[]) =>
+    fetchAPI<CurriculumStructure>(`/courses/${courseId}/curriculum/layout`, { method: "PUT", ...json({ units }) }),
+  updateConcept: (courseId: string, conceptId: string,
+    changes: Partial<{ name: string; difficulty: number; importance: number; concept_type: ConceptType }>) =>
+    fetchAPI<ConceptEditResult>(`/courses/${courseId}/concepts/${conceptId}`, { method: "PATCH", ...json(changes) }),
+  addPrerequisite: (courseId: string, conceptId: string, prerequisiteId: string) =>
+    fetchAPI(`/courses/${courseId}/prerequisites`, { method: "POST", ...json({ concept_id: conceptId, prerequisite_id: prerequisiteId }) }),
+  removePrerequisite: async (courseId: string, conceptId: string, prerequisiteId: string) => {
+    const endpoint = `/courses/${courseId}/prerequisites?concept_id=${conceptId}&prerequisite_id=${prerequisiteId}`;
+    const res = await fetch(`${API_BASE}${endpoint}`, { method: "DELETE", headers: authHeaders() });
+    if (!res.ok) await handle(res, endpoint);  // 204 has no body to parse
+  },
 };
 
 export const teachingMethodsAPI = {
