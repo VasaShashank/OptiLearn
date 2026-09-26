@@ -2,23 +2,33 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import {
-  Upload,
-  FileText,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Lightbulb,
-  X,
-  Layers,
-  Target,
-  Sparkles,
-  ArrowRight,
-  PlusCircle,
-  AlertCircle,
-} from "lucide-react";
+import { Upload, Check, ChevronDown, ChevronRight, X, AlertCircle } from "lucide-react";
 import { syllabusAPI, coursesAPI } from "@/lib/api";
 import type { ExtractedCurriculum, UnitDraft, TopicDraft, ConceptDraft, OutcomeDraft, Course } from "@/lib/types";
+
+const SAMPLE_SYLLABUS = `Course: Operating Systems
+Code: CS304
+
+Course Outcomes
+CO1: Explain the role of an operating system and its main services
+CO2: Apply CPU scheduling algorithms to a given set of processes
+CO3: Analyze deadlock conditions and choose a prevention strategy
+
+UNIT 1: Processes and Threads
+Processes: process states, process control block, context switching
+Threads: user and kernel threads, multithreading models
+
+UNIT 2: CPU Scheduling
+Scheduling basics: CPU burst, turnaround time, waiting time
+Scheduling algorithms: FCFS, shortest job first, round robin, priority scheduling
+
+UNIT 3: Synchronization and Deadlocks
+Synchronization: critical section problem, mutex locks, semaphores
+Deadlocks: deadlock conditions, resource allocation graph, Banker's algorithm
+
+UNIT 4: Memory Management
+Paging: page tables, TLB, multilevel paging
+Virtual memory: demand paging, page replacement algorithms, thrashing`;
 
 export default function UploadPage() {
   const [curriculum, setCurriculum] = useState<ExtractedCurriculum | null>(null);
@@ -66,12 +76,12 @@ export default function UploadPage() {
     }).catch(() => {});
   }, []);
 
-  const handleUpload = async (file?: File) => {
+  const handleUpload = async (file?: File, text?: string) => {
     setLoading(true);
     setConfirmedCourse(null);
     setErrorMessage(null);
     try {
-      const result = await syllabusAPI.upload(file, !file ? rawText || undefined : undefined);
+      const result = await syllabusAPI.upload(file, !file ? text || undefined : undefined);
       setCurriculum(result);
       if (result.course_name && result.course_name !== "Untitled Course") {
         setCourseTitle(result.course_name);
@@ -81,7 +91,7 @@ export default function UploadPage() {
       }
       setExpandedUnits(new Set(result.units.map((_, i) => i)));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Extraction failed. Please verify the syllabus format.";
+      const msg = err instanceof Error ? err.message : "The syllabus could not be read.";
       setErrorMessage(msg);
     }
     setLoading(false);
@@ -132,7 +142,7 @@ export default function UploadPage() {
         });
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Confirmation failed");
+      setErrorMessage(err instanceof Error ? err.message : "Saving failed");
     }
     setConfirming(false);
   };
@@ -153,67 +163,65 @@ export default function UploadPage() {
     setCurriculum({ ...curriculum, outcomes: nextOutcomes });
   };
 
-  const bloomColors: Record<string, string> = {
-    Remember: "var(--pencil)",
-    Understand: "var(--ink)",
-    Apply: "var(--tick)",
-    Analyze: "var(--caution)",
-    Evaluate: "#f97316",
-    Create: "var(--redpen)",
+  const topicCount = curriculum ? curriculum.units.reduce((s, u) => s + u.topics.length, 0) : 0;
+  const conceptCount = curriculum
+    ? curriculum.units.reduce((s, u) => s + u.topics.reduce((s2, t) => s2 + t.concepts.length, 0), 0)
+    : 0;
+  const reset = () => {
+    setCurriculum(null);
+    setConfirmedCourse(null);
   };
 
   return (
     <div className="animate-fade-in">
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
-          Syllabus Upload & Intelligent Extraction
-        </h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
-          Upload syllabus files or paste raw text to extract multi-level curriculum trees, outcomes, and prerequisite DAGs
-        </p>
-      </div>
+      <header className="page-header">
+        <div>
+          <h1>Import syllabus</h1>
+          <p>
+            Give OptiTeach your syllabus as a file or pasted text. It reads the units, topics and course
+            outcomes, and you check them here before anything is saved.
+          </p>
+        </div>
+      </header>
 
       {errorMessage && (
         <div
-          className="card animate-fade-in"
+          role="alert"
           style={{
-            padding: "16px 20px",
+            padding: "14px 18px",
             marginBottom: 24,
             background: "var(--redpen-wash)",
-            border: "1px solid var(--redpen)",
+            borderLeft: "4px solid var(--redpen)",
             borderRadius: "var(--radius-md)",
             display: "flex",
             alignItems: "flex-start",
             gap: 12,
           }}
         >
-          <AlertCircle size={22} style={{ color: "var(--accent-rose)", flexShrink: 0, marginTop: 2 }} />
+          <AlertCircle size={20} style={{ color: "var(--redpen)", flexShrink: 0, marginTop: 2 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: "var(--accent-rose)" }}>
-              Extraction Failed (No Fallback Injected)
-            </div>
-            <p style={{ fontSize: "0.9rem", color: "var(--text-primary)", marginTop: 4, lineHeight: 1.5 }}>
-              {errorMessage}
-            </p>
-            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 8 }}>
-              💡 <strong>Required Syllabus Structure:</strong> Please ensure the document includes clear unit or module headers (e.g. <code>UNIT 1: Database Architecture</code> or <code>MODULE 1: Introduction</code>) followed by topics and sub-topics.
-            </div>
+            <strong>{curriculum ? "The course couldn't be saved." : "The syllabus couldn't be read."}</strong>
+            <p style={{ marginTop: 4 }}>{errorMessage}</p>
+            {!curriculum && (
+              <p style={{ color: "var(--pencil)", marginTop: 6 }}>
+                Each unit needs its own heading line, such as <code>UNIT 1: Relational Model</code> or{" "}
+                <code>Module 2: Normalization</code>, with its topics listed underneath.
+              </p>
+            )}
           </div>
-          <button
-            onClick={() => setErrorMessage(null)}
-            style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
-          >
+          <button type="button" className="btn btn-ghost" aria-label="Dismiss" onClick={() => setErrorMessage(null)}>
             <X size={16} />
           </button>
         </div>
       )}
 
       {!curriculum ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          {/* File Upload Dropzone */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
           <div
             className={`drop-zone ${dragOver ? "drag-over" : ""}`}
-            style={{ background: "var(--bg-card)" }}
+            role="button"
+            tabIndex={0}
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", minHeight: 280 }}
             onDragOver={(e) => {
               e.preventDefault();
               setDragOver(true);
@@ -221,81 +229,88 @@ export default function UploadPage() {
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileRef.current?.click();
+              }
+            }}
           >
             <input
               ref={fileRef}
               type="file"
-              accept=".pdf,.txt,.doc,.docx"
+              accept=".pdf,.txt,.md"
               style={{ display: "none" }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) handleUpload(f);
+                e.target.value = "";
               }}
             />
-            <Upload size={40} style={{ color: "var(--brand-start)", margin: "0 auto 16px" }} />
-            <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 6 }}>Drop Syllabus File</h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-              PDF, TXT, or DOCX documents
-            </p>
+            <Upload size={36} style={{ color: "var(--ink)", margin: "0 auto 14px" }} />
+            <h2 style={{ fontSize: "1.05rem", marginBottom: 6 }}>
+              {loading ? "Reading the syllabus…" : "Drop a syllabus file here, or click to choose one"}
+            </h2>
+            <p style={{ color: "var(--pencil)" }}>PDF, plain text (.txt) or Markdown (.md)</p>
           </div>
 
-          {/* Text Input */}
           <div className="card" style={{ padding: 24, display: "flex", flexDirection: "column" }}>
-            <h3 style={{ fontSize: "0.93rem", fontWeight: 600, marginBottom: 12 }}>Or Paste Syllabus Text</h3>
+            <label htmlFor="syllabus-text" style={{ fontWeight: 700, marginBottom: 10 }}>
+              Or paste the syllabus text
+            </label>
             <textarea
+              id="syllabus-text"
               className="input"
-              style={{
-                flex: 1,
-                minHeight: 180,
-                resize: "vertical",
-                fontFamily: "monospace",
-                fontSize: "0.9rem",
-              }}
-              placeholder={`Example:\nSubject Name: Artificial Intelligence and Machine Learning\nCourse Code: CS402\n\nUNIT 1: Introduction to AI & State Space Search\nFoundations of AI, Agents and Environments, BFS, DFS, Heuristic Search, A* Algorithm\n\nUNIT 2: Machine Learning Foundations\nRegression, Classification, Decision Trees, SVM, Neural Networks`}
+              style={{ flex: 1, minHeight: 200, resize: "vertical", fontFamily: "var(--font-mono)", fontSize: "0.88rem" }}
+              placeholder={`Course: Database Management Systems
+Code: CS302
+
+UNIT 1: Relational Model
+Keys: super key, candidate key, foreign key
+Relational algebra: selection, projection, join
+
+UNIT 2: Normalization
+Functional dependencies: closure, minimal cover
+Normal forms: 1NF, 2NF, 3NF, BCNF`}
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
             />
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button
+                type="button"
                 className="btn btn-primary"
-                onClick={() => handleUpload()}
-                disabled={loading}
+                onClick={() => handleUpload(undefined, rawText)}
+                disabled={loading || !rawText.trim()}
                 style={{ flex: 1 }}
               >
-                {loading ? (
-                  <>
-                    <div className="spinner" /> Extracting Structure...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={16} /> Extract Curriculum
-                  </>
-                )}
+                {loading ? <><div className="spinner" /> Reading…</> : "Read this syllabus"}
               </button>
               <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => {
-                  setRawText("");
-                  handleUpload();
+                  setRawText(SAMPLE_SYLLABUS);
+                  handleUpload(undefined, SAMPLE_SYLLABUS);
                 }}
                 disabled={loading}
+                title="Fills in a short Operating Systems syllabus and reads it"
               >
-                Use Sample
+                Try the sample syllabus
               </button>
             </div>
           </div>
         </div>
       ) : (
         <div className="animate-fade-in-up">
-          {/* Post-Confirmation Banner */}
           {confirmedCourse && (
             <div
-              className="card animate-fade-in"
+              role="status"
               style={{
-                padding: "20px 24px",
+                padding: "16px 20px",
                 marginBottom: 24,
                 background: "var(--tick-wash)",
-                border: "1px solid var(--tick)",
+                borderLeft: "4px solid var(--tick)",
+                borderRadius: "var(--radius-md)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -304,391 +319,205 @@ export default function UploadPage() {
               }}
             >
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent-emerald)", fontWeight: 700, fontSize: "1.0625rem" }}>
-                  <Check size={20} /> Course Curriculum Successfully Persisted!
-                </div>
-                <div style={{ color: "var(--text-secondary)", fontSize: "0.93rem", marginTop: 4 }}>
-                  <strong>{confirmedCourse.code}</strong> — {confirmedCourse.title} is now fully active with optimization and analytics.
-                </div>
+                <strong style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Check size={18} style={{ color: "var(--tick)" }} /> Saved to {confirmedCourse.code}
+                </strong>
+                <p style={{ color: "var(--pencil)", marginTop: 4 }}>
+                  {confirmedCourse.title} now has its units and topics. Next, make the time plan so each period gets its topics.
+                </p>
               </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <Link href={`/courses/${confirmedCourse.id}`} className="btn btn-primary">
-                  View Course Dashboard <ArrowRight size={14} />
-                </Link>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Link href={`/courses/${confirmedCourse.id}`} className="btn btn-primary">Open the course</Link>
                 <button
+                  type="button"
+                  className="btn btn-secondary"
                   onClick={() => {
-                    setCurriculum(null);
-                    setConfirmedCourse(null);
+                    reset();
                     setRawText("");
                   }}
-                  className="btn btn-secondary"
                 >
-                  <PlusCircle size={14} /> Upload Another Subject
+                  Import another syllabus
                 </button>
               </div>
             </div>
           )}
 
-          {/* Course Subject Configuration Card */}
-          <div className="glass-card" style={{ padding: 22, marginBottom: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <section className="card" style={{ padding: 22, marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
               <div>
-                <span className="badge badge-purple" style={{ marginBottom: 6 }}>Extracted Subject Metadata</span>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: 700 }}>Course & Subject Configuration</h3>
+                <h2 style={{ fontSize: "1.2rem" }}>Check what was found</h2>
+                <p style={{ color: "var(--pencil)", marginTop: 4 }}>
+                  {curriculum.units.length} units, {topicCount} topics and {conceptCount} concepts
+                  {curriculum.outcomes.length > 0 ? `, plus ${curriculum.outcomes.length} course outcomes` : ""}.
+                  {curriculum.confidence_score < 0.6 && " Some headings were unclear, so look through the units carefully."}
+                </p>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setCurriculum(null);
-                    setConfirmedCourse(null);
-                  }}
-                >
-                  <X size={15} /> Cancel / Reset
+                <button type="button" className="btn btn-ghost" onClick={reset}>
+                  {confirmedCourse ? "Close" : "Start over"}
                 </button>
-                {!confirmedCourse ? (
-                  <button className="btn btn-primary" onClick={handleConfirm} disabled={confirming}>
-                    {confirming ? (
-                      <>
-                        <div className="spinner" /> Persisting...
-                      </>
-                    ) : (
-                      <>
-                        <Check size={16} /> Confirm & Persist Course
-                      </>
-                    )}
+                {!confirmedCourse && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleConfirm}
+                    disabled={confirming || (targetMode === "existing" && !targetCourseId)}
+                  >
+                    {confirming
+                      ? <><div className="spinner" /> Saving…</>
+                      : <><Check size={16} /> {targetMode === "new" ? "Create course and save" : "Save to course"}</>}
                   </button>
-                ) : (
-                  <span className="badge badge-success" style={{ padding: "8px 14px" }}>
-                    <Check size={14} /> Persisted & Optimized
-                  </span>
                 )}
               </div>
             </div>
 
-            {/* Target Course Destination Selector */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 16,
-                padding: "16px 20px",
-                background: "var(--bg-input)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--border-subtle)",
-                marginBottom: 20,
-              }}
-            >
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="targetMode"
-                  checked={targetMode === "new"}
-                  onChange={() => setTargetMode("new")}
-                  style={{ marginTop: 3 }}
-                />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.93rem", color: "var(--text-primary)" }}>
-                    ✨ Create as a New Course Subject
-                  </div>
-                  <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 2 }}>
-                    Adds a new distinct subject to your teacher dashboard (e.g. AIML, OS, Networks)
-                  </div>
-                </div>
+            <fieldset style={{ border: "none", padding: 0, margin: "0 0 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+              <legend style={{ fontWeight: 700, marginBottom: 8 }}>Where should it go?</legend>
+              <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+                <input type="radio" name="targetMode" checked={targetMode === "new"} onChange={() => setTargetMode("new")} style={{ marginTop: 4 }} />
+                <span>
+                  <strong>A new course</strong>
+                  <span style={{ display: "block", color: "var(--pencil)" }}>Creates the course with the details below.</span>
+                </span>
               </label>
-
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  cursor: courses.length > 0 ? "pointer" : "not-allowed",
-                  opacity: courses.length > 0 ? 1 : 0.4,
-                }}
-              >
+              <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: courses.length ? "pointer" : "not-allowed", opacity: courses.length ? 1 : 0.5 }}>
                 <input
                   type="radio"
                   name="targetMode"
                   checked={targetMode === "existing"}
                   onChange={() => setTargetMode("existing")}
                   disabled={courses.length === 0}
-                  style={{ marginTop: 3 }}
+                  style={{ marginTop: 4 }}
                 />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.93rem", color: "var(--text-primary)" }}>
-                    🔄 Update / Overwrite Existing Course
-                  </div>
-                  <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 2 }}>
-                    Replaces units and outcomes for an existing course
-                  </div>
+                <span style={{ flex: 1 }}>
+                  <strong>A course I already have</strong>
+                  <span style={{ display: "block", color: "var(--pencil)" }}>Replaces that course&apos;s units and outcomes.</span>
                   {targetMode === "existing" && (
                     <select
                       className="input-select"
+                      aria-label="Course to replace"
                       value={targetCourseId}
                       onChange={(e) => setTargetCourseId(e.target.value)}
-                      style={{
-                        marginTop: 8,
-                        padding: "6px 10px",
-                        fontSize: "0.9rem",
-                        width: "100%",
-                      }}
+                      style={{ marginTop: 8, width: "100%" }}
                     >
                       {courses.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.code} — {c.title} ({c.semester})
+                          {c.code}: {c.title} ({c.semester})
                         </option>
                       ))}
                     </select>
                   )}
-                </div>
+                </span>
               </label>
-            </div>
+            </fieldset>
 
-            {/* Editable Subject Details */}
-            <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: 14 }}>
-              <div>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
-                  Course Title / Subject Name
+            {targetMode === "new" && (
+              <div className="form-grid">
+                <label className="field" style={{ gridColumn: "span 2" }}>
+                  Title
+                  <input className="input" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} placeholder="Database Management Systems" />
                 </label>
-                <input
-                  type="text"
-                  className="input"
-                  value={courseTitle}
-                  onChange={(e) => setCourseTitle(e.target.value)}
-                  style={{ marginTop: 4, width: "100%", fontWeight: 600 }}
-                  placeholder="e.g. Artificial Intelligence & Machine Learning"
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
-                  Course Code
+                <label className="field">
+                  Code
+                  <input className="input" value={courseCode} onChange={(e) => setCourseCode(e.target.value.toUpperCase())} placeholder="CS302" />
                 </label>
-                <input
-                  type="text"
-                  className="input"
-                  value={courseCode}
-                  onChange={(e) => setCourseCode(e.target.value.toUpperCase())}
-                  style={{ marginTop: 4, width: "100%", fontWeight: 600 }}
-                  placeholder="e.g. CS402"
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
+                <label className="field">
                   Semester
+                  <input className="input" value={semester} onChange={(e) => setSemester(e.target.value)} placeholder="Fall 2026" />
                 </label>
-                <input
-                  type="text"
-                  className="input"
-                  value={semester}
-                  onChange={(e) => setSemester(e.target.value)}
-                  style={{ marginTop: 4, width: "100%" }}
-                  placeholder="e.g. Fall 2026"
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
-                  Total Classes (Periods)
+                <label className="field" style={{ gridColumn: "span 2" }}>
+                  Periods in the semester
+                  <input className="input" type="number" min={1} value={totalClasses} onChange={(e) => setTotalClasses(Number(e.target.value))} />
                 </label>
-                <input
-                  type="number"
-                  className="input"
-                  value={totalClasses}
-                  onChange={(e) => setTotalClasses(Number(e.target.value))}
-                  style={{ marginTop: 4, width: "100%" }}
-                />
+                <label className="field" style={{ gridColumn: "span 2" }}>
+                  Minutes per period
+                  <input className="input" type="number" min={1} value={periodDuration} onChange={(e) => setPeriodDuration(Number(e.target.value))} />
+                </label>
               </div>
-            </div>
+            )}
+          </section>
 
-            {/* Quick stats badges */}
-            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-              <span className="badge badge-neutral">{curriculum.units.length} units</span>
-              <span className="badge badge-neutral">
-                {curriculum.units.reduce((s, u) => s + u.topics.length, 0)} topics
-              </span>
-              <span className="badge badge-neutral">
-                {curriculum.units.reduce((s, u) => s + u.topics.reduce((s2, t) => s2 + t.concepts.length, 0), 0)} concepts
-              </span>
-              <span className="badge badge-success">
-                Extraction Confidence: {(curriculum.confidence_score * 100).toFixed(0)}%
-              </span>
-            </div>
-          </div>
-
-          {/* Extraction Notes */}
-          {curriculum.extraction_notes.length > 0 && (
-            <div
-              className="card"
-              style={{
-                padding: 14,
-                marginBottom: 20,
-                background: "var(--ink-wash)",
-                borderColor: "var(--ink-wash)",
-              }}
-            >
-              {curriculum.extraction_notes.map((note, i) => (
-                <div
-                  key={i}
-                  style={{
-                    fontSize: "0.9rem",
-                    color: "var(--accent-blue)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <Sparkles size={12} /> {note}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Course Outcomes Section */}
           {curriculum.outcomes.length > 0 && (
-            <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-              <h3
-                style={{
-                  fontSize: "0.93rem",
-                  fontWeight: 600,
-                  color: "var(--text-muted)",
-                  marginBottom: 14,
-                }}
-              >
-                <Target size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />
-                Course Outcomes (Bloom-Aligned)
-              </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <section className="card" style={{ padding: 20, marginBottom: 20 }}>
+              <h2 style={{ fontSize: "1.05rem" }}>Course outcomes</h2>
+              <p style={{ color: "var(--pencil)", margin: "4px 0 14px" }}>
+                Edit the wording if needed. The level on the right says what students should be able to do, from remember up to create.
+              </p>
+              <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
                 {curriculum.outcomes.map((o: OutcomeDraft, i: number) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "8px 12px",
-                      background: "var(--bg-input)",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--border-subtle)",
-                    }}
-                  >
-                    <span className="badge badge-info" style={{ minWidth: 46, justifyContent: "center" }}>
-                      {o.code}
-                    </span>
+                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <strong style={{ minWidth: 44 }}>{o.code}</strong>
                     <input
-                      type="text"
                       className="input"
+                      aria-label={`${o.code} description`}
                       value={o.description}
                       onChange={(e) => updateOutcome(i, e.target.value)}
-                      style={{ flex: 1, fontSize: "0.9rem", padding: "4px 8px" }}
+                      style={{ flex: 1 }}
                     />
-                    <span
-                      className="badge"
-                      style={{
-                        background: `${bloomColors[o.bloom_level] || "var(--pencil)"}20`,
-                        color: bloomColors[o.bloom_level] || "var(--pencil)",
-                        border: `1px solid ${bloomColors[o.bloom_level] || "var(--pencil)"}40`,
-                        minWidth: 80,
-                        justifyContent: "center",
-                      }}
-                    >
-                      {o.bloom_level}
-                    </span>
-                  </div>
+                    <span className="badge badge-neutral" style={{ minWidth: 90, justifyContent: "center" }}>{o.bloom_level}</span>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ol>
+            </section>
           )}
 
-          {/* Units / Topics / Concepts Tree */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <h3
-              style={{
-                fontSize: "0.93rem",
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                marginBottom: 4,
-              }}
-            >
-              Extracted Curriculum Modules
-            </h3>
-            {curriculum.units.map((unit: UnitDraft, uIdx: number) => (
-              <div key={uIdx} className="card" style={{ overflow: "hidden" }}>
-                <div
-                  onClick={() => toggleUnit(uIdx)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "14px 20px",
-                    cursor: "pointer",
-                    borderBottom: expandedUnits.has(uIdx) ? "1px solid var(--border-default)" : "none",
-                  }}
-                >
-                  {expandedUnits.has(uIdx) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  <Layers size={16} style={{ color: "var(--accent-purple)" }} />
-                  <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>
-                    Unit {unit.unit_number}: {unit.title}
-                  </span>
-                  <span className="badge badge-neutral" style={{ marginLeft: "auto" }}>
-                    {unit.topics.length} topics
-                  </span>
-                </div>
-                {expandedUnits.has(uIdx) && (
-                  <div style={{ padding: "0 20px 16px" }}>
-                    {unit.topics.map((topic: TopicDraft, tIdx: number) => (
-                      <div key={tIdx} style={{ marginTop: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                          <FileText size={14} style={{ color: "var(--accent-blue)" }} />
-                          <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{topic.title}</span>
-                          <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
-                            {topic.estimated_minutes}m
-                          </span>
-                        </div>
-                        <div style={{ paddingLeft: 22, display: "flex", flexDirection: "column", gap: 6 }}>
-                          {topic.concepts.map((concept: ConceptDraft, cIdx: number) => (
-                            <div
-                              key={cIdx}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                padding: "6px 10px",
-                                borderRadius: "var(--radius-sm)",
-                                background: "var(--bg-secondary)",
-                              }}
-                            >
-                              <Lightbulb size={12} style={{ color: "var(--accent-amber)", flexShrink: 0 }} />
-                              <span style={{ fontSize: "0.85rem", flex: 1 }}>{concept.name}</span>
-                              <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
-                                Diff: {concept.difficulty}/5
-                              </span>
-                              <span className="badge badge-neutral" style={{ fontSize: "0.8rem" }}>
-                                {concept.concept_type}
-                              </span>
-                              {concept.prerequisites.length > 0 && (
-                                <span className="badge badge-purple" style={{ fontSize: "0.8rem" }}>
-                                  ↑ {concept.prerequisites.join(", ")}
-                                </span>
-                              )}
+          <section>
+            <h2 style={{ fontSize: "1.05rem", marginBottom: 12 }}>Units and topics</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {curriculum.units.map((unit: UnitDraft, uIdx: number) => {
+                const open = expandedUnits.has(uIdx);
+                return (
+                  <div key={uIdx} className="card" style={{ overflow: "hidden" }}>
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      onClick={() => toggleUnit(uIdx)}
+                      style={{
+                        all: "unset",
+                        boxSizing: "border-box",
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "14px 20px",
+                        cursor: "pointer",
+                        borderBottom: open ? "1px solid var(--border-default)" : "none",
+                      }}
+                    >
+                      {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      <strong>Unit {unit.unit_number}: {unit.title}</strong>
+                      <span style={{ marginLeft: "auto", color: "var(--pencil)" }}>{unit.topics.length} topics</span>
+                    </button>
+                    {open && (
+                      <div style={{ padding: "4px 20px 16px" }}>
+                        {unit.topics.map((topic: TopicDraft, tIdx: number) => (
+                          <div key={tIdx} style={{ marginTop: 12 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                              <span style={{ fontWeight: 600 }}>{topic.title}</span>
+                              <span style={{ color: "var(--pencil)", fontSize: "0.88rem" }}>about {topic.estimated_minutes} min</span>
                             </div>
-                          ))}
-                        </div>
+                            {topic.concepts.length > 0 && (
+                              <ul style={{ margin: "6px 0 0", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+                                {topic.concepts.map((concept: ConceptDraft, cIdx: number) => (
+                                  <li key={cIdx} style={{ fontSize: "0.92rem" }}>
+                                    {concept.name}
+                                    <span style={{ color: "var(--pencil)" }}>
+                                      {" "}(difficulty {concept.difficulty} of 5
+                                      {concept.prerequisites.length > 0 ? `; needs ${concept.prerequisites.join(", ")}` : ""})
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
       )}
     </div>
